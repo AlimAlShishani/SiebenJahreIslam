@@ -21,10 +21,17 @@ interface LearningItem {
   options?: Option[];
 }
 
+interface LearningLevel {
+  id: number;
+  level_number: number;
+  title: string;
+}
+
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('manage');
   const [level, setLevel] = useState(1);
   const [items, setItems] = useState<LearningItem[]>([]);
+  const [levels, setLevels] = useState<LearningLevel[]>([]); // New state for levels
   const [loading, setLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<LearningItem | null>(null);
   
@@ -42,6 +49,19 @@ export default function Admin() {
 
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Fetch Levels on Mount
+  useEffect(() => {
+    const fetchLevels = async () => {
+      const { data, error } = await supabase
+        .from('learning_levels')
+        .select('*')
+        .order('level_number');
+      if (error) console.error('Error fetching levels:', error);
+      else setLevels(data || []);
+    };
+    fetchLevels();
+  }, []);
 
   // Fetch Items
   useEffect(() => {
@@ -338,11 +358,15 @@ export default function Admin() {
           onChange={(e) => setLevel(parseInt(e.target.value))}
           className="w-full md:w-1/3 px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
         >
-          <option value={1}>Stufe 1: Alphabet</option>
-          <option value={2}>Stufe 2: Vokale</option>
-          <option value={3}>Stufe 3: Die Verlängerung (Madd)</option>
-          <option value={4}>Stufe 4: Kurze Wörter</option>
-          <option value={5}>Stufe 5: Längere Wörter</option>
+          {levels.length > 0 ? (
+            levels.map((l) => (
+              <option key={l.id} value={l.level_number}>
+                Stufe {l.level_number}: {l.title}
+              </option>
+            ))
+          ) : (
+            <option value={1}>Lade Stufen...</option>
+          )}
         </select>
       </div>
 
