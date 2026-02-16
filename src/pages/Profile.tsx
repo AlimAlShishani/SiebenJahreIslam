@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { User, Save, Mail, Hash } from 'lucide-react';
+import { User, Save, Mail, Hash, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Profile() {
   const { user, signOut } = useAuth();
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -19,7 +21,7 @@ export default function Profile() {
     if (!user) return;
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, role')
       .eq('id', user.id)
       .single();
 
@@ -27,6 +29,7 @@ export default function Profile() {
       console.error('Error fetching profile:', error);
     } else if (data) {
       setFullName(data.full_name || '');
+      setRole(data.role);
     }
   };
 
@@ -63,9 +66,24 @@ export default function Profile() {
           </div>
           <h3 className="text-xl font-bold text-emerald-900">{fullName || 'Benutzer'}</h3>
           <p className="text-emerald-600 text-sm">{user?.email}</p>
+          {role === 'admin' && (
+            <span className="mt-2 px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-full flex items-center gap-1">
+              <Shield size={12} /> Admin
+            </span>
+          )}
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Admin Link - Only visible for admins */}
+          {role === 'admin' && (
+            <Link 
+              to="/admin"
+              className="w-full bg-gray-800 text-white py-3 rounded-xl hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 font-bold shadow-md"
+            >
+              <Shield size={20} /> Zum Admin Dashboard
+            </Link>
+          )}
+
           <form onSubmit={updateProfile} className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Anzeigename ändern</label>
