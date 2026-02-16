@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { playSuccessSound, playErrorSound } from '../utils/audio';
 
 interface Option {
   id: string;
@@ -138,6 +139,12 @@ export default function LearnLevel() {
     const correct = option.is_correct;
     setIsCorrect(correct);
 
+    if (correct) {
+      playSuccessSound();
+    } else {
+      playErrorSound();
+    }
+
     if (option.audio_url) {
       playAudio(option.audio_url);
     }
@@ -162,6 +169,7 @@ export default function LearnLevel() {
     if (newQueue.length === 0) {
       // WIN!
       setGameStatus('won');
+      playSuccessSound(); // Extra sound for winning
       await saveProgress();
     } else {
       setCurrentItem(newQueue[0]);

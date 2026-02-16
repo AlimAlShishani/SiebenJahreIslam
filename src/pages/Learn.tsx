@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Book, Volume2, Star, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { LevelIntroModal } from '../components/LevelIntroModal';
-import { Level5IntroModal } from '../components/Level5IntroModal';
+import { GenericLevelModal } from '../components/GenericLevelModal';
 
 interface LearningLevel {
   id: number;
@@ -28,8 +27,7 @@ export default function Learn() {
   const [loading, setLoading] = useState(true);
   
   // Modal State
-  const [showIntroModal, setShowIntroModal] = useState(false);
-  const [showLevel5Modal, setShowLevel5Modal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -70,8 +68,6 @@ export default function Learn() {
         });
 
         // Count totals
-        // Note: itemsData might contain items for levels that don't exist in levelsData if DB is inconsistent
-        // but we only care about levels we know about.
         itemsData?.forEach(item => {
           if (stats[item.level_id]) {
             stats[item.level_id].total++;
@@ -106,20 +102,11 @@ export default function Learn() {
 
   const handleLevelClick = (levelNumber: number) => {
     setSelectedLevelId(levelNumber);
-    
-    // Check for special levels with intros
-    if (levelNumber === 3) {
-      setShowIntroModal(true);
-    } else if (levelNumber === 5) {
-      setShowLevel5Modal(true);
-    } else {
-      navigate(`/learn/${levelNumber}`);
-    }
+    setShowModal(true);
   };
 
   const handleStartLevel = () => {
-    setShowIntroModal(false);
-    setShowLevel5Modal(false);
+    setShowModal(false);
     if (selectedLevelId) {
       navigate(`/learn/${selectedLevelId}`);
     }
@@ -131,17 +118,14 @@ export default function Learn() {
     <div className="space-y-6 pb-20">
       <h2 className="text-2xl font-bold text-emerald-800">Lernbereich</h2>
       
-      <LevelIntroModal 
-        isOpen={showIntroModal} 
-        onClose={() => setShowIntroModal(false)} 
-        onStart={handleStartLevel} 
-      />
-
-      <Level5IntroModal 
-        isOpen={showLevel5Modal} 
-        onClose={() => setShowLevel5Modal(false)} 
-        onStart={handleStartLevel} 
-      />
+      {selectedLevelId && (
+        <GenericLevelModal 
+          isOpen={showModal} 
+          onClose={() => setShowModal(false)} 
+          onStart={handleStartLevel} 
+          levelNumber={selectedLevelId}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-6">
         {levels.map((level, index) => {
