@@ -1,0 +1,511 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle } from 'lucide-react';
+import { AudioInput } from '../components/AudioInput';
+
+interface Option {
+  id: string;
+  text: string;
+  is_correct: boolean;
+  audio_url: string | null;
+  audioFile?: File | null; // Helper for upload
+}
+
+interface LearningItem {
+  id: string;
+  level_id: number;
+  content: string;
+  transliteration: string; // Still kept as "main" answer text for reference/fallback
+  audio_url: string | null; // Main audio (Question audio)
+  order_index: number;
+  options?: Option[];
+}
+
+export default function Admin() {
+  const [activeTab, setActiveTab] = useState<'create' | 'manage'>('manage');
+  const [level, setLevel] = useState(1);
+  const [items, setItems] = useState<LearningItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editingItem, setEditingItem] = useState<LearningItem | null>(null);
+  
+  // Form States
+  const [content, setContent] = useState('');
+  const [mainAudioFile, setMainAudioFile] = useState<File | null>(null);
+  const [mainAudioUrl, setMainAudioUrl] = useState<string | null>(null); // For library selection
+  
+  // Options State
+  const [options, setOptions] = useState<Option[]>([
+    { id: '1', text: '', is_correct: true, audio_url: null },
+    { id: '2', text: '', is_correct: false, audio_url: null },
+    { id: '3', text: '', is_correct: false, audio_url: null },
+  ]);
+
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Fetch Items
+  useEffect(() => {
+    if (activeTab === 'manage') {
+      fetchItems();
+    }
+  }, [level, activeTab]);
+
+  const fetchItems = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('learning_items')
+      .select('*')
+      .eq('level_id', level)
+      .order('order_index');
+    
+    if (error) console.error('Error fetching items:', error);
+    else setItems(data || []);
+    setLoading(false);
+  };
+
+  const handleOptionChange = (id: string, field: keyof Option, value: any) => {
+    setOptions(prev => prev.map(opt => {
+      if (opt.id === id) {
+        return { ...opt, [field]: value };
+      }
+      return opt;
+    }));
+  };
+
+  const handleOptionAudioUpdate = (id: string, file: File | null, url: string | null) => {
+    setOptions(prev => prev.map(opt => {
+      if (opt.id === id) {
+        return { 
+          ...opt, 
+          audioFile: file,
+          audio_url: file ? null : url 
+        };
+      }
+      return opt;
+    }));
+  };
+
+  const setCorrectOption = (id: string) => {
+    setOptions(prev => prev.map(opt => ({
+      ...opt,
+      is_correct: opt.id === id
+    })));
+  };
+
+  const addOption = () => {
+    setOptions(prev => [...prev, { id: Math.random().toString(), text: '', is_correct: false, audio_url: null }]);
+  };
+
+  const removeOption = (id: string) => {
+    if (options.length <= 2) {
+      alert('Mindestens 2 Optionen sind erforderlich.');
+      return;
+    }
+    setOptions(prev => prev.filter(o => o.id !== id));
+  };
+
+  const uploadFile = async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('audio-files')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('audio-files')
+      .getPublicUrl(filePath);
+    
+    return publicUrl;
+  };
+
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setUploading(true);
+    setMessage('');
+
+    try {
+      // 1. Handle Main Audio
+      let finalMainAudioUrl = mainAudioUrl; // Start with current state (could be null!)
+      
+      // If a new file was selected/recorded, upload it and override URL
+      if (mainAudioFile) {
+        finalMainAudioUrl = await uploadFile(mainAudioFile);
+      }
+
+      // 2. Handle Option Audios
+      const finalOptions = await Promise.all(options.map(async (opt) => {
+        let optAudioUrl = opt.audio_url; // Start with current state
+        
+        // If a new file was selected/recorded for this option, upload it
+        if (opt.audioFile) {
+          optAudioUrl = await uploadFile(opt.audioFile);
+        }
+        
+        return {
+          id: opt.id,
+          text: opt.text,
+          is_correct: opt.is_correct,
+          audio_url: optAudioUrl
+        };
+      }));
+
+      // Find correct answer text for 'transliteration' column fallback
+      const correctOption = finalOptions.find(o => o.is_correct);
+      const correctText = correctOption ? correctOption.text : '';
+
+      // 3. Insert or Update Database
+      if (editingItem) {
+        const { error } = await supabase
+          .from('learning_items')
+          .update({
+            content,
+            transliteration: correctText,
+            audio_url: finalMainAudioUrl, // Can now be null explicitly
+            options: finalOptions
+          })
+          .eq('id', editingItem.id);
+        if (error) throw error;
+        setMessage('Eintrag aktualisiert!');
+        // Keep editingItem set to allow further edits
+        
+        // Update local state to reflect saved changes (clear pending files)
+        setMainAudioFile(null);
+        setMainAudioUrl(finalMainAudioUrl); // Update URL to the new one
+        setOptions(prev => prev.map(o => {
+            const matchingFinal = finalOptions.find(fo => fo.id === o.id);
+            return {
+                ...o,
+                audioFile: null,
+                audio_url: matchingFinal ? matchingFinal.audio_url : o.audio_url
+            };
+        }));
+
+      } else {
+        const { error } = await supabase
+          .from('learning_items')
+          .insert({
+            level_id: level,
+            content,
+            transliteration: correctText,
+            audio_url: finalMainAudioUrl,
+            options: finalOptions,
+            order_index: items.length + 1
+          });
+        if (error) throw error;
+        setMessage('Erfolgreich erstellt!');
+        resetForm();
+        setActiveTab('manage'); 
+      }
+
+      fetchItems();
+    } catch (error: any) {
+      console.error('Error:', error);
+      setMessage('Fehler: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setContent('');
+    setMainAudioFile(null);
+    setMainAudioUrl(null);
+    setOptions([
+      { id: '1', text: '', is_correct: true, audio_url: null },
+      { id: '2', text: '', is_correct: false, audio_url: null },
+      { id: '3', text: '', is_correct: false, audio_url: null },
+    ]);
+  };
+
+  // Helper to shuffle array
+  const shuffleArray = (array: any[]) => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
+
+  const startEdit = (item: LearningItem) => {
+    setEditingItem(item);
+    setContent(item.content);
+    setMainAudioFile(null);
+    setMainAudioUrl(item.audio_url); // Initialize with existing URL or null
+    
+    // Load existing options or create defaults if none exist
+    if (item.options && Array.isArray(item.options) && item.options.length > 0) {
+      setOptions(item.options.map(o => ({ ...o, audioFile: null })));
+    } else {
+      // Fallback for old items
+      const correctOpt: Option = { id: '1', text: item.transliteration, is_correct: true, audio_url: null };
+      
+      const otherItems = items.filter(i => i.id !== item.id);
+      const randomDistractors = shuffleArray(otherItems).slice(0, 2).map((distractorItem, idx) => ({
+        id: (idx + 2).toString(),
+        text: distractorItem.transliteration,
+        is_correct: false,
+        audio_url: null
+      }));
+
+      while (randomDistractors.length < 2) {
+        randomDistractors.push({
+          id: (randomDistractors.length + 2).toString(),
+          text: '',
+          is_correct: false,
+          audio_url: null
+        });
+      }
+
+      setOptions([correctOpt, ...randomDistractors]);
+    }
+    
+    setActiveTab('create');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const deleteItem = async (id: string) => {
+    if (!confirm('Wirklich löschen?')) return;
+    const { error } = await supabase.from('learning_items').delete().eq('id', id);
+    if (error) alert('Fehler beim Löschen');
+    else fetchItems();
+  };
+
+  const resetMyProgress = async () => {
+    if (!confirm('ACHTUNG: Dein gesamter Lernfortschritt wird gelöscht. Fortfahren?')) return;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('user_progress')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (error) {
+      alert('Fehler beim Zurücksetzen: ' + error.message);
+    } else {
+      alert('Dein Fortschritt wurde erfolgreich zurückgesetzt.');
+    }
+  };
+
+  const getSuggestedName = (text: string) => {
+    if (!text) return undefined;
+    // Extract first word/part before space or parenthesis
+    const firstPart = text.split(/[ (]/)[0].trim().toLowerCase();
+    // Prepend underscore as requested
+    return `_${firstPart}`;
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto pb-20">
+      <h2 className="text-2xl font-bold text-emerald-800 mb-6">Admin Dashboard</h2>
+      
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6 border-b border-gray-200 justify-between items-center">
+        <div className="flex gap-4">
+          <button 
+            onClick={() => { setActiveTab('manage'); setEditingItem(null); }}
+            className={`pb-2 px-4 ${activeTab === 'manage' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-gray-500'}`}
+          >
+            Inhalte verwalten
+          </button>
+          <button 
+            onClick={() => { setActiveTab('create'); resetForm(); }}
+            className={`pb-2 px-4 ${activeTab === 'create' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-gray-500'}`}
+          >
+            {editingItem ? 'Bearbeiten' : 'Neu erstellen'}
+          </button>
+        </div>
+        
+        <button 
+          onClick={resetMyProgress}
+          className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded border border-red-200 transition-colors"
+        >
+          Mein Fortschritt zurücksetzen
+        </button>
+      </div>
+
+      {/* Level Selector */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Aktuelle Stufe</label>
+        <select 
+          value={level} 
+          onChange={(e) => setLevel(parseInt(e.target.value))}
+          className="w-full md:w-1/3 px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+        >
+          <option value={1}>Stufe 1: Alphabet</option>
+          <option value={2}>Stufe 2: Vokale</option>
+          <option value={3}>Stufe 3: Die Verlängerung (Madd)</option>
+          <option value={4}>Stufe 4: Kurze Wörter</option>
+          <option value={5}>Stufe 5: Längere Wörter</option>
+        </select>
+      </div>
+
+      {message && (
+        <div className={`p-4 mb-6 rounded-lg ${message.includes('Fehler') ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+          {message}
+        </div>
+      )}
+
+      {/* CREATE / EDIT FORM */}
+      {activeTab === 'create' && (
+        <form onSubmit={handleSave} className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100 space-y-8">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">{editingItem ? 'Eintrag bearbeiten' : 'Neuen Eintrag erstellen'}</h3>
+            {editingItem && (
+              <button type="button" onClick={() => { setEditingItem(null); resetForm(); setActiveTab('manage'); }} className="text-gray-400 hover:text-red-500">
+                <X size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Question Content */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900 border-b pb-2">Frage / Hauptinhalt</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Inhalt (Arabisch)</label>
+              <input
+                type="text"
+                required
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 font-quran text-right text-3xl"
+                placeholder="z.B. ا"
+                dir="rtl"
+              />
+            </div>
+            
+            {/* Main Audio Input */}
+            <AudioInput 
+              label="Frage Audio"
+              currentUrl={mainAudioUrl}
+              onAudioChange={(file, url) => {
+                setMainAudioFile(file);
+                setMainAudioUrl(url); 
+              }}
+              onSave={() => handleSave()}
+            />
+          </div>
+
+          {/* Answer Options */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h4 className="font-medium text-gray-900">Antwortmöglichkeiten</h4>
+              <button type="button" onClick={addOption} className="text-sm text-emerald-600 flex items-center gap-1 hover:underline">
+                <Plus size={16} /> Option hinzufügen
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {options.map((opt, index) => (
+                <div key={opt.id} className={`p-4 rounded-lg border ${opt.is_correct ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div className="flex items-start gap-4">
+                    <button 
+                      type="button" 
+                      onClick={() => setCorrectOption(opt.id)}
+                      className={`mt-2 ${opt.is_correct ? 'text-emerald-600' : 'text-gray-300 hover:text-gray-400'}`}
+                      title="Als richtige Antwort markieren"
+                    >
+                      {opt.is_correct ? <CheckCircle size={24} /> : <Circle size={24} />}
+                    </button>
+                    
+                    <div className="flex-grow space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Antwort Text</label>
+                        <input
+                          type="text"
+                          required
+                          value={opt.text}
+                          onChange={(e) => handleOptionChange(opt.id, 'text', e.target.value)}
+                          className="w-full px-3 py-2 border rounded focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                          placeholder={`Option ${index + 1}`}
+                        />
+                      </div>
+                      
+                      {/* Option Audio Input */}
+                      <AudioInput 
+                        label="Antwort Audio"
+                        currentUrl={opt.audio_url}
+                        onAudioChange={(file, url) => handleOptionAudioUpdate(opt.id, file, url)}
+                        onSave={() => handleSave()}
+                        suggestedName={getSuggestedName(opt.text)}
+                      />
+                    </div>
+
+                    <button 
+                      type="button" 
+                      onClick={() => removeOption(opt.id)}
+                      className="text-gray-400 hover:text-red-500 mt-2"
+                      title="Option entfernen"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={uploading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 font-semibold shadow-md"
+          >
+            {uploading ? 'Speichert...' : <><Save size={20} /> Speichern</>}
+          </button>
+        </form>
+      )}
+
+      {/* MANAGE LIST */}
+      {activeTab === 'manage' && (
+        <div className="space-y-4">
+          {loading ? <p>Laden...</p> : items.length === 0 ? <p className="text-gray-500">Keine Einträge in dieser Stufe.</p> : (
+            items.map(item => (
+              <div key={item.id} className="bg-white p-4 rounded-lg border border-gray-200 flex justify-between items-center hover:border-emerald-300 transition-colors">
+                <div className="flex items-center gap-4">
+                  <span className="font-quran text-3xl w-16 text-center" dir="rtl">{item.content}</span>
+                  <div>
+                    <p className="font-semibold">{item.transliteration}</p>
+                    <div className="flex gap-2 mt-1">
+                      {item.audio_url && (
+                        <span className="text-xs text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded">
+                          <Music size={10} /> Frage-Audio
+                        </span>
+                      )}
+                      {item.options && item.options.length > 0 && (
+                         <span className="text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded">
+                           {item.options.length} Optionen
+                         </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => startEdit(item)}
+                    className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full"
+                    title="Bearbeiten"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => deleteItem(item.id)}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full"
+                    title="Löschen"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

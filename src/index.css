@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'UthmanicHafs';
+  src: url('/fonts/UthmanicHafs.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.font-quran {
+  font-family: 'UthmanicHafs', serif;
+  line-height: 2;
+}
