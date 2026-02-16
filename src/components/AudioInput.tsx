@@ -341,10 +341,15 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
         if (audioRef.current) audioRef.current.pause(); 
         audioRef.current = new Audio(targetUrl);
         audioRef.current.onended = () => setIsPlaying(false);
-        audioRef.current.onerror = (e) => {
+        audioRef.current.onerror = (e: Event | string) => {
             console.error("Audio playback error", e);
-            const target = e.target as HTMLAudioElement;
-            setErrorMsg(`Fehler: ${target.error?.message || 'Format nicht unterstützt'}`);
+            // Safe casting for the event target
+            if (typeof e === 'object' && e !== null && 'target' in e) {
+                const target = e.target as HTMLAudioElement;
+                setErrorMsg(`Fehler: ${target.error?.message || 'Format nicht unterstützt'}`);
+            } else {
+                setErrorMsg('Fehler beim Abspielen des Audios');
+            }
             setIsPlaying(false);
         };
       }

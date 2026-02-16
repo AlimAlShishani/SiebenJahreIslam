@@ -68,6 +68,10 @@ export default function Quran() {
     fetchAssignments();
   }, [selectedDay]);
 
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Lade Koran-Plan...</div>;
+  }
+
   const handleToggleComplete = async (id: string, currentStatus: boolean) => {
     const { error } = await supabase
       .from('daily_reading_status')

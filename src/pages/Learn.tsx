@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Book, Volume2, Star, Lock, Play } from 'lucide-react';
+import { Book, Volume2, Star, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LevelIntroModal } from '../components/LevelIntroModal';
 import { Level5IntroModal } from '../components/Level5IntroModal';
