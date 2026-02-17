@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle } from 'lucide-react';
+import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle, Bold, Type, Palette, Volume2 } from 'lucide-react';
 import { AudioInput } from '../components/AudioInput';
 
 interface Option {
@@ -55,6 +55,9 @@ export default function Admin() {
   const [modalAudioFile, setModalAudioFile] = useState<File | null>(null);
   const [modalAudioUrl, setModalAudioUrl] = useState<string | null>(null);
   const [popupSaving, setPopupSaving] = useState(false);
+  const modalContentRef = useRef<HTMLTextAreaElement>(null);
+  const [popupInsertAudioFile, setPopupInsertAudioFile] = useState<File | null>(null);
+  const [popupInsertAudioUrl, setPopupInsertAudioUrl] = useState<string | null>(null);
   
   // Options State
   const [options, setOptions] = useState<Option[]>([
@@ -356,10 +359,47 @@ export default function Admin() {
 
   const getSuggestedName = (text: string) => {
     if (!text) return undefined;
-    // Extract first word/part before space or parenthesis
     const firstPart = text.split(/[ (]/)[0].trim().toLowerCase();
-    // Prepend underscore as requested
     return `_${firstPart}`;
+  };
+
+  const insertAtCursor = (before: string, after?: string) => {
+    const ta = modalContentRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = modalContent;
+    const newText =
+      after === undefined
+        ? text.slice(0, start) + before + text.slice(start)
+        : text.slice(0, start) + before + (end > start ? text.slice(start, end) : '') + after + text.slice(end);
+    setModalContent(newText);
+    const newPos = after === undefined ? start + before.length : start + before.length + (end > start ? end - start : 0);
+    setTimeout(() => { ta.focus(); ta.setSelectionRange(newPos, newPos); }, 0);
+  };
+
+  const wrapSelection = (openTag: string, closeTag: string) => {
+    insertAtCursor(openTag, closeTag);
+  };
+
+  const handleInsertPopupAudio = async () => {
+    let url = popupInsertAudioUrl;
+    if (popupInsertAudioFile) {
+      try {
+        url = await uploadFile(popupInsertAudioFile);
+        setPopupInsertAudioFile(null);
+        setPopupInsertAudioUrl(url);
+      } catch (e: any) {
+        setMessage('Fehler beim Hochladen: ' + e.message);
+        return;
+      }
+    }
+    if (!url) {
+      setMessage('Zuerst Audio aufnehmen oder auswählen.');
+      return;
+    }
+    const html = `<div class="popup-audio" data-src="${url}"><button type="button">▶ Abspielen</button></div>`;
+    insertAtCursor(html);
   };
 
   return (
@@ -568,14 +608,85 @@ export default function Admin() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Popup-Inhalt (HTML)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Popup-Inhalt</label>
+            <p className="text-xs text-gray-500 mb-2">Text markieren und Formatierung anwenden, oder Audio unten einfügen (erscheint als Abspiel-Button im Popup).</p>
+            {/* Toolbar: Fett, Größe, Farbe */}
+            <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-50 rounded-t-lg border border-b-0 border-gray-200">
+              <button
+                type="button"
+                onClick={() => wrapSelection('<strong>', '</strong>')}
+                className="p-2 rounded hover:bg-gray-200"
+                title="Fett"
+              >
+                <Bold size={18} />
+              </button>
+              <select
+                className="text-sm border rounded px-2 py-1"
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.target.value = '';
+                  if (v === 'big') wrapSelection('<span style="font-size: 1.25em">', '</span>');
+                  if (v === 'small') wrapSelection('<span style="font-size: 0.9em">', '</span>');
+                }}
+                title="Größe"
+              >
+                <option value="">Größe</option>
+                <option value="big">Größer</option>
+                <option value="small">Kleiner</option>
+              </select>
+              <select
+                className="text-sm border rounded px-2 py-1"
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.target.value = '';
+                  if (!v) return;
+                  wrapSelection(`<span style="color: ${v}">`, '</span>');
+                }}
+                title="Farbe"
+              >
+                <option value="">Farbe</option>
+                <option value="#0d9488">Türkis</option>
+                <option value="#b91c1c">Rot</option>
+                <option value="#1d4ed8">Blau</option>
+                <option value="#15803d">Grün</option>
+                <option value="#713f12">Braun</option>
+                <option value="#4b5563">Grau</option>
+              </select>
+            </div>
             <textarea
+              ref={modalContentRef}
               value={modalContent}
               onChange={(e) => setModalContent(e.target.value)}
               rows={12}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
+              className="w-full px-4 py-2 border rounded-b-lg focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
               placeholder="<p>In diesem Kapitel lernst du...</p><ul><li>...</li></ul>"
             />
+            {/* Audio ins Popup einfügen */}
+            <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <h4 className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                <Volume2 size={18} /> Audio ins Popup einfügen
+              </h4>
+              <p className="text-xs text-amber-800 mb-2">Aufnehmen oder Datei wählen, dann „Ins Popup einfügen“ klicken. Der Cursor kann irgendwo im Text stehen – das Audio wird dort eingefügt.</p>
+              <AudioInput
+                label=""
+                currentUrl={popupInsertAudioUrl}
+                onAudioChange={(file, url) => {
+                  setPopupInsertAudioFile(file);
+                  setPopupInsertAudioUrl(url);
+                }}
+                onSave={() => {}}
+              />
+              <button
+                type="button"
+                onClick={handleInsertPopupAudio}
+                disabled={!popupInsertAudioFile && !popupInsertAudioUrl}
+                className="mt-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm font-medium"
+              >
+                Ins Popup einfügen
+              </button>
+            </div>
           </div>
           <AudioInput
             label="Stufen-Audio (optional)"

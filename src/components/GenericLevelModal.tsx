@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { X, ArrowRight, BookOpen, Volume2 } from 'lucide-react';
 import { levelContents } from '../data/levelContent';
 
@@ -17,6 +18,24 @@ interface GenericLevelModalProps {
 }
 
 export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, levelFromDb }: GenericLevelModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!contentRef.current || !levelFromDb?.modal_content) return;
+    const container = contentRef.current;
+    const audioBlocks = container.querySelectorAll<HTMLDivElement>('.popup-audio');
+    const cleanups: (() => void)[] = [];
+    audioBlocks.forEach((block) => {
+      const src = block.getAttribute('data-src');
+      const btn = block.querySelector('button');
+      if (!src || !btn) return;
+      const play = () => new Audio(src).play();
+      btn.addEventListener('click', play);
+      cleanups.push(() => btn.removeEventListener('click', play));
+    });
+    return () => cleanups.forEach((c) => c());
+  }, [levelFromDb?.modal_content]);
+
   if (!isOpen) return null;
 
   const fallback = levelContents[levelNumber];
@@ -44,7 +63,8 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
         <div className="p-8 overflow-y-auto grow space-y-4">
           {useDbContent ? (
             <div 
-              className="prose prose-emerald max-w-none"
+              ref={contentRef}
+              className="prose prose-emerald max-w-none [&_.popup-audio]:my-2 [&_.popup-audio_button]:inline-flex [&_.popup-audio_button]:items-center [&_.popup-audio_button]:gap-2 [&_.popup-audio_button]:px-3 [&_.popup-audio_button]:py-2 [&_.popup-audio_button]:rounded-lg [&_.popup-audio_button]:bg-emerald-100 [&_.popup-audio_button]:text-emerald-800 [&_.popup-audio_button]:font-medium [&_.popup-audio_button]:hover:bg-emerald-200 [&_.popup-audio_button]:border-0"
               dangerouslySetInnerHTML={{ __html: levelFromDb!.modal_content! }}
             />
           ) : (
