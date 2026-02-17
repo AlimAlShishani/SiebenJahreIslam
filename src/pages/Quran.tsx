@@ -24,26 +24,32 @@ export default function Quran() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
-  // Helper: Get Ramadan Day (1-30) based on current date
-  // For testing/demo, we assume Ramadan starts Feb 18, 2026
+  // Helper: Get Ramadan Day (1-30) based on current date. Ramadan starts Feb 18, 2026.
   const getRamadanDay = () => {
     const today = new Date();
     const ramadanStart = new Date('2026-02-18');
     const diffTime = Math.abs(today.getTime() - ramadanStart.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    
-    // If before Ramadan, return 1. If after, return 30 (or handle appropriately)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     if (today < ramadanStart) return 1;
     if (diffDays > 30) return 30;
     return diffDays;
   };
 
-  const currentRamadanDay = getRamadanDay();
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  // Convert Ramadan day (1-30) to date string YYYY-MM-DD
+  const getDateForRamadanDay = (day: number) => {
+    const start = new Date('2026-02-18');
+    const d = new Date(start);
+    d.setDate(start.getDate() + (day - 1));
+    return d.toISOString().split('T')[0];
+  };
+
+  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => getRamadanDay());
+  const selectedDateStr = getDateForRamadanDay(selectedRamadanDay);
+  const isToday = selectedRamadanDay === getRamadanDay();
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [user, selectedRamadanDay]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -54,14 +60,14 @@ export default function Quran() {
         .select('id, email, full_name');
       setUsers(usersData || []);
 
-      // 2. Fetch Assignments for Today
+      // 2. Fetch Assignments for selected day
       const { data: assignmentsData, error } = await supabase
         .from('daily_reading_status')
         .select(`
           *,
           profiles (full_name, email)
         `)
-        .eq('date', todayDateStr);
+        .eq('date', selectedDateStr);
 
       if (error) throw error;
       setAssignments(assignmentsData || []);
@@ -90,23 +96,21 @@ export default function Quran() {
     if (users.length === 0) return;
     
     const confirmMessage = assignments.length > 0 
-      ? "Es existiert bereits ein Plan für heute. Möchtest du ihn wirklich neu generieren? Der alte Fortschritt geht verloren."
-      : "Möchtest du den Leseplan für heute generieren?";
+      ? `Es existiert bereits ein Plan für Tag ${selectedRamadanDay}. Möchtest du ihn wirklich neu generieren? Der alte Fortschritt geht verloren.`
+      : `Möchtest du den Leseplan für Ramadan Tag ${selectedRamadanDay} (Juz ${selectedRamadanDay}) generieren?`;
 
     if (!window.confirm(confirmMessage)) return;
 
     setGenerating(true);
     try {
-      // 1. Delete existing assignments for today
+      // 1. Delete existing assignments for this day
       await supabase
         .from('daily_reading_status')
         .delete()
-        .eq('date', todayDateStr);
+        .eq('date', selectedDateStr);
 
-      // 2. Calculate Pages
-      // Logic: Distribute the pages of the current Juz among users
-      // We cycle through Juz 1-30 based on Ramadan Day
-      const juzNumber = currentRamadanDay; 
+      // 2. Calculate Pages: distribute Juz pages among users
+      const juzNumber = selectedRamadanDay;
       const { start: juzStartPage, length: totalPages } = getJuzPageInfo(juzNumber);
       
       const pagesPerUser = Math.floor(totalPages / users.length);
@@ -116,17 +120,16 @@ export default function Quran() {
       const newAssignments = [];
 
       for (let i = 0; i < users.length; i++) {
-        // Distribute remainder pages to first few users
         const extraPage = i < remainder ? 1 : 0;
         const userPagesCount = pagesPerUser + extraPage;
         
-        if (userPagesCount === 0) continue; // Should not happen if users < 20
+        if (userPagesCount === 0) continue;
 
         const start = currentPage;
         const end = currentPage + userPagesCount - 1;
         
         newAssignments.push({
-          date: todayDateStr,
+          date: selectedDateStr,
           juz_number: juzNumber,
           user_id: users[i].id,
           start_page: start,
@@ -180,13 +183,28 @@ export default function Quran() {
       {/* Header */}
       <div className="bg-emerald-600 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden">
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2 opacity-90">
+          <div className="flex flex-wrap items-center gap-3 mb-2 opacity-90">
             <Calendar size={20} />
-            <span className="font-medium">Ramadan Tag {currentRamadanDay}</span>
+            <span className="font-medium">Ramadan Tag</span>
+            <select
+              value={selectedRamadanDay}
+              onChange={(e) => setSelectedRamadanDay(Number(e.target.value))}
+              className="bg-white text-emerald-800 font-bold border-2 border-white rounded-lg px-4 py-2 min-w-[4rem] shadow-md focus:ring-2 focus:ring-emerald-300 focus:outline-none cursor-pointer appearance-auto"
+              title="Tag auswählen"
+            >
+              {[...Array(30)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+            {isToday && <span className="text-emerald-200 text-sm">(heute)</span>}
           </div>
-          <h1 className="text-4xl font-bold mb-2">Juz {currentRamadanDay}</h1>
+          <h1 className="text-4xl font-bold mb-2">Juz {selectedRamadanDay}</h1>
           <p className="text-emerald-100 max-w-md">
-            Lese heute deinen Teil, um gemeinsam mit der Gruppe den Qur'an zu khatmen.
+            {isToday
+              ? 'Lese heute deinen Teil, um gemeinsam mit der Gruppe den Qur\'an zu khatmen.'
+              : `Aufteilung und Fortschritt für Ramadan Tag ${selectedRamadanDay}.`}
           </p>
         </div>
         <BookOpen className="absolute right-[-20px] bottom-[-40px] opacity-10" size={200} />
@@ -212,7 +230,9 @@ export default function Quran() {
       {/* Assignments List */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-800">Heutige Aufteilung</h3>
+          <h3 className="text-xl font-bold text-gray-800">
+            {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
+          </h3>
           <button 
             onClick={generateAssignments}
             disabled={generating}
@@ -225,7 +245,9 @@ export default function Quran() {
 
         {assignments.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-            <p className="text-gray-500 mb-4">Noch kein Leseplan für heute.</p>
+            <p className="text-gray-500 mb-4">
+              {isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`}
+            </p>
             <button 
               onClick={generateAssignments}
               disabled={generating}
