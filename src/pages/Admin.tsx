@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle, Bold, Type, Palette, Volume2 } from 'lucide-react';
+import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle, Bold, Volume2 } from 'lucide-react';
 import { AudioInput } from '../components/AudioInput';
 
 interface Option {
@@ -403,7 +403,7 @@ export default function Admin() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
+    <div className="max-w-4xl mx-auto pb-20" data-admin-version="popups-v1">
       <h2 className="text-2xl font-bold text-emerald-800 mb-6">Admin Dashboard</h2>
       
       {/* Tabs */}
