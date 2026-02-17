@@ -15,30 +15,46 @@ interface LearningItem {
   id: string;
   level_id: number;
   content: string;
-  transliteration: string; // Still kept as "main" answer text for reference/fallback
-  audio_url: string | null; // Main audio (Question audio)
+  transliteration: string;
+  audio_url: string | null;
   order_index: number;
   options?: Option[];
+  help_audio_url?: string | null;
+  rule_audio_url?: string | null;
 }
 
 interface LearningLevel {
   id: number;
   level_number: number;
   title: string;
+  description?: string | null;
+  modal_content?: string | null;
+  modal_audio_url?: string | null;
 }
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState<'create' | 'manage'>('manage');
+  const [activeTab, setActiveTab] = useState<'create' | 'manage' | 'popups'>('manage');
   const [level, setLevel] = useState(1);
   const [items, setItems] = useState<LearningItem[]>([]);
-  const [levels, setLevels] = useState<LearningLevel[]>([]); // New state for levels
+  const [levels, setLevels] = useState<LearningLevel[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<LearningItem | null>(null);
   
   // Form States
   const [content, setContent] = useState('');
   const [mainAudioFile, setMainAudioFile] = useState<File | null>(null);
-  const [mainAudioUrl, setMainAudioUrl] = useState<string | null>(null); // For library selection
+  const [mainAudioUrl, setMainAudioUrl] = useState<string | null>(null);
+  const [helpAudioFile, setHelpAudioFile] = useState<File | null>(null);
+  const [helpAudioUrl, setHelpAudioUrl] = useState<string | null>(null);
+  const [ruleAudioFile, setRuleAudioFile] = useState<File | null>(null);
+  const [ruleAudioUrl, setRuleAudioUrl] = useState<string | null>(null);
+  
+  // Popups tab
+  const [popupLevel, setPopupLevel] = useState(1);
+  const [modalContent, setModalContent] = useState('');
+  const [modalAudioFile, setModalAudioFile] = useState<File | null>(null);
+  const [modalAudioUrl, setModalAudioUrl] = useState<string | null>(null);
+  const [popupSaving, setPopupSaving] = useState(false);
   
   // Options State
   const [options, setOptions] = useState<Option[]>([
@@ -55,13 +71,23 @@ export default function Admin() {
     const fetchLevels = async () => {
       const { data, error } = await supabase
         .from('learning_levels')
-        .select('*')
+        .select('id, level_number, title, description, modal_content, modal_audio_url')
         .order('level_number');
       if (error) console.error('Error fetching levels:', error);
       else setLevels(data || []);
     };
     fetchLevels();
   }, []);
+
+  // Load popup content when Popups tab and level change
+  useEffect(() => {
+    if (activeTab !== 'popups') return;
+    const l = levels.find((x) => x.level_number === popupLevel);
+    if (l) {
+      setModalContent(l.modal_content ?? '');
+      setModalAudioUrl(l.modal_audio_url ?? null);
+    }
+  }, [activeTab, popupLevel, levels]);
 
   // Fetch Items
   useEffect(() => {
@@ -149,12 +175,14 @@ export default function Admin() {
 
     try {
       // 1. Handle Main Audio
-      let finalMainAudioUrl = mainAudioUrl; // Start with current state (could be null!)
-      
-      // If a new file was selected/recorded, upload it and override URL
-      if (mainAudioFile) {
-        finalMainAudioUrl = await uploadFile(mainAudioFile);
-      }
+      let finalMainAudioUrl = mainAudioUrl;
+      if (mainAudioFile) finalMainAudioUrl = await uploadFile(mainAudioFile);
+
+      // 1b. Help & Rule Audio
+      let finalHelpUrl = helpAudioUrl;
+      let finalRuleUrl = ruleAudioUrl;
+      if (helpAudioFile) finalHelpUrl = await uploadFile(helpAudioFile);
+      if (ruleAudioFile) finalRuleUrl = await uploadFile(ruleAudioFile);
 
       // 2. Handle Option Audios
       const finalOptions = await Promise.all(options.map(async (opt) => {
@@ -184,17 +212,20 @@ export default function Admin() {
           .update({
             content,
             transliteration: correctText,
-            audio_url: finalMainAudioUrl, // Can now be null explicitly
-            options: finalOptions
+            audio_url: finalMainAudioUrl,
+            options: finalOptions,
+            help_audio_url: finalHelpUrl,
+            rule_audio_url: finalRuleUrl
           })
           .eq('id', editingItem.id);
         if (error) throw error;
         setMessage('Eintrag aktualisiert!');
-        // Keep editingItem set to allow further edits
-        
-        // Update local state to reflect saved changes (clear pending files)
         setMainAudioFile(null);
-        setMainAudioUrl(finalMainAudioUrl); // Update URL to the new one
+        setMainAudioUrl(finalMainAudioUrl);
+        setHelpAudioFile(null);
+        setHelpAudioUrl(finalHelpUrl);
+        setRuleAudioFile(null);
+        setRuleAudioUrl(finalRuleUrl);
         setOptions(prev => prev.map(o => {
             const matchingFinal = finalOptions.find(fo => fo.id === o.id);
             return {
@@ -213,6 +244,8 @@ export default function Admin() {
             transliteration: correctText,
             audio_url: finalMainAudioUrl,
             options: finalOptions,
+            help_audio_url: finalHelpUrl,
+            rule_audio_url: finalRuleUrl,
             order_index: items.length + 1
           });
         if (error) throw error;
@@ -234,6 +267,10 @@ export default function Admin() {
     setContent('');
     setMainAudioFile(null);
     setMainAudioUrl(null);
+    setHelpAudioFile(null);
+    setHelpAudioUrl(null);
+    setRuleAudioFile(null);
+    setRuleAudioUrl(null);
     setOptions([
       { id: '1', text: '', is_correct: true, audio_url: null },
       { id: '2', text: '', is_correct: false, audio_url: null },
@@ -255,7 +292,11 @@ export default function Admin() {
     setEditingItem(item);
     setContent(item.content);
     setMainAudioFile(null);
-    setMainAudioUrl(item.audio_url); // Initialize with existing URL or null
+    setMainAudioUrl(item.audio_url);
+    setHelpAudioFile(null);
+    setHelpAudioUrl(item.help_audio_url ?? null);
+    setRuleAudioFile(null);
+    setRuleAudioUrl(item.rule_audio_url ?? null);
     
     // Load existing options or create defaults if none exist
     if (item.options && Array.isArray(item.options) && item.options.length > 0) {
@@ -340,6 +381,12 @@ export default function Admin() {
           >
             {editingItem ? 'Bearbeiten' : 'Neu erstellen'}
           </button>
+          <button 
+            onClick={() => setActiveTab('popups')}
+            className={`pb-2 px-4 ${activeTab === 'popups' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-gray-500'}`}
+          >
+            Stufen-Popups
+          </button>
         </div>
         
         <button 
@@ -414,6 +461,24 @@ export default function Admin() {
               }}
               onSave={() => handleSave()}
             />
+            <AudioInput 
+              label="Hilfe-Audio (z. B. für ة beim ersten Vorkommen)"
+              currentUrl={helpAudioUrl}
+              onAudioChange={(file, url) => {
+                setHelpAudioFile(file);
+                setHelpAudioUrl(url);
+              }}
+              onSave={() => handleSave()}
+            />
+            <AudioInput 
+              label="Regel-Audio (z. B. N-Regel bei Stufe 6)"
+              currentUrl={ruleAudioUrl}
+              onAudioChange={(file, url) => {
+                setRuleAudioFile(file);
+                setRuleAudioUrl(url);
+              }}
+              onSave={() => handleSave()}
+            />
           </div>
 
           {/* Answer Options */}
@@ -483,6 +548,89 @@ export default function Admin() {
             {uploading ? 'Speichert...' : <><Save size={20} /> Speichern</>}
           </button>
         </form>
+      )}
+
+      {/* POPUPS TAB */}
+      {activeTab === 'popups' && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100 space-y-6">
+          <h3 className="text-lg font-semibold">Stufen-Popups bearbeiten</h3>
+          <p className="text-sm text-gray-600">Hier kannst du den Einführungstext (Popup) pro Stufe anpassen. Wenn leer, wird der Standard aus der App verwendet. HTML ist erlaubt (z. B. &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt;).</p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Stufe wählen</label>
+            <select
+              value={popupLevel}
+              onChange={(e) => setPopupLevel(parseInt(e.target.value))}
+              className="w-full md:w-1/3 px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              {levels.map((l) => (
+                <option key={l.id} value={l.level_number}>Stufe {l.level_number}: {l.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Popup-Inhalt (HTML)</label>
+            <textarea
+              value={modalContent}
+              onChange={(e) => setModalContent(e.target.value)}
+              rows={12}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
+              placeholder="<p>In diesem Kapitel lernst du...</p><ul><li>...</li></ul>"
+            />
+          </div>
+          <AudioInput
+            label="Stufen-Audio (optional)"
+            currentUrl={modalAudioUrl}
+            onAudioChange={(file, url) => {
+              setModalAudioFile(file);
+              setModalAudioUrl(url);
+            }}
+            onSave={async () => {
+              setPopupSaving(true);
+              try {
+                let url = modalAudioUrl;
+                if (modalAudioFile) url = await uploadFile(modalAudioFile);
+                const { error } = await supabase.from('learning_levels').update({ modal_content: modalContent, modal_audio_url: url }).eq('level_number', popupLevel);
+                if (error) throw error;
+                setMessage('Popup gespeichert!');
+                setModalAudioFile(null);
+                setModalAudioUrl(url);
+                const { data } = await supabase.from('learning_levels').select('modal_content, modal_audio_url').eq('level_number', popupLevel).single();
+                if (data) { setModalContent(data.modal_content ?? ''); setModalAudioUrl(data.modal_audio_url ?? null); }
+              } catch (err: any) {
+                setMessage('Fehler: ' + err.message);
+              } finally {
+                setPopupSaving(false);
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={async () => {
+              setPopupSaving(true);
+              setMessage('');
+              try {
+                let url = modalAudioUrl;
+                if (modalAudioFile) url = await uploadFile(modalAudioFile);
+                const { error } = await supabase.from('learning_levels').update({ modal_content: modalContent, modal_audio_url: url }).eq('level_number', popupLevel);
+                if (error) throw error;
+                setMessage('Popup gespeichert!');
+                setModalAudioFile(null);
+                setModalAudioUrl(url);
+                const { data } = await supabase.from('learning_levels').select('modal_content, modal_audio_url').eq('level_number', popupLevel).single();
+                if (data) { setModalContent(data.modal_content ?? ''); setModalAudioUrl(data.modal_audio_url ?? null); }
+                setLevels(prev => prev.map(l => l.level_number === popupLevel ? { ...l, modal_content: modalContent, modal_audio_url: url ?? undefined } : l));
+              } catch (err: any) {
+                setMessage('Fehler: ' + err.message);
+              } finally {
+                setPopupSaving(false);
+              }
+            }}
+            disabled={popupSaving}
+            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 font-semibold"
+          >
+            {popupSaving ? 'Speichert...' : 'Popup speichern'}
+          </button>
+        </div>
       )}
 
       {/* MANAGE LIST */}

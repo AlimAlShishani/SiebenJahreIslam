@@ -85,8 +85,7 @@ export default function Quran() {
     } else if (juz === 30) {
       return { start: 582, length: 23 };
     } else {
-      // Juz 2 starts at 22. Juz 3 at 42, etc.
-      // Formula: 22 + (juz - 2) * 20
+      // Juz 2 starts at 22. Juz 3 at 42, etc. – je 20 Seiten
       const start = 22 + (juz - 2) * 20;
       return { start, length: 20 };
     }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy } from 'lucide-react';
+import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy, BookOpen, HelpCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
+import { GenericLevelModal } from '../components/GenericLevelModal';
 
 interface Option {
   id: string;
@@ -19,6 +20,15 @@ interface LearningItem {
   audio_url: string | null;
   order_index: number;
   options?: Option[];
+  help_audio_url?: string | null;
+  rule_audio_url?: string | null;
+}
+
+interface LevelInfo {
+  title: string;
+  description: string | null;
+  modal_content: string | null;
+  modal_audio_url: string | null;
 }
 
 export default function LearnLevel() {
@@ -42,8 +52,24 @@ export default function LearnLevel() {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
+  // Level modal (Stufen-Info während des Quiz)
+  const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null);
+  const [showLevelModal, setShowLevelModal] = useState(false);
+
   useEffect(() => {
     fetchItems();
+  }, [levelId]);
+
+  useEffect(() => {
+    if (!levelId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('learning_levels')
+        .select('title, description, modal_content, modal_audio_url')
+        .eq('level_number', parseInt(levelId))
+        .single();
+      if (data) setLevelInfo(data);
+    })();
   }, [levelId]);
 
   const fetchItems = async () => {
@@ -256,12 +282,21 @@ export default function LearnLevel() {
     <div className="pb-20 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <button 
-          onClick={() => navigate('/learn')} 
-          className="flex items-center text-gray-500 hover:text-emerald-600"
-        >
-          <ArrowLeft size={20} className="mr-1" /> Abbruch
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate('/learn')} 
+            className="flex items-center text-gray-500 hover:text-emerald-600"
+          >
+            <ArrowLeft size={20} className="mr-1" /> Abbruch
+          </button>
+          <button
+            onClick={() => setShowLevelModal(true)}
+            className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 px-2 py-1 rounded-lg hover:bg-emerald-50"
+            title="Stufen-Info anzeigen"
+          >
+            <BookOpen size={18} /> Stufen-Info
+          </button>
+        </div>
         
         <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-red-100">
           {[...Array(3)].map((_, i) => (
@@ -289,8 +324,8 @@ export default function LearnLevel() {
           <div className="mb-8 w-full flex flex-col items-center animate-fade-in" key={currentItem.id}>
             <h1 className="text-8xl font-bold text-emerald-900 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
             
-            <div className="flex gap-4 justify-center mb-6">
-              {currentItem.audio_url ? (
+            <div className="flex flex-wrap gap-3 justify-center mb-6">
+              {currentItem.audio_url && (
                 <button 
                   onClick={() => playAudio(currentItem.audio_url!)}
                   disabled={isPlaying}
@@ -299,8 +334,29 @@ export default function LearnLevel() {
                 >
                   <Play size={32} className={isPlaying ? 'animate-pulse' : ''} />
                 </button>
-              ) : (
-                 <p className="text-xs text-gray-400">(Kein Frage-Audio)</p>
+              )}
+              {currentItem.help_audio_url && (
+                <button
+                  onClick={() => playAudio(currentItem.help_audio_url!)}
+                  disabled={isPlaying}
+                  className="p-3 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors shadow-sm flex items-center gap-2"
+                  title="Hilfe anhören"
+                >
+                  <HelpCircle size={24} /> <span className="text-sm font-medium">Hilfe</span>
+                </button>
+              )}
+              {currentItem.rule_audio_url && (
+                <button
+                  onClick={() => playAudio(currentItem.rule_audio_url!)}
+                  disabled={isPlaying}
+                  className="p-3 rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition-colors shadow-sm flex items-center gap-2"
+                  title="Regel-Audio anhören"
+                >
+                  <Volume2 size={24} /> <span className="text-sm font-medium">Regel</span>
+                </button>
+              )}
+              {!currentItem.audio_url && !currentItem.help_audio_url && !currentItem.rule_audio_url && (
+                <p className="text-xs text-gray-400">(Kein Frage-Audio)</p>
               )}
             </div>
 
@@ -369,6 +425,14 @@ export default function LearnLevel() {
            )}
         </div>
       </div>
+
+      <GenericLevelModal
+        isOpen={showLevelModal}
+        onClose={() => setShowLevelModal(false)}
+        onStart={() => setShowLevelModal(false)}
+        levelNumber={levelId ? parseInt(levelId) : 1}
+        levelFromDb={levelInfo}
+      />
     </div>
   );
 }

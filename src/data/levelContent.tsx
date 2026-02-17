@@ -72,6 +72,8 @@ export const levelContents: Record<number, LevelContent> = {
           <li>Dass Shaddah (w-förmiges Zeichen) bedeutet, ein Buchstabe wird verdoppelt/gestärkt</li>
           <li>Wie man Shaddah hört und richtig ausspricht</li>
           <li>Wie man Shaddah beim Lesen erkennt und flüssig liest</li>
+          <li><strong>Tanwin</strong> (ـٌ ـٍ ـً): Die Doppelvokal-Zeichen am Wortende werden als „-un“, „-in“ oder „-an“ gelesen (z. B. جَنَّةٌ → jannatun, مُحَمَّدٌ → muḥammadun). Sie werden erst in späteren Stufen vertieft – hier reicht es, sie als Endung zu erkennen.</li>
+          <li><strong>ة (Tāʾ marbūṭa)</strong>: Wird am Wortende als „h“ ausgesprochen, wenn man stoppt; beim Weiterlesen als „t“. Beim ersten Vorkommen kannst du im Quiz die „Hilfe“-Audio (falls vom Admin hinterlegt) abspielen.</li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
@@ -105,11 +107,12 @@ export const levelContents: Record<number, LevelContent> = {
       <div className="space-y-4">
         <p>In diesem Kapitel lernst du:</p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>N-Laut klar aussprechen (Izhar)</li>
-          <li>N mit dem nächsten Buchstaben verbinden (Idgham)</li>
-          <li>N wie M aussprechen (Iqlab)</li>
-          <li>N nasal andeuten (Ikhfa)</li>
+          <li><strong>Izhar</strong>: N (نْ oder Tanwin) vor „Halsbuchstaben“ (ء ه ع ح غ خ) wird klar als „n“ ausgesprochen, z. B. مِنْ هَادٍ → min hādin.</li>
+          <li><strong>Idgham</strong>: N verschmilzt mit dem nächsten Buchstaben (ي ن م و ل ر), z. B. مِنْ لَدُنْهُ → mil ladunhu (n wird zu l), مَنْ يَقُولُ → may yaqūlu (n wird zu y).</li>
+          <li><strong>Iqlab</strong>: N vor ب wird als „m“ gesprochen, z. B. مِنْ بَعْدِ → mim baʿdi.</li>
+          <li><strong>Ikhfa</strong>: N vor anderen Buchstaben wird nasal/gedämpft gesprochen (z. B. vor ت، د، ق).</li>
         </ul>
+        <p className="text-sm text-gray-600">Bei jeder Frage kannst du optional ein Audio zur jeweiligen Regel abspielen (falls vom Admin hinterlegt).</p>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
           <p>Du kannst N-Regeln automatisch erkennen und korrekt lesen.</p>
