@@ -30,6 +30,7 @@ interface LearningLevel {
   description?: string | null;
   modal_content?: string | null;
   modal_audio_url?: string | null;
+  modal_audio_urls?: string[] | null;
 }
 
 export default function Admin() {
@@ -52,12 +53,9 @@ export default function Admin() {
   // Popups tab
   const [popupLevel, setPopupLevel] = useState(1);
   const [modalContent, setModalContent] = useState('');
-  const [modalAudioFile, setModalAudioFile] = useState<File | null>(null);
-  const [modalAudioUrl, setModalAudioUrl] = useState<string | null>(null);
   const [popupSaving, setPopupSaving] = useState(false);
   const modalContentRef = useRef<HTMLTextAreaElement>(null);
-  const [popupInsertAudioFile, setPopupInsertAudioFile] = useState<File | null>(null);
-  const [popupInsertAudioUrl, setPopupInsertAudioUrl] = useState<string | null>(null);
+  const [modalAudioList, setModalAudioList] = useState<{ url: string | null; file: File | null }[]>([]);
   
   // Options State
   const [options, setOptions] = useState<Option[]>([
@@ -74,7 +72,7 @@ export default function Admin() {
     const fetchLevels = async () => {
       const { data, error } = await supabase
         .from('learning_levels')
-        .select('id, level_number, title, description, modal_content, modal_audio_url')
+        .select('id, level_number, title, description, modal_content, modal_audio_url, modal_audio_urls')
         .order('level_number');
       if (error) console.error('Error fetching levels:', error);
       else setLevels(data || []);
@@ -88,7 +86,14 @@ export default function Admin() {
     const l = levels.find((x) => x.level_number === popupLevel);
     if (l) {
       setModalContent(l.modal_content ?? '');
-      setModalAudioUrl(l.modal_audio_url ?? null);
+      const urls = l.modal_audio_urls;
+      if (urls?.length) {
+        setModalAudioList(urls.map((url) => ({ url, file: null })));
+      } else if (l.modal_audio_url) {
+        setModalAudioList([{ url: l.modal_audio_url, file: null }]);
+      } else {
+        setModalAudioList([]);
+      }
     }
   }, [activeTab, popupLevel, levels]);
 
@@ -382,26 +387,6 @@ export default function Admin() {
     insertAtCursor(openTag, closeTag);
   };
 
-  const handleInsertPopupAudio = async () => {
-    let url = popupInsertAudioUrl;
-    if (popupInsertAudioFile) {
-      try {
-        url = await uploadFile(popupInsertAudioFile);
-        setPopupInsertAudioFile(null);
-        setPopupInsertAudioUrl(url);
-      } catch (e: any) {
-        setMessage('Fehler beim Hochladen: ' + e.message);
-        return;
-      }
-    }
-    if (!url) {
-      setMessage('Zuerst Audio aufnehmen oder auswählen.');
-      return;
-    }
-    const html = `<div class="popup-audio" data-popup-audio data-src="${url}"><button type="button">▶ Abspielen</button></div>`;
-    insertAtCursor(html);
-  };
-
   return (
     <div className="max-w-4xl mx-auto pb-20" data-admin-version="popups-v1">
       <h2 className="text-2xl font-bold text-emerald-800 mb-6">Admin Dashboard</h2>
@@ -609,7 +594,7 @@ export default function Admin() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Popup-Inhalt</label>
-            <p className="text-xs text-gray-500 mb-2">Text markieren und Formatierung anwenden, oder Audio unten einfügen (erscheint als Abspiel-Button im Popup).</p>
+            <p className="text-xs text-gray-500 mb-2">Text markieren und Formatierung anwenden. Audios für diese Stufe legst du unten unter „Stufen-Audios“ an – sie erscheinen unter dem Popup-Text.</p>
             {/* Toolbar: Fett, Größe, Farbe */}
             <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-50 rounded-t-lg border border-b-0 border-gray-200">
               <button
@@ -663,73 +648,69 @@ export default function Admin() {
               className="w-full px-4 py-2 border rounded-b-lg focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
               placeholder="<p>In diesem Kapitel lernst du...</p><ul><li>...</li></ul>"
             />
-            {/* Audio ins Popup einfügen */}
-            <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <h4 className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-2">
-                <Volume2 size={18} /> Audio ins Popup einfügen
-              </h4>
-              <p className="text-xs text-amber-800 mb-2">Aufnehmen oder Datei wählen, dann „Ins Popup einfügen“ klicken. Der Cursor kann irgendwo im Text stehen – das Audio wird dort eingefügt.</p>
-              <AudioInput
-                label=""
-                currentUrl={popupInsertAudioUrl}
-                onAudioChange={(file, url) => {
-                  setPopupInsertAudioFile(file);
-                  setPopupInsertAudioUrl(url);
-                }}
-                onSave={() => {}}
-              />
-              <button
-                type="button"
-                onClick={handleInsertPopupAudio}
-                disabled={!popupInsertAudioFile && !popupInsertAudioUrl}
-                className="mt-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm font-medium"
-              >
-                Ins Popup einfügen
-              </button>
-            </div>
           </div>
-          <AudioInput
-            label="Stufen-Audio (optional)"
-            currentUrl={modalAudioUrl}
-            onAudioChange={(file, url) => {
-              setModalAudioFile(file);
-              setModalAudioUrl(url);
-            }}
-            onSave={async () => {
-              setPopupSaving(true);
-              try {
-                let url = modalAudioUrl;
-                if (modalAudioFile) url = await uploadFile(modalAudioFile);
-                const { error } = await supabase.from('learning_levels').update({ modal_content: modalContent, modal_audio_url: url }).eq('level_number', popupLevel);
-                if (error) throw error;
-                setMessage('Popup gespeichert!');
-                setModalAudioFile(null);
-                setModalAudioUrl(url);
-                const { data } = await supabase.from('learning_levels').select('modal_content, modal_audio_url').eq('level_number', popupLevel).single();
-                if (data) { setModalContent(data.modal_content ?? ''); setModalAudioUrl(data.modal_audio_url ?? null); }
-              } catch (err: any) {
-                setMessage('Fehler: ' + err.message);
-              } finally {
-                setPopupSaving(false);
-              }
-            }}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Stufen-Audios (unter dem Popup-Text)</label>
+            <p className="text-xs text-gray-500 mb-2">Diese Audios erscheinen im Popup unter dem Text als Abspielen-Buttons – wie bei den Frage- und Antwort-Audios.</p>
+            {modalAudioList.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-2 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex-1 min-w-0">
+                  <AudioInput
+                    label={modalAudioList.length > 1 ? `Audio ${idx + 1}` : 'Stufen-Audio'}
+                    currentUrl={item.url}
+                    onAudioChange={(file, url) => {
+                      setModalAudioList(prev => prev.map((x, i) => i === idx ? { url: url ?? x.url, file: file ?? null } : x));
+                    }}
+                    onSave={() => {}}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalAudioList(prev => prev.filter((_, i) => i !== idx))}
+                  className="p-2 text-gray-400 hover:text-red-600 shrink-0"
+                  title="Entfernen"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setModalAudioList(prev => [...prev, { url: null, file: null }])}
+              className="text-sm text-emerald-600 hover:underline flex items-center gap-1"
+            >
+              <Plus size={16} /> Weiteres Audio hinzufügen
+            </button>
+          </div>
           <button
             type="button"
             onClick={async () => {
               setPopupSaving(true);
               setMessage('');
               try {
-                let url = modalAudioUrl;
-                if (modalAudioFile) url = await uploadFile(modalAudioFile);
-                const { error } = await supabase.from('learning_levels').update({ modal_content: modalContent, modal_audio_url: url }).eq('level_number', popupLevel);
+                const urls: string[] = [];
+                for (const item of modalAudioList) {
+                  if (item.file) {
+                    urls.push(await uploadFile(item.file));
+                  } else if (item.url) {
+                    urls.push(item.url);
+                  }
+                }
+                const { error } = await supabase.from('learning_levels').update({
+                  modal_content: modalContent,
+                  modal_audio_urls: urls.length ? urls : null,
+                  modal_audio_url: urls[0] ?? null
+                }).eq('level_number', popupLevel);
                 if (error) throw error;
                 setMessage('Popup gespeichert!');
-                setModalAudioFile(null);
-                setModalAudioUrl(url);
-                const { data } = await supabase.from('learning_levels').select('modal_content, modal_audio_url').eq('level_number', popupLevel).single();
-                if (data) { setModalContent(data.modal_content ?? ''); setModalAudioUrl(data.modal_audio_url ?? null); }
-                setLevels(prev => prev.map(l => l.level_number === popupLevel ? { ...l, modal_content: modalContent, modal_audio_url: url ?? undefined } : l));
+                setModalAudioList(urls.map(url => ({ url, file: null })));
+                const { data } = await supabase.from('learning_levels').select('modal_content, modal_audio_url, modal_audio_urls').eq('level_number', popupLevel).single();
+                if (data) {
+                  setModalContent((data as { modal_content?: string }).modal_content ?? '');
+                  const u = (data as { modal_audio_urls?: string[] }).modal_audio_urls;
+                  setModalAudioList(u?.length ? u.map(url => ({ url, file: null })) : data.modal_audio_url ? [{ url: data.modal_audio_url, file: null }] : []);
+                }
+                setLevels(prev => prev.map(l => l.level_number === popupLevel ? { ...l, modal_content: modalContent, modal_audio_url: urls[0] ?? undefined, modal_audio_urls: urls } : l));
               } catch (err: any) {
                 setMessage('Fehler: ' + err.message);
               } finally {
