@@ -5,6 +5,7 @@
 
 alter table learning_levels add column if not exists modal_content text;
 alter table learning_levels add column if not exists modal_audio_url text;
+alter table learning_levels add column if not exists modal_audio_urls jsonb;
 alter table learning_items add column if not exists help_audio_url text;
 alter table learning_items add column if not exists rule_audio_url text;
 

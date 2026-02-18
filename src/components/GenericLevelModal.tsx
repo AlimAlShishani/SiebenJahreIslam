@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { X, ArrowRight, BookOpen, Volume2 } from 'lucide-react';
 import { levelContents } from '../data/levelContent';
 
@@ -7,6 +6,7 @@ export interface LevelInfoFromDb {
   description: string | null;
   modal_content: string | null;
   modal_audio_url: string | null;
+  modal_audio_urls?: string[] | null;
 }
 
 interface GenericLevelModalProps {
@@ -18,31 +18,17 @@ interface GenericLevelModalProps {
 }
 
 export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, levelFromDb }: GenericLevelModalProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!contentRef.current || !levelFromDb?.modal_content) return;
-    const container = contentRef.current;
-    const audioBlocks = container.querySelectorAll<HTMLDivElement>('.popup-audio');
-    const cleanups: (() => void)[] = [];
-    audioBlocks.forEach((block) => {
-      const src = block.getAttribute('data-src');
-      const btn = block.querySelector('button');
-      if (!src || !btn) return;
-      const play = () => new Audio(src).play();
-      btn.addEventListener('click', play);
-      cleanups.push(() => btn.removeEventListener('click', play));
-    });
-    return () => cleanups.forEach((c) => c());
-  }, [levelFromDb?.modal_content]);
-
   if (!isOpen) return null;
 
   const fallback = levelContents[levelNumber];
   const title = levelFromDb?.title ?? fallback?.title ?? `Stufe ${levelNumber}`;
   const description = levelFromDb?.description ?? fallback?.description ?? '';
   const useDbContent = levelFromDb?.modal_content != null && levelFromDb.modal_content.trim() !== '';
-  const modalAudioUrl = levelFromDb?.modal_audio_url;
+  const audioUrls: string[] = levelFromDb?.modal_audio_urls?.length
+    ? levelFromDb.modal_audio_urls
+    : levelFromDb?.modal_audio_url
+      ? [levelFromDb.modal_audio_url]
+      : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -63,21 +49,25 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
         <div className="p-8 overflow-y-auto grow space-y-4">
           {useDbContent ? (
             <div 
-              ref={contentRef}
-              className="prose prose-emerald max-w-none [&_.popup-audio]:my-2 [&_.popup-audio_button]:inline-flex [&_.popup-audio_button]:items-center [&_.popup-audio_button]:gap-2 [&_.popup-audio_button]:px-3 [&_.popup-audio_button]:py-2 [&_.popup-audio_button]:rounded-lg [&_.popup-audio_button]:bg-emerald-100 [&_.popup-audio_button]:text-emerald-800 [&_.popup-audio_button]:font-medium [&_.popup-audio_button]:hover:bg-emerald-200 [&_.popup-audio_button]:border-0"
+              className="prose prose-emerald max-w-none"
               dangerouslySetInnerHTML={{ __html: levelFromDb!.modal_content! }}
             />
           ) : (
             fallback?.modalContent
           )}
-          {modalAudioUrl && (
-            <button
-              type="button"
-              onClick={() => new Audio(modalAudioUrl).play()}
-              className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium"
-            >
-              <Volume2 size={20} /> Stufen-Audio abspielen
-            </button>
+          {audioUrls.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+              {audioUrls.map((url, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => new Audio(url).play()}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-800 font-medium hover:bg-emerald-200 transition-colors"
+                >
+                  <Volume2 size={18} /> Audio {audioUrls.length > 1 ? i + 1 : ''} abspielen
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

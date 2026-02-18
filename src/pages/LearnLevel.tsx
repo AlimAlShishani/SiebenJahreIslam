@@ -29,6 +29,7 @@ interface LevelInfo {
   description: string | null;
   modal_content: string | null;
   modal_audio_url: string | null;
+  modal_audio_urls?: string[] | null;
 }
 
 export default function LearnLevel() {
@@ -65,7 +66,7 @@ export default function LearnLevel() {
     (async () => {
       const { data } = await supabase
         .from('learning_levels')
-        .select('title, description, modal_content, modal_audio_url')
+        .select('title, description, modal_content, modal_audio_url, modal_audio_urls')
         .eq('level_number', parseInt(levelId))
         .single();
       if (data) setLevelInfo(data);

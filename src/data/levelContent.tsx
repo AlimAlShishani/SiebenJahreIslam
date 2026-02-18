@@ -89,8 +89,12 @@ export const levelContents: Record<number, LevelContent> = {
       <div className="space-y-4">
         <p>In diesem Kapitel lernst du:</p>
         <ul className="list-disc list-inside space-y-2 ml-2">
+          <li>
+            Was <strong>Harakāt</strong> sind: kleine „Zählschritte“ für die Länge –{" "}
+            <strong>1 Haraka</strong> entspricht ungefähr der normalen Länge eines kurzen Vokals.
+          </li>
           <li>Wann ein Laut länger gezogen wird (Alif, Waw, Ya ohne Vokal)</li>
-          <li>Grund-Dehnung (meist 2 Zählzeiten)</li>
+          <li>Grund-Dehnung (meist 2 Harakāt / Zählzeiten)</li>
           <li>Häufige Fehler vermeiden: zu kurz oder zu lang lesen</li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
@@ -125,15 +129,32 @@ export const levelContents: Record<number, LevelContent> = {
     description: "Mim Sakinah Regeln",
     modalContent: (
       <div className="space-y-4">
-        <p>In diesem Kapitel lernst du:</p>
+        <p>
+          In diesem Kapitel lernst du die Regeln für <strong>Mīm Sākinah (مْ)</strong>:
+        </p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>M-Laut klar aussprechen</li>
-          <li>M mit Nasenton aussprechen</li>
-          <li>M verschmelzen lassen, wenn nötig</li>
+          <li>
+            <strong>Vor allen Buchstaben außer ب und م</strong> wird das Mīm <strong>klar</strong>{" "}
+            als „m“ ausgesprochen – das nennt man <strong>Iẓhār Shafawī</strong> (normale Länge, ca.
+            1 Haraka).
+          </li>
+          <li>
+            <strong>Vor م</strong> wird das Mīm <strong>verschmolzen</strong> ausgesprochen, also
+            wie ein langes „mm“ mit <strong>Ghunnah</strong> (Nasalton) für ca.{" "}
+            <strong>2 Harakāt</strong> – das nennt man{" "}
+            <strong>Idghām Shafawī / Idghām Mithlayn</strong>. Beispiel:{" "}
+            <strong>لَهُمْ مَّغْفِرَةٌ</strong>.
+          </li>
+          <li>
+            <strong>Vor ب</strong> wird das Mīm <strong>verdeckt</strong> ausgesprochen, ebenfalls
+            mit <strong>Ghunnah</strong> für ca. <strong>2 Harakāt</strong>, während die Lippen
+            schon für das ب vorbereitet bleiben – das nennt man <strong>Ikhfāʾ Shafawī</strong>.
+            Beispiel: <strong>هُمْ بِهِ</strong>.
+          </li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
-          <p>Du sprichst مْ sauber und kontrolliert aus.</p>
+          <p>Du erkennst Mim-Sākinah-Stellen sicher und liest sie mit der passenden Regel.</p>
         </div>
       </div>
     )
@@ -162,13 +183,24 @@ export const levelContents: Record<number, LevelContent> = {
       <div className="space-y-4">
         <p>In diesem Kapitel lernst du:</p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>Welche Buchstaben beim Stoppen einen kurzen „Echo-Sound“ bekommen</li>
-          <li>Wie dieser Echo-Laut klingt</li>
-          <li>Dass das Echo stärker wird, wenn das Wort am Ende gestoppt wird</li>
+          <li>
+            Was <strong>Qalqalah</strong> ist – der kurze „Echo“-Laut bei den Buchstaben{" "}
+            <strong>ق ط ب ج د</strong> (Kutb Jadd).
+          </li>
+          <li>
+            Dass Qalqalah nur entsteht, wenn einer dieser Buchstaben ein <strong>Sukūn</strong> hat
+            – entweder geschrieben (z.B. <strong>يَخْرُجْ</strong>) oder weil du am Wortende
+            stoppst und die Haraka wegfällt.
+          </li>
+          <li>
+            Solange der Buchstabe noch <strong>Fatha, Kasra oder Damma</strong> hat und du{" "}
+            <strong>nicht stoppst</strong>, gibt es <strong>keine</strong> Qalqalah.
+          </li>
+          <li>Dass das Echo stärker wird, wenn das Wort am Ende gestoppt wird.</li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
-          <p>Du liest beim Stoppen klar und deutlich.</p>
+          <p>Du erkennst, wann Qalqalah entsteht, und liest beim Stoppen klar und deutlich.</p>
         </div>
       </div>
     )
@@ -180,13 +212,23 @@ export const levelContents: Record<number, LevelContent> = {
       <div className="space-y-4">
         <p>In diesem Kapitel lernst du:</p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>Wann Hamza immer gelesen wird (Hamzatul Qat')</li>
-          <li>Wann Hamza nur beim Start gelesen wird (Hamzatul Wasl)</li>
-          <li>Wie man Wörter flüssig verbindet, ohne falsche Starts</li>
+          <li>
+            Wann Hamza immer gelesen wird (<strong>Hamzat al-Qaṭʿ</strong>).
+          </li>
+          <li>
+            Wann Hamza nur beim Start gelesen wird (<strong>Hamzat al-Waṣl</strong>) und beim
+            Verbinden wegfällt.
+          </li>
+          <li>
+            Wie du beim Start den richtigen Vokal für Hamzat al-Waṣl wählst: <strong>a / i / u</strong>{" "}
+            (z.B. <strong>ٱلْكِتَابُ</strong> → <strong>al-kitābu</strong>, <strong>ٱهْدِنَا</strong>{" "}
+            → <strong>ihdinā</strong>, <strong>ٱدْخُلُوا</strong> → <strong>udkhulū</strong>).
+          </li>
+          <li>Wie man Wörter flüssig verbindet, ohne falsche Starts.</li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
-          <p>Du liest Hamza sauber, flüssig und ohne Unterbrechungen.</p>
+          <p>Du liest Hamza sauber, setzt Hamzat al-Waṣl mit a / i / u richtig und verbindest Wörter flüssig.</p>
         </div>
       </div>
     )
@@ -196,15 +238,37 @@ export const levelContents: Record<number, LevelContent> = {
     description: "Längere Madd-Regeln (4-6 Zählzeiten)",
     modalContent: (
       <div className="space-y-4">
-        <p>In diesem Kapitel lernst du:</p>
+        <p>
+          In diesem Kapitel lernst du die Regeln für <strong>Madd Lāzim (مدّ لازم)</strong> und{" "}
+          <strong>Madd Wājib (مدّ واجب)</strong>:
+        </p>
+        <p className="text-sm text-gray-700">
+          <strong>Erinnerung:</strong> <em>Harakāt</em> sind kleine „Zählschritte“ – 1 Haraka
+          entspricht ungefähr der Länge eines kurzen Vokals.
+        </p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>Wann man 4 oder 6 Zählzeiten dehnt (Madd Lazim, Madd Wajib, etc.)</li>
-          <li>Typische Situationen: Hamza nach Dehnung, Stopp am Wortende</li>
-          <li>Gleichmäßiges Zählen ohne Übertreiben</li>
+          <li>
+            <strong>Madd Lāzim</strong>: Ein <strong>Madd-Buchstabe</strong> (ا، و، ي) wird
+            verlängert, weil danach eine <strong>Shaddah (ّ)</strong> kommt (in der Shaddah steckt
+            ein festes Sukūn).
+            <br />
+            ➝ Man dehnt <strong>immer 6 Harakāt</strong>.
+            <br />
+            <strong>Beispiel:</strong> <strong>الضَّآلِّينَ</strong>.
+          </li>
+          <li>
+            <strong>Madd Wājib (Madd Wājib Muttasil)</strong>: Ein <strong>Madd-Buchstabe</strong>{" "}
+            kommt und direkt danach folgt ein <strong>Hamzah (ء)</strong> im{" "}
+            <strong>gleichen Wort</strong>.
+            <br />
+            ➝ Man dehnt <strong>4–5 Harakāt</strong>.
+            <br />
+            <strong>Beispiel:</strong> <strong>جَاءٓ</strong>.
+          </li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
-          <p>Du kannst lange Dehnungen rhythmisch und korrekt lesen.</p>
+          <p>Du erkennst Madd Lāzim und Madd Wājib sicher und kannst sie mit der passenden Länge lesen.</p>
         </div>
       </div>
     )
@@ -214,15 +278,35 @@ export const levelContents: Record<number, LevelContent> = {
     description: "Wann Ra dick oder dünn ist",
     modalContent: (
       <div className="space-y-4">
-        <p>In diesem Kapitel lernst du:</p>
+        <p>
+          In diesem Kapitel lernst du die Regeln für <strong>Rā (ر)</strong>:
+        </p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>Wann ر schwer/dick ausgesprochen wird (meist bei Fatha/Damma)</li>
-          <li>Wann ر leicht/dünn ausgesprochen wird (meist bei Kasra)</li>
-          <li>Häufige Fehler vermeiden</li>
+          <li>
+            <strong>Rā mit Kasra</strong> wird <strong>leicht/dünn</strong> ausgesprochen (
+            <strong>Tarqīq</strong>). Beispiel: <strong>رِيحًا</strong>.
+          </li>
+          <li>
+            <strong>Rā sākin (رْ) nach einem Buchstaben mit Kasra</strong> wird{" "}
+            <strong>dünn</strong> ausgesprochen. Beispiel: <strong>فِرْعَوْنَ</strong>.
+          </li>
+          <li>
+            <strong>Rā sākin (رْ), wenn zwei Buchstaben davor eine Kasra haben</strong>, wird
+            ebenfalls <strong>dünn</strong> ausgesprochen. Beispiel: <strong>حِجْرٌ</strong>.
+          </li>
+          <li>
+            <strong>Rā sākin (رْ) nach einem Yā, das die vorherige Kasra verlängert</strong>, wird
+            auch <strong>dünn</strong> ausgesprochen. Beispiel: <strong>قَدِيرٌ</strong>.
+          </li>
+          <li>
+            <strong>Alle anderen Fälle</strong>, z. B. Rā mit Fatha oder Damma oder Rā sākin nach
+            Fatha/Damma → Rā wird <strong>dick</strong> ausgesprochen (
+            <strong>Tafkhīm</strong>). Beispiele: <strong>رَبّ – بَرْق – الْعَصْر</strong>.
+          </li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
-          <p>Du liest ر korrekt und arabisch „natürlich“.</p>
+          <p>Du erkennst, wann ر dünn oder dick gelesen wird – inklusive der Spezialfälle mit Madd-Ya.</p>
         </div>
       </div>
     )
@@ -232,16 +316,37 @@ export const levelContents: Record<number, LevelContent> = {
     description: "Waqf-Regeln",
     modalContent: (
       <div className="space-y-4">
-        <p>In diesem Kapitel lernst du:</p>
+        <p>
+          In diesem Kapitel lernst du die <strong>Waqf-Regeln</strong> – also richtiges Stoppen und
+          Pausieren im Qurʾān:
+        </p>
         <ul className="list-disc list-inside space-y-2 ml-2">
-          <li>Wie man korrekt am Wortende stoppt (Vokale werden zu Sukun etc.)</li>
-          <li>Wie Endungen sich beim Stoppen verändern</li>
-          <li>Wann man nicht stoppen darf, damit der Sinn korrekt bleibt</li>
-          <li>Typische Stoppsymbole im Mushaf</li>
+          <li>
+            <strong>Grundprinzip beim Stoppen:</strong> Am Wortende wird der letzte Buchstabe meist{" "}
+            <strong>vokallos (Sukūn)</strong>.
+          </li>
+          <li>
+            <strong>Ibdāl:</strong> Tanwīn mit Fatha (ـً) wird beim Stopp zu einem langen{" "}
+            <strong>Alif</strong>, z.B. <strong>هُدًى</strong> → <strong>هُدَا</strong> (hudā).
+          </li>
+          <li>
+            <strong>Tāʾ marbūṭa (ة):</strong> wird beim Stoppen zu einem <strong>h</strong>{" "}
+            ausgesprochen, z.B. <strong>رَحْمَةٌ</strong> → <strong>رَحْمَهْ</strong> (raḥmah).
+          </li>
+          <li>
+            Wichtige Waqf-Arten (Tam, Kāfī, Ḥasan, Qabīḥ) zeigen dir, ob ein Halt sinnvoll ist oder
+            den Sinn stört.
+          </li>
+          <li>
+            Wichtige Stoppzeichen im Muṣḥaf: <strong>مـ</strong> (Pflichtstopp),{" "}
+            <strong>ط</strong> (starker Stopp empfohlen), <strong>ج</strong> (Stopp erlaubt oder
+            Weiterlesen), <strong>لا</strong> (hier nicht stoppen), <strong>س/سكتة</strong> (sehr
+            kurze Pause ohne Atmen).
+          </li>
         </ul>
         <div className="bg-emerald-50 p-4 rounded-lg mt-4">
           <p className="font-bold text-emerald-800">Ziel:</p>
-          <p>Du stoppst richtig, liest flüssig und verständlich.</p>
+          <p>Du kennst die wichtigsten Waqf-Zeichen und sprichst Wortenden beim Stopp korrekt aus.</p>
         </div>
       </div>
     )

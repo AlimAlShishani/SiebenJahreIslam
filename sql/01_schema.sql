@@ -32,11 +32,13 @@ create table if not exists learning_levels (
   unlock_requirement text,
   modal_content text,
   modal_audio_url text,
+  modal_audio_urls jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table learning_levels add column if not exists unlock_requirement text;
 alter table learning_levels add column if not exists modal_content text;
 alter table learning_levels add column if not exists modal_audio_url text;
+alter table learning_levels add column if not exists modal_audio_urls jsonb;
 
 alter table learning_levels enable row level security;
 drop policy if exists "Levels are viewable by everyone." on learning_levels;

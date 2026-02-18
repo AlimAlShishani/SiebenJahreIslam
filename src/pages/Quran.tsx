@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, ChevronUp, ChevronDown, X } from 'lucide-react';
 
 interface DailyAssignment {
   id: string;
@@ -23,6 +23,21 @@ export default function Quran() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [swapping, setSwapping] = useState<string | null>(null);
+  const [showDistributeModal, setShowDistributeModal] = useState(false);
+  const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
+
+  // Farben für die Seiten-Boxen (eine pro Person)
+  const SEGMENT_COLORS = [
+    'bg-emerald-500',
+    'bg-teal-500',
+    'bg-cyan-500',
+    'bg-sky-500',
+    'bg-violet-500',
+    'bg-rose-500',
+    'bg-amber-500',
+    'bg-lime-500',
+  ];
 
   // Helper: Get Ramadan Day (1-30) based on current date. Ramadan starts Feb 18, 2026.
   const getRamadanDay = () => {
@@ -91,42 +106,44 @@ export default function Quran() {
     }
   };
 
-  const generateAssignments = async () => {
+  const getDefaultPagesPerUser = (): number[] => {
+    const { length: totalPages } = getJuzPageInfo(selectedRamadanDay);
+    const base = Math.floor(totalPages / users.length);
+    const remainder = totalPages % users.length;
+    return users.map((_, i) => base + (i < remainder ? 1 : 0));
+  };
+
+  const openDistributeModal = () => {
     if (users.length === 0) return;
-    
-    const confirmMessage = assignments.length > 0 
-      ? `Es existiert bereits ein Plan für Tag ${selectedRamadanDay}. Möchtest du ihn wirklich neu generieren? Der alte Fortschritt geht verloren.`
-      : `Möchtest du den Leseplan für Ramadan Tag ${selectedRamadanDay} (Juz ${selectedRamadanDay}) generieren?`;
+    if (assignments.length > 0 && !window.confirm(`Es existiert bereits ein Plan für Tag ${selectedRamadanDay}. Neu verteilen? Der alte Fortschritt geht verloren.`)) return;
+    setPagesPerUser(getDefaultPagesPerUser());
+    setShowDistributeModal(true);
+  };
 
-    if (!window.confirm(confirmMessage)) return;
+  const totalPagesForJuz = getJuzPageInfo(selectedRamadanDay).length;
+  const distributeSum = pagesPerUser.reduce((a, b) => a + b, 0);
+  const distributeValid = pagesPerUser.length === users.length && distributeSum === totalPagesForJuz && pagesPerUser.every(p => p >= 1);
 
+  const doGenerateAssignments = async () => {
+    if (!distributeValid) return;
     setGenerating(true);
+    setShowDistributeModal(false);
     try {
-      // 1. Delete existing assignments for this day
       await supabase
         .from('daily_reading_status')
         .delete()
         .eq('date', selectedDateStr);
 
-      // 2. Calculate Pages: distribute Juz pages among users
       const juzNumber = selectedRamadanDay;
-      const { start: juzStartPage, length: totalPages } = getJuzPageInfo(juzNumber);
-      
-      const pagesPerUser = Math.floor(totalPages / users.length);
-      const remainder = totalPages % users.length;
-
+      const { start: juzStartPage } = getJuzPageInfo(juzNumber);
       let currentPage = juzStartPage;
       const newAssignments = [];
 
       for (let i = 0; i < users.length; i++) {
-        const extraPage = i < remainder ? 1 : 0;
-        const userPagesCount = pagesPerUser + extraPage;
-        
-        if (userPagesCount === 0) continue;
-
+        const count = pagesPerUser[i] ?? 0;
+        if (count <= 0) continue;
         const start = currentPage;
-        const end = currentPage + userPagesCount - 1;
-        
+        const end = currentPage + count - 1;
         newAssignments.push({
           date: selectedDateStr,
           juz_number: juzNumber,
@@ -135,25 +152,30 @@ export default function Quran() {
           end_page: end,
           is_completed: false
         });
-
         currentPage = end + 1;
       }
 
-      // 3. Insert new assignments
       const { error } = await supabase
         .from('daily_reading_status')
         .insert(newAssignments);
 
       if (error) throw error;
-
-      await fetchData(); // Refresh UI
-
+      await fetchData();
     } catch (error) {
       console.error('Error generating assignments:', error);
       alert('Fehler beim Generieren des Plans.');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const setPageCountForUser = (userIndex: number, value: number) => {
+    const n = Math.max(0, Math.floor(value));
+    setPagesPerUser(prev => {
+      const next = [...prev];
+      next[userIndex] = n;
+      return next;
+    });
   };
 
   const toggleCompletion = async (assignmentId: string, currentStatus: boolean) => {
@@ -174,6 +196,30 @@ export default function Quran() {
       console.error('Error updating status:', error);
     }
   };
+
+  const swapWithNeighbor = async (index: number, direction: 'up' | 'down') => {
+    const sorted = [...assignments].sort((a, b) => a.start_page - b.start_page);
+    const otherIndex = direction === 'up' ? index - 1 : index + 1;
+    if (otherIndex < 0 || otherIndex >= sorted.length) return;
+    const a = sorted[index];
+    const b = sorted[otherIndex];
+    setSwapping(a.id);
+    try {
+      const { error } = await supabase.rpc('swap_daily_reading_assignments', {
+        a_id: a.id,
+        b_id: b.id,
+      });
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Swap failed:', err);
+      alert('Verschieben fehlgeschlagen.');
+    } finally {
+      setSwapping(null);
+    }
+  };
+
+  const sortedAssignments = [...assignments].sort((a, b) => a.start_page - b.start_page);
 
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
 
@@ -233,7 +279,7 @@ export default function Quran() {
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
           </h3>
           <button 
-            onClick={generateAssignments}
+            onClick={openDistributeModal}
             disabled={generating}
             className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
           >
@@ -248,7 +294,7 @@ export default function Quran() {
               {isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`}
             </p>
             <button 
-              onClick={generateAssignments}
+              onClick={openDistributeModal}
               disabled={generating}
               className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
             >
@@ -256,72 +302,184 @@ export default function Quran() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-4">
-            {assignments.map((assignment) => {
-              const isMe = assignment.user_id === user?.id;
-              
-              return (
-                <div 
-                  key={assignment.id} 
-                  className={`relative p-5 rounded-xl border transition-all ${
-                    assignment.is_completed 
-                      ? 'bg-emerald-50 border-emerald-200' 
-                      : isMe 
-                        ? 'bg-white border-emerald-500 shadow-md ring-1 ring-emerald-100' 
-                        : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-gray-800">
-                          {assignment.profiles.full_name || assignment.profiles.email}
-                        </span>
-                        {isMe && (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-                            Du
-                          </span>
-                        )}
+          <>
+            <div className="grid gap-4">
+              {sortedAssignments.map((assignment, index) => {
+                const isMe = assignment.user_id === user?.id;
+                const pageCount = assignment.end_page - assignment.start_page + 1;
+                const colorClass = SEGMENT_COLORS[index % SEGMENT_COLORS.length];
+                
+                return (
+                  <div 
+                    key={assignment.id} 
+                    className={`relative p-5 rounded-xl border transition-all ${
+                      assignment.is_completed 
+                        ? 'bg-emerald-50 border-emerald-200' 
+                        : isMe 
+                          ? 'bg-white border-emerald-500 shadow-md ring-1 ring-emerald-100' 
+                          : 'bg-white border-gray-200'
+                    }`}
+                  >
+                    <div className="flex gap-3 items-start">
+                      {/* Verschieben: Nach oben / Nach unten */}
+                      <div className="flex flex-col gap-0.5 shrink-0 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => swapWithNeighbor(index, 'up')}
+                          disabled={index === 0 || swapping !== null}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                          title="Nach oben (tauscht mit Person darüber)"
+                        >
+                          <ChevronUp size={20} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => swapWithNeighbor(index, 'down')}
+                          disabled={index === sortedAssignments.length - 1 || swapping !== null}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                          title="Nach unten (tauscht mit Person darunter)"
+                        >
+                          <ChevronDown size={20} />
+                        </button>
                       </div>
-                      <div className="text-lg text-gray-600">
-                        Seite <span className="font-bold text-gray-900">{assignment.start_page}</span> bis <span className="font-bold text-gray-900">{assignment.end_page}</span>
-                      </div>
-                    </div>
 
-                    {isMe ? (
-                      <button
-                        onClick={() => toggleCompletion(assignment.id, assignment.is_completed)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
-                          assignment.is_completed
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {assignment.is_completed ? (
-                          <>
-                            <CheckCircle size={20} /> Erledigt
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-5 h-5 rounded-full border-2 border-gray-400"></div>
-                            Offen
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        assignment.is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {assignment.is_completed ? 'Fertig' : 'Offen'}
+                      {/* Farbige Box für diese Person (Seitenbereich) */}
+                      <div className="shrink-0 w-24 flex flex-col justify-center">
+                        <div className={`h-10 rounded-lg ${colorClass} flex items-center justify-center text-white text-sm font-bold shadow-inner`}>
+                          {pageCount} S.
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 text-center">
+                          {assignment.start_page}–{assignment.end_page}
+                        </p>
                       </div>
-                    )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-gray-800">
+                                {assignment.profiles.full_name || assignment.profiles.email}
+                              </span>
+                              {isMe && (
+                                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                  Du
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-600">
+                              Seite <span className="font-bold text-gray-900">{assignment.start_page}</span> bis <span className="font-bold text-gray-900">{assignment.end_page}</span>
+                            </div>
+                          </div>
+
+                          {isMe ? (
+                            <button
+                              onClick={() => toggleCompletion(assignment.id, assignment.is_completed)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shrink-0 ${
+                                assignment.is_completed
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              }`}
+                            >
+                              {assignment.is_completed ? (
+                                <>
+                                  <CheckCircle size={20} /> Erledigt
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-5 h-5 rounded-full border-2 border-gray-400" />
+                                  Offen
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <div className={`px-3 py-1 rounded-full text-sm font-medium shrink-0 ${
+                              assignment.is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {assignment.is_completed ? 'Fertig' : 'Offen'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {swapping === assignment.id && (
+                        <div className="absolute inset-0 bg-white/80 rounded-xl flex items-center justify-center">
+                          <Loader2 size={24} className="animate-spin text-emerald-600" />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
+
+      {/* Modal: Seitenanzahl pro Person beim Neuverteilen */}
+      {showDistributeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800">
+                Wer wie viele Seiten? (Juz {selectedRamadanDay})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowDistributeModal(false)}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="px-6 pt-2 text-sm text-gray-500">
+              Gesamt: {totalPagesForJuz} Seiten. Die Summe pro Person muss genau {totalPagesForJuz} ergeben.
+            </p>
+            <div className="p-6 overflow-y-auto space-y-3">
+              {users.map((u, idx) => (
+                <div key={u.id} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0">
+                    {(u.full_name || u.email || '?')[0].toUpperCase()}
+                  </div>
+                  <span className="flex-1 text-gray-800 truncate">{u.full_name || u.email}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={totalPagesForJuz}
+                      value={pagesPerUser[idx] ?? 0}
+                      onChange={(e) => setPageCountForUser(idx, e.target.valueAsNumber || 0)}
+                      className="w-16 px-2 py-1.5 text-center border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                    <span className="text-gray-500 text-sm">Seiten</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-col gap-3">
+              <p className={`text-sm font-medium ${distributeValid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                Summe: {distributeSum} {distributeValid ? '✓' : `(noch ${totalPagesForJuz - distributeSum})`}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDistributeModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={doGenerateAssignments}
+                  disabled={!distributeValid}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  Plan generieren
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
