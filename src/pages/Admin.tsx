@@ -398,7 +398,7 @@ export default function Admin() {
       setMessage('Zuerst Audio aufnehmen oder auswählen.');
       return;
     }
-    const html = `<div class="popup-audio" data-src="${url}"><button type="button">▶ Abspielen</button></div>`;
+    const html = `<div class="popup-audio" data-popup-audio data-src="${url}"><button type="button">▶ Abspielen</button></div>`;
     insertAtCursor(html);
   };
 
