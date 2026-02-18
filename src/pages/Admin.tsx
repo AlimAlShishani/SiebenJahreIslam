@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle, Bold, Volume2 } from 'lucide-react';
+import { Save, Edit2, Trash2, X, Music, Plus, CheckCircle, Circle, Bold } from 'lucide-react';
 import { AudioInput } from '../components/AudioInput';
 
 interface Option {
