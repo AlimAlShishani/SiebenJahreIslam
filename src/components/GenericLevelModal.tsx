@@ -32,9 +32,9 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden relative flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden relative flex flex-col max-h-[90vh]">
         
-        <div className="bg-emerald-600 p-6 text-white text-center relative shrink-0">
+        <div className="bg-emerald-600 dark:bg-emerald-800 p-6 text-white text-center relative shrink-0">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 text-emerald-100 hover:text-white hover:bg-emerald-500/50 rounded-full p-1 transition-colors"
@@ -46,23 +46,23 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
           <p className="text-emerald-100 mt-1">{description}</p>
         </div>
 
-        <div className="p-8 overflow-y-auto grow space-y-4">
+        <div className="p-8 overflow-y-auto grow space-y-4 text-gray-900 dark:text-gray-100">
           {useDbContent ? (
             <div 
-              className="prose prose-emerald max-w-none"
+              className="prose prose-emerald dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: levelFromDb!.modal_content! }}
             />
           ) : (
             fallback?.modalContent
           )}
           {audioUrls.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
               {audioUrls.map((url, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => new Audio(url).play()}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-800 font-medium hover:bg-emerald-200 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/70 transition-colors"
                 >
                   <Volume2 size={18} /> Audio {audioUrls.length > 1 ? i + 1 : ''} abspielen
                 </button>
@@ -71,7 +71,7 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
           )}
         </div>
 
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
+        <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex justify-end shrink-0">
           <button 
             onClick={onStart}
             className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-lg transform active:scale-95"

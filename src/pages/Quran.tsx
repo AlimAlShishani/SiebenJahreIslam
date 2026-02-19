@@ -211,9 +211,14 @@ export default function Quran() {
       });
       if (error) throw error;
       await fetchData();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Swap failed:', err);
-      alert('Verschieben fehlgeschlagen.');
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : '';
+      alert(
+        msg.includes('function') || msg.includes('exist') || msg.includes('permission')
+          ? 'Verschieben fehlgeschlagen. Bitte in Supabase das SQL-Skript „08_swap_reading_assignments.sql“ ausführen (und ggf. erneut ausführen).'
+          : 'Verschieben fehlgeschlagen.'
+      );
     } finally {
       setSwapping(null);
     }
@@ -226,7 +231,7 @@ export default function Quran() {
   return (
     <div className="space-y-8 pb-20">
       {/* Header */}
-      <div className="bg-emerald-600 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden">
+      <div className="bg-emerald-600 dark:bg-emerald-800 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-3 mb-2 opacity-90">
             <Calendar size={20} />
@@ -234,7 +239,7 @@ export default function Quran() {
             <select
               value={selectedRamadanDay}
               onChange={(e) => setSelectedRamadanDay(Number(e.target.value))}
-              className="bg-white text-emerald-800 font-bold border-2 border-white rounded-lg px-4 py-2 min-w-[4rem] shadow-md focus:ring-2 focus:ring-emerald-300 focus:outline-none cursor-pointer appearance-auto"
+              className="bg-white dark:bg-gray-700 text-emerald-800 dark:text-emerald-200 font-bold border-2 border-white dark:border-gray-600 rounded-lg px-4 py-2 min-w-[4rem] shadow-md focus:ring-2 focus:ring-emerald-300 focus:outline-none cursor-pointer appearance-auto"
               title="Tag auswählen"
             >
               {[...Array(30)].map((_, i) => (
@@ -256,17 +261,17 @@ export default function Quran() {
       </div>
 
       {/* Active Group */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <Users size={20} className="text-emerald-600" /> Aktive Gruppe
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+          <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> Aktive Gruppe
         </h3>
         <div className="flex flex-wrap gap-2">
           {users.map((u) => (
-            <div key={u.id} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
-              <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center text-xs font-bold text-emerald-700">
+            <div key={u.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600">
+              <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-xs font-bold text-emerald-700 dark:text-emerald-300">
                 {(u.full_name || u.email || '?')[0].toUpperCase()}
               </div>
-              <span className="text-sm text-gray-600">{u.full_name || u.email}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">{u.full_name || u.email}</span>
             </div>
           ))}
         </div>
@@ -275,13 +280,13 @@ export default function Quran() {
       {/* Assignments List */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-800">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
           </h3>
           <button 
             onClick={openDistributeModal}
             disabled={generating}
-            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+            className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
           >
             {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
             {assignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
@@ -289,8 +294,8 @@ export default function Quran() {
         </div>
 
         {assignments.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-            <p className="text-gray-500 mb-4">
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-600">
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
               {isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`}
             </p>
             <button 
@@ -314,10 +319,10 @@ export default function Quran() {
                     key={assignment.id} 
                     className={`relative p-5 rounded-xl border transition-all ${
                       assignment.is_completed 
-                        ? 'bg-emerald-50 border-emerald-200' 
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' 
                         : isMe 
-                          ? 'bg-white border-emerald-500 shadow-md ring-1 ring-emerald-100' 
-                          : 'bg-white border-gray-200'
+                          ? 'bg-white dark:bg-gray-800 border-emerald-500 dark:border-emerald-600 shadow-md ring-1 ring-emerald-100 dark:ring-emerald-900/50' 
+                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                     }`}
                   >
                     <div className="flex gap-3 items-start">
@@ -327,7 +332,7 @@ export default function Quran() {
                           type="button"
                           onClick={() => swapWithNeighbor(index, 'up')}
                           disabled={index === 0 || swapping !== null}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                           title="Nach oben (tauscht mit Person darüber)"
                         >
                           <ChevronUp size={20} />
@@ -336,7 +341,7 @@ export default function Quran() {
                           type="button"
                           onClick={() => swapWithNeighbor(index, 'down')}
                           disabled={index === sortedAssignments.length - 1 || swapping !== null}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                           title="Nach unten (tauscht mit Person darunter)"
                         >
                           <ChevronDown size={20} />
@@ -348,7 +353,7 @@ export default function Quran() {
                         <div className={`h-10 rounded-lg ${colorClass} flex items-center justify-center text-white text-sm font-bold shadow-inner`}>
                           {pageCount} S.
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
                           {assignment.start_page}–{assignment.end_page}
                         </p>
                       </div>
@@ -357,17 +362,17 @@ export default function Quran() {
                         <div className="flex justify-between items-start gap-2">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="font-bold text-gray-800">
+                              <span className="font-bold text-gray-800 dark:text-gray-100">
                                 {assignment.profiles.full_name || assignment.profiles.email}
                               </span>
                               {isMe && (
-                                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
                                   Du
                                 </span>
                               )}
                             </div>
-                            <div className="text-gray-600">
-                              Seite <span className="font-bold text-gray-900">{assignment.start_page}</span> bis <span className="font-bold text-gray-900">{assignment.end_page}</span>
+                            <div className="text-gray-600 dark:text-gray-300">
+                              Seite <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> bis <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
                             </div>
                           </div>
 
@@ -377,7 +382,7 @@ export default function Quran() {
                               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shrink-0 ${
                                 assignment.is_completed
                                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                               }`}
                             >
                               {assignment.is_completed ? (
@@ -386,14 +391,14 @@ export default function Quran() {
                                 </>
                               ) : (
                                 <>
-                                  <div className="w-5 h-5 rounded-full border-2 border-gray-400" />
+                                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500" />
                                   Offen
                                 </>
                               )}
                             </button>
                           ) : (
                             <div className={`px-3 py-1 rounded-full text-sm font-medium shrink-0 ${
-                              assignment.is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              assignment.is_completed ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                             }`}>
                               {assignment.is_completed ? 'Fertig' : 'Offen'}
                             </div>
@@ -402,7 +407,7 @@ export default function Quran() {
                       </div>
 
                       {swapping === assignment.id && (
-                        <div className="absolute inset-0 bg-white/80 rounded-xl flex items-center justify-center">
+                        <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-xl flex items-center justify-center">
                           <Loader2 size={24} className="animate-spin text-emerald-600" />
                         </div>
                       )}
@@ -418,29 +423,29 @@ export default function Quran() {
       {/* Modal: Seitenanzahl pro Person beim Neuverteilen */}
       {showDistributeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-800">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
                 Wer wie viele Seiten? (Juz {selectedRamadanDay})
               </h3>
               <button
                 type="button"
                 onClick={() => setShowDistributeModal(false)}
-                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
               >
                 <X size={20} />
               </button>
             </div>
-            <p className="px-6 pt-2 text-sm text-gray-500">
+            <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
               Gesamt: {totalPagesForJuz} Seiten. Die Summe pro Person muss genau {totalPagesForJuz} ergeben.
             </p>
             <div className="p-6 overflow-y-auto space-y-3">
               {users.map((u, idx) => (
                 <div key={u.id} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-sm font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                     {(u.full_name || u.email || '?')[0].toUpperCase()}
                   </div>
-                  <span className="flex-1 text-gray-800 truncate">{u.full_name || u.email}</span>
+                  <span className="flex-1 text-gray-800 dark:text-gray-200 truncate">{u.full_name || u.email}</span>
                   <div className="flex items-center gap-1 shrink-0">
                     <input
                       type="number"
@@ -448,22 +453,22 @@ export default function Quran() {
                       max={totalPagesForJuz}
                       value={pagesPerUser[idx] ?? 0}
                       onChange={(e) => setPageCountForUser(idx, e.target.valueAsNumber || 0)}
-                      className="w-16 px-2 py-1.5 text-center border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-16 px-2 py-1.5 text-center border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
-                    <span className="text-gray-500 text-sm">Seiten</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">Seiten</span>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-col gap-3">
-              <p className={`text-sm font-medium ${distributeValid ? 'text-emerald-600' : 'text-amber-600'}`}>
+            <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3">
+              <p className={`text-sm font-medium ${distributeValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                 Summe: {distributeSum} {distributeValid ? '✓' : `(noch ${totalPagesForJuz - distributeSum})`}
               </p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setShowDistributeModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50"
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Abbrechen
                 </button>

@@ -396,19 +396,19 @@ export default function Admin() {
         <div className="flex gap-4">
           <button 
             onClick={() => { setActiveTab('manage'); setEditingItem(null); }}
-            className={`pb-2 px-4 ${activeTab === 'manage' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-gray-500'}`}
+            className={`pb-2 px-4 ${activeTab === 'manage' ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
           >
             Inhalte verwalten
           </button>
           <button 
             onClick={() => { setActiveTab('create'); resetForm(); }}
-            className={`pb-2 px-4 ${activeTab === 'create' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-gray-500'}`}
+            className={`pb-2 px-4 ${activeTab === 'create' ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
           >
             {editingItem ? 'Bearbeiten' : 'Neu erstellen'}
           </button>
           <button 
             onClick={() => setActiveTab('popups')}
-            className={`pb-2 px-4 ${activeTab === 'popups' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-gray-500'}`}
+            className={`pb-2 px-4 ${activeTab === 'popups' ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
           >
             Stufen-Popups
           </button>
@@ -450,7 +450,7 @@ export default function Admin() {
 
       {/* CREATE / EDIT FORM */}
       {activeTab === 'create' && (
-        <form onSubmit={handleSave} className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100 space-y-8">
+        <form onSubmit={handleSave} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-emerald-100 dark:border-gray-600 space-y-8">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{editingItem ? 'Eintrag bearbeiten' : 'Neuen Eintrag erstellen'}</h3>
             {editingItem && (
@@ -577,7 +577,7 @@ export default function Admin() {
 
       {/* POPUPS TAB */}
       {activeTab === 'popups' && (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100 space-y-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-emerald-100 dark:border-gray-600 space-y-6">
           <h3 className="text-lg font-semibold">Stufen-Popups bearbeiten</h3>
           <p className="text-sm text-gray-600">Hier kannst du den Einführungstext (Popup) pro Stufe anpassen. Wenn leer, wird der Standard aus der App verwendet. HTML ist erlaubt (z. B. &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt;).</p>
           <div>
@@ -730,7 +730,7 @@ export default function Admin() {
         <div className="space-y-4">
           {loading ? <p>Laden...</p> : items.length === 0 ? <p className="text-gray-500">Keine Einträge in dieser Stufe.</p> : (
             items.map(item => (
-              <div key={item.id} className="bg-white p-4 rounded-lg border border-gray-200 flex justify-between items-center hover:border-emerald-300 transition-colors">
+              <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors">
                 <div className="flex items-center gap-4">
                   <span className="font-quran text-3xl w-16 text-center" dir="rtl">{item.content}</span>
                   <div>

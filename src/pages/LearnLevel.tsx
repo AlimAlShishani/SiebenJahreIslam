@@ -219,7 +219,7 @@ export default function LearnLevel() {
     if (error) console.error('Error saving progress:', error);
   };
 
-  if (loading) return <div className="p-8 text-center">Laden...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Laden...</div>;
   if (allItems.length === 0) return (
     <div className="p-8 text-center">
       <p>Keine Inhalte für diese Stufe gefunden.</p>
@@ -234,8 +234,8 @@ export default function LearnLevel() {
         <div className="bg-red-100 p-6 rounded-full mb-6">
           <X size={64} className="text-red-500" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Keine Leben mehr!</h2>
-        <p className="text-gray-500 mb-8 max-w-md">
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Keine Leben mehr!</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
           Du hast leider 3 Fehler gemacht. Versuche es noch einmal, um die Stufe zu meistern.
         </p>
         <div className="flex gap-4">
@@ -263,8 +263,8 @@ export default function LearnLevel() {
         <div className="bg-yellow-100 p-6 rounded-full mb-6">
           <Trophy size={64} className="text-yellow-600" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Mashallah!</h2>
-        <p className="text-gray-500 mb-8 max-w-md">
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Mashallah!</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
           Du hast die Stufe erfolgreich abgeschlossen und {lives} Leben behalten.
         </p>
         <button 
@@ -299,7 +299,7 @@ export default function LearnLevel() {
           </button>
         </div>
         
-        <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-red-100">
+        <div className="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-red-100 dark:border-gray-600">
           {[...Array(3)].map((_, i) => (
             <Heart 
               key={i} 
@@ -310,9 +310,9 @@ export default function LearnLevel() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-emerald-100 min-h-[500px] flex flex-col relative">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-emerald-100 dark:border-gray-600 min-h-[500px] flex flex-col relative">
         {/* Progress Bar */}
-        <div className="w-full bg-gray-100 h-2">
+        <div className="w-full bg-gray-100 dark:bg-gray-700 h-2">
           <div 
             className="bg-emerald-500 h-2 transition-all duration-500" 
             style={{ width: `${((allItems.length - queue.length) / allItems.length) * 100}%` }}
@@ -323,7 +323,7 @@ export default function LearnLevel() {
           <span className="text-sm text-gray-400 mb-4">Frage {allItems.length - queue.length + 1} von {allItems.length}</span>
           
           <div className="mb-8 w-full flex flex-col items-center animate-fade-in" key={currentItem.id}>
-            <h1 className="text-8xl font-bold text-emerald-900 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
+            <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
             
             <div className="flex flex-wrap gap-3 justify-center mb-6">
               {currentItem.audio_url && (
@@ -404,7 +404,7 @@ export default function LearnLevel() {
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-gray-50 p-6 border-t border-gray-100 flex justify-between items-center h-24">
+        <div className="bg-gray-50 dark:bg-gray-900/50 p-6 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center h-24">
            {isCorrect === true && (
              <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in">
                <Check size={24} /> Richtig!

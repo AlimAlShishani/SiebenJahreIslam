@@ -25,3 +25,7 @@ $$;
 
 comment on function public.swap_daily_reading_assignments(uuid, uuid) is
   'Tauscht die zugewiesene Person (user_id) zwischen zwei daily_reading_status Einträgen.';
+
+-- Damit die App (authentifizierte Nutzer) die Funktion aufrufen kann:
+grant execute on function public.swap_daily_reading_assignments(uuid, uuid) to authenticated;
+grant execute on function public.swap_daily_reading_assignments(uuid, uuid) to service_role;
