@@ -128,29 +128,32 @@ export default function Learn() {
       )}
 
       {/* Buchstaben-Übersicht – immer sichtbar, kein Stufen-Lock */}
-        <div
-          onClick={() => navigate('/learn/alphabet')}
-          className="block group cursor-pointer"
-        >
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-emerald-100 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all hover:shadow-md flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold px-2 py-1 rounded-full">
-                  Übersicht
-                </span>
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
-                  Buchstaben – Schreibweisen
-                </h3>
-              </div>
-              <p className="text-gray-500 dark:text-gray-400">
-                Alle Buchstaben: alleine, Anfang, Mitte, Ende
-              </p>
+      <div
+        onClick={() => navigate('/learn/alphabet')}
+        className="block group cursor-pointer"
+      >
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-emerald-100 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all hover:shadow-md flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold px-2 py-1 rounded-full">
+                Übersicht
+              </span>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
+                Buchstaben – Schreibweisen
+              </h3>
             </div>
-            <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-full group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 transition-colors">
-              <Type size={24} className="text-emerald-600 dark:text-emerald-400" />
-            </div>
+            <p className="text-gray-500 dark:text-gray-400">
+              Alle Buchstaben: alleine, Anfang, Mitte, Ende
+            </p>
+          </div>
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-full group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 transition-colors">
+            <Type size={24} className="text-emerald-600 dark:text-emerald-400" />
           </div>
         </div>
+      </div>
+
+      {/* Trennlinie zwischen Übersicht und Stufen */}
+      <div className="h-px w-full bg-gray-200 dark:bg-gray-700 my-4" />
 
       <div className="grid grid-cols-1 gap-6">
         {levels.map((level, index) => {
