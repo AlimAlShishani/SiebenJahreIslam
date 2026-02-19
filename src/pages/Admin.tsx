@@ -424,11 +424,11 @@ export default function Admin() {
 
       {/* Level Selector */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Aktuelle Stufe</label>
-        <select 
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Aktuelle Stufe</label>
+          <select
           value={level} 
           onChange={(e) => setLevel(parseInt(e.target.value))}
-          className="w-full md:w-1/3 px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
         >
           {levels.length > 0 ? (
             levels.map((l) => (
@@ -443,7 +443,7 @@ export default function Admin() {
       </div>
 
       {message && (
-        <div className={`p-4 mb-6 rounded-lg ${message.includes('Fehler') ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+        <div className={`p-4 mb-6 rounded-lg ${message.includes('Fehler') ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'}`}>
           {message}
         </div>
       )}
@@ -452,7 +452,7 @@ export default function Admin() {
       {activeTab === 'create' && (
         <form onSubmit={handleSave} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-emerald-100 dark:border-gray-600 space-y-8">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">{editingItem ? 'Eintrag bearbeiten' : 'Neuen Eintrag erstellen'}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{editingItem ? 'Eintrag bearbeiten' : 'Neuen Eintrag erstellen'}</h3>
             {editingItem && (
               <button type="button" onClick={() => { setEditingItem(null); resetForm(); setActiveTab('manage'); }} className="text-gray-400 hover:text-red-500">
                 <X size={20} />
@@ -462,15 +462,15 @@ export default function Admin() {
 
           {/* Question Content */}
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900 border-b pb-2">Frage / Hauptinhalt</h4>
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">Frage / Hauptinhalt</h4>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Inhalt (Arabisch)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Inhalt (Arabisch)</label>
               <input
                 type="text"
                 required
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500 font-quran text-right text-3xl"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 font-quran text-right text-3xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="z.B. ا"
                 dir="rtl"
               />
@@ -509,7 +509,7 @@ export default function Admin() {
           {/* Answer Options */}
           <div className="space-y-4">
             <div className="flex justify-between items-center border-b pb-2">
-              <h4 className="font-medium text-gray-900">Antwortmöglichkeiten</h4>
+              <h4 className="font-medium text-gray-900 dark:text-gray-100">Antwortmöglichkeiten</h4>
               <button type="button" onClick={addOption} className="text-sm text-emerald-600 flex items-center gap-1 hover:underline">
                 <Plus size={16} /> Option hinzufügen
               </button>
@@ -517,7 +517,7 @@ export default function Admin() {
             
             <div className="space-y-4">
               {options.map((opt, index) => (
-                <div key={opt.id} className={`p-4 rounded-lg border ${opt.is_correct ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+                <div key={opt.id} className={`p-4 rounded-lg border ${opt.is_correct ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}`}>
                   <div className="flex items-start gap-4">
                     <button 
                       type="button" 
@@ -530,13 +530,13 @@ export default function Admin() {
                     
                     <div className="flex-grow space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Antwort Text</label>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Antwort Text</label>
                         <input
                           type="text"
                           required
                           value={opt.text}
                           onChange={(e) => handleOptionChange(opt.id, 'text', e.target.value)}
-                          className="w-full px-3 py-2 border rounded focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                           placeholder={`Option ${index + 1}`}
                         />
                       </div>
@@ -578,14 +578,14 @@ export default function Admin() {
       {/* POPUPS TAB */}
       {activeTab === 'popups' && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-emerald-100 dark:border-gray-600 space-y-6">
-          <h3 className="text-lg font-semibold">Stufen-Popups bearbeiten</h3>
-          <p className="text-sm text-gray-600">Hier kannst du den Einführungstext (Popup) pro Stufe anpassen. Wenn leer, wird der Standard aus der App verwendet. HTML ist erlaubt (z. B. &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt;).</p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Stufen-Popups bearbeiten</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Hier kannst du den Einführungstext (Popup) pro Stufe anpassen. Wenn leer, wird der Standard aus der App verwendet. HTML ist erlaubt (z. B. &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt;).</p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stufe wählen</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stufe wählen</label>
             <select
               value={popupLevel}
               onChange={(e) => setPopupLevel(parseInt(e.target.value))}
-              className="w-full md:w-1/3 px-4 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full md:w-1/3 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             >
               {levels.map((l) => (
                 <option key={l.id} value={l.level_number}>Stufe {l.level_number}: {l.title}</option>
@@ -593,10 +593,10 @@ export default function Admin() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Popup-Inhalt</label>
-            <p className="text-xs text-gray-500 mb-2">Text markieren und Formatierung anwenden. Audios für diese Stufe legst du unten unter „Stufen-Audios“ an – sie erscheinen unter dem Popup-Text.</p>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Popup-Inhalt</label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Text markieren und Formatierung anwenden. Audios für diese Stufe legst du unten unter „Stufen-Audios“ an – sie erscheinen unter dem Popup-Text.</p>
             {/* Toolbar: Fett, Größe, Farbe */}
-            <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-50 rounded-t-lg border border-b-0 border-gray-200">
+            <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-t-lg border border-b-0 border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => wrapSelection('<strong>', '</strong>')}
@@ -606,7 +606,7 @@ export default function Admin() {
                 <Bold size={18} />
               </button>
               <select
-                className="text-sm border rounded px-2 py-1"
+                className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100"
                 defaultValue=""
                 onChange={(e) => {
                   const v = e.target.value;
@@ -621,7 +621,7 @@ export default function Admin() {
                 <option value="small">Kleiner</option>
               </select>
               <select
-                className="text-sm border rounded px-2 py-1"
+                className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100"
                 defaultValue=""
                 onChange={(e) => {
                   const v = e.target.value;
@@ -645,15 +645,15 @@ export default function Admin() {
               value={modalContent}
               onChange={(e) => setModalContent(e.target.value)}
               rows={12}
-              className="w-full px-4 py-2 border rounded-b-lg focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-b-lg focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
               placeholder="<p>In diesem Kapitel lernst du...</p><ul><li>...</li></ul>"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Stufen-Audios (unter dem Popup-Text)</label>
-            <p className="text-xs text-gray-500 mb-2">Diese Audios erscheinen im Popup unter dem Text als Abspielen-Buttons – wie bei den Frage- und Antwort-Audios.</p>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stufen-Audios (unter dem Popup-Text)</label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Diese Audios erscheinen im Popup unter dem Text als Abspielen-Buttons – wie bei den Frage- und Antwort-Audios.</p>
             {modalAudioList.map((item, idx) => (
-              <div key={idx} className="flex items-start gap-2 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div key={idx} className="flex items-start gap-2 mb-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div className="flex-1 min-w-0">
                   <AudioInput
                     label={modalAudioList.length > 1 ? `Audio ${idx + 1}` : 'Stufen-Audio'}
@@ -728,21 +728,21 @@ export default function Admin() {
       {/* MANAGE LIST */}
       {activeTab === 'manage' && (
         <div className="space-y-4">
-          {loading ? <p>Laden...</p> : items.length === 0 ? <p className="text-gray-500">Keine Einträge in dieser Stufe.</p> : (
+          {loading ? <p className="text-gray-600 dark:text-gray-400">Laden...</p> : items.length === 0 ? <p className="text-gray-500 dark:text-gray-400">Keine Einträge in dieser Stufe.</p> : (
             items.map(item => (
               <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 flex justify-between items-center hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors">
                 <div className="flex items-center gap-4">
                   <span className="font-quran text-3xl w-16 text-center" dir="rtl">{item.content}</span>
                   <div>
-                    <p className="font-semibold">{item.transliteration}</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">{item.transliteration}</p>
                     <div className="flex gap-2 mt-1">
                       {item.audio_url && (
-                        <span className="text-xs text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded">
+                        <span className="text-xs text-emerald-600 dark:text-emerald-300 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/40 px-2 py-0.5 rounded">
                           <Music size={10} /> Frage-Audio
                         </span>
                       )}
                       {item.options && item.options.length > 0 && (
-                         <span className="text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded">
+                         <span className="text-xs text-blue-600 dark:text-blue-300 flex items-center gap-1 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded">
                            {item.options.length} Optionen
                          </span>
                       )}

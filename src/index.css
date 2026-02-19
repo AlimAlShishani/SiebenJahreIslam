@@ -6,6 +6,16 @@
   html.dark {
     color-scheme: dark;
   }
+
+  .popup-goal {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  html.dark .popup-goal {
+    background: #022c22;
+    color: #ccfbf1;
+  }
 }
 
 @font-face {

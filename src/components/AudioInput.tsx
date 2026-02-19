@@ -365,9 +365,9 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
   };
 
   return (
-    <div className="border rounded-lg p-4 bg-gray-50" onClick={(e) => e.stopPropagation()}>
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800" onClick={(e) => e.stopPropagation()}>
       <div className="flex justify-between items-center mb-2">
-        <label className="block text-xs font-medium text-gray-500">{label}</label>
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
         {onSave && (
           <button 
             type="button" 
@@ -380,14 +380,14 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
       </div>
       
       {errorMsg && (
-        <div className="mb-3 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-200">
+        <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded border border-red-200 dark:border-red-800">
           {errorMsg}
         </div>
       )}
 
       {/* PREVIEW AREA */}
       {previewUrl ? (
-        <div className="flex items-center gap-2 mb-4 bg-white p-2 rounded border border-emerald-100 shadow-sm">
+        <div className="flex items-center gap-2 mb-4 bg-white dark:bg-gray-900 p-2 rounded border border-emerald-100 dark:border-emerald-900 shadow-sm">
           <button 
             type="button" 
             onClick={(e) => togglePlay(e)} 
@@ -411,7 +411,7 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-grow overflow-hidden mr-2 group">
-              <span className="text-xs text-gray-600 truncate font-mono" title={displayName}>
+              <span className="text-xs text-gray-600 dark:text-gray-300 truncate font-mono" title={displayName}>
                 {displayName || 'Audio'}
               </span>
               {displayName && (
@@ -427,31 +427,31 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
           </button>
         </div>
       ) : (
-        <div className="mb-4 text-xs text-gray-400 italic p-2 border border-dashed rounded text-center">
+        <div className="mb-4 text-xs text-gray-400 dark:text-gray-500 italic p-2 border border-dashed rounded text-center">
           Kein Audio ausgewählt
         </div>
       )}
 
       {/* TABS */}
-      <div className="flex gap-1 mb-3 bg-gray-200 p-1 rounded-lg">
+      <div className="flex gap-1 mb-3 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
         <button
           type="button"
           onClick={(e) => { e.preventDefault(); setMode('upload'); }}
-          className={`flex-1 flex items-center justify-center gap-1 py-1 text-xs rounded transition-all ${mode === 'upload' ? 'bg-white shadow text-emerald-700 font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
+          className={`flex-1 flex items-center justify-center gap-1 py-1 text-xs rounded transition-all ${mode === 'upload' ? 'bg-white dark:bg-gray-900 shadow text-emerald-700 dark:text-emerald-300 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
         >
           <Upload size={14} /> Upload
         </button>
         <button
           type="button"
           onClick={(e) => { e.preventDefault(); setMode('record'); }}
-          className={`flex-1 flex items-center justify-center gap-1 py-1 text-xs rounded transition-all ${mode === 'record' ? 'bg-white shadow text-emerald-700 font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
+          className={`flex-1 flex items-center justify-center gap-1 py-1 text-xs rounded transition-all ${mode === 'record' ? 'bg-white dark:bg-gray-900 shadow text-emerald-700 dark:text-emerald-300 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
         >
           <Mic size={14} /> Aufnahme
         </button>
         <button
           type="button"
           onClick={(e) => { e.preventDefault(); setMode('library'); }}
-          className={`flex-1 flex items-center justify-center gap-1 py-1 text-xs rounded transition-all ${mode === 'library' ? 'bg-white shadow text-emerald-700 font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
+          className={`flex-1 flex items-center justify-center gap-1 py-1 text-xs rounded transition-all ${mode === 'library' ? 'bg-white dark:bg-gray-900 shadow text-emerald-700 dark:text-emerald-300 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
         >
           <Library size={14} /> Bibliothek
         </button>
@@ -490,7 +490,7 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
                 <Square size={18} /> Stopp ({recordingTime}s)
               </button>
             )}
-            <p className="text-xs text-gray-400">Mikrofon wird benötigt</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Mikrofon wird benötigt</p>
           </div>
         )}
 
@@ -498,23 +498,23 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
         {mode === 'library' && (
           <div className="space-y-2">
             <div className="relative">
-              <Search size={14} className="absolute left-2 top-2 text-gray-400" />
+              <Search size={14} className="absolute left-2 top-2 text-gray-400 dark:text-gray-500" />
               <input 
                 type="text" 
                 placeholder="Suchen..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-2 py-1 text-xs border rounded bg-white focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full pl-8 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
-            <div className="h-48 overflow-y-auto border rounded bg-white p-1 space-y-1">
+            <div className="h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 p-1 space-y-1">
               {loadingLibrary ? (
                 <p className="text-center text-xs text-gray-400 py-4">Lade...</p>
               ) : (
                 libraryFiles
                   .filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map(file => (
-                  <div key={file.name} className="flex items-center justify-between p-1 hover:bg-gray-50 rounded group border-b border-gray-50 last:border-0">
+                  <div key={file.name} className="flex items-center justify-between p-1 hover:bg-gray-50 dark:hover:bg-gray-800 rounded group border-b border-gray-50 dark:border-gray-800 last:border-0">
                     
                     {/* File Name / Edit Mode */}
                     {editingFile === file.name ? (
@@ -532,7 +532,7 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 flex-grow overflow-hidden mr-2">
-                        <span className="text-xs truncate max-w-[120px]" title={file.name}>{file.name}</span>
+                        <span className="text-xs text-gray-800 dark:text-gray-200 truncate max-w-[120px]" title={file.name}>{file.name}</span>
                         <button type="button" onClick={(e) => startRename(file.name, e)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 p-1">
                           <Edit2 size={10} />
                         </button>
@@ -544,18 +544,18 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
                       <button 
                         type="button" 
                         onClick={(e) => togglePlay(e, file.url)} 
-                        className={`p-1 hover:bg-gray-100 rounded ${isPlaying && audioRef.current?.src === file.url ? 'text-emerald-600' : 'text-gray-400'}`} 
+                        className={`p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded ${isPlaying && audioRef.current?.src === file.url ? 'text-emerald-600 dark:text-emerald-300' : 'text-gray-400 dark:text-gray-500'}`} 
                         title="Abspielen"
                       >
                         {isPlaying && audioRef.current?.src === file.url ? <Pause size={12} /> : <Play size={12} />}
                       </button>
-                      <button type="button" onClick={(e) => deleteFromLibrary(file.name, e)} className="p-1 text-gray-400 hover:text-red-600" title="Löschen">
+                      <button type="button" onClick={(e) => deleteFromLibrary(file.name, e)} className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600" title="Löschen">
                         <Trash2 size={12} />
                       </button>
                       <button 
                         type="button" 
                         onClick={(e) => selectFromLibrary(file.url, file.name, e)} 
-                        className={`p-1 rounded ${previewUrl === file.url ? 'bg-emerald-500 text-white' : 'text-gray-400 hover:bg-emerald-100 hover:text-emerald-600'}`}
+                        className={`p-1 rounded ${previewUrl === file.url ? 'bg-emerald-500 text-white' : 'text-gray-400 dark:text-gray-500 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:text-emerald-600'}`}
                         title="Auswählen"
                       >
                         <Check size={12} />

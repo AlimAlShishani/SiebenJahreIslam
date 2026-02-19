@@ -10,7 +10,7 @@ UPDATE learning_levels SET modal_content = '
   <li>Unterschiede zwischen ähnlichen Buchstaben (z.B. س / ص, ت / ط)</li>
   <li>Welche Buchstaben „weich“ und welche „stark“ klingen</li>
 </ul>
-<div style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
+<div class="popup-goal" style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
   <p style="font-weight:bold;color:#065f46;">Ziel:</p>
   <p>Du kannst jeden Buchstaben klar und korrekt aussprechen.</p>
 </div>
@@ -24,7 +24,7 @@ UPDATE learning_levels SET modal_content = '
   <li><strong>Damma</strong> (ُ) – kurzes „u“, Kringel über dem Buchstaben</li>
   <li>Wie man Buchstaben flüssig mit diesen Vokalen verbindet</li>
 </ul>
-<div style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
+<div class="popup-goal" style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
   <p style="font-weight:bold;color:#065f46;">Ziel:</p>
   <p>Du kannst kurze Vokale sicher und flüssig lesen.</p>
 </div>
@@ -38,7 +38,7 @@ UPDATE learning_levels SET modal_content = '
   <li>Typische Fehler vermeiden (z.B. „min“ nicht als „mina“ lesen)</li>
 </ul>
 <p>In der nächsten Stufe lernst du außerdem den Buchstaben <strong>ة</strong> (Tāʾ marbūṭa) und die Endungen -un/-an/-in kennen.</p>
-<div style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
+<div class="popup-goal" style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
   <p style="font-weight:bold;color:#065f46;">Ziel:</p>
   <p>Du liest stille Buchstaben sauber und korrekt.</p>
 </div>
@@ -78,7 +78,7 @@ UPDATE learning_levels SET modal_content = '
   <li>Grund-Dehnung: meist etwa <strong>2 Harakāt</strong> (2 Zählzeiten)</li>
   <li>Häufige Fehler vermeiden: weder zu kurz noch übertrieben lang lesen</li>
 </ul>
-<div style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
+<div class="popup-goal" style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
   <p style="font-weight:bold;color:#065f46;">Ziel:</p>
   <p>Du liest Dehnungen stabil und richtig.</p>
 </div>
@@ -93,7 +93,7 @@ UPDATE learning_levels SET modal_content = '
   <li><strong>Ikhfa</strong>: N vor anderen Buchstaben wird nasal/gedämpft ausgesprochen.</li>
 </ul>
 <p>Bei jeder Frage kannst du optional ein Regel-Audio abspielen (falls vom Admin hinterlegt).</p>
-<div style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
+<div class="popup-goal" style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
   <p style="font-weight:bold;color:#065f46;">Ziel:</p>
   <p>Du erkennst die N-Regeln und liest sie korrekt.</p>
 </div>
@@ -106,7 +106,7 @@ UPDATE learning_levels SET modal_content = '
   <li><strong>Vor م</strong> wird das Mīm <strong>verschmolzen</strong> ausgesprochen, also wie ein langes „mm“ mit <strong>Ghunnah</strong> (Nasalton) für ca. <strong>2 Harakāt</strong> – das nennt man <strong>Idghām Shafawī / Idghām Mithlayn</strong>. Beispiel: <strong>لَهُمْ مَّغْفِرَةٌ</strong>.</li>
   <li><strong>Vor ب</strong> wird das Mīm <strong>verdeckt</strong> ausgesprochen, ebenfalls mit <strong>Ghunnah</strong> für ca. <strong>2 Harakāt</strong>, während die Lippen schon für das ب vorbereitet bleiben – das nennt man <strong>Ikhfāʾ Shafawī</strong>. Beispiel: <strong>هُمْ بِهِ</strong>.</li>
 </ul>
-<div style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
+<div class="popup-goal" style="background:#ecfdf5;padding:1rem;border-radius:0.5rem;margin-top:1rem;">
   <p style="font-weight:bold;color:#065f46;">Ziel:</p>
   <p>Du erkennst Mīm-Sākinah-Stellen sicher und liest sie mit der passenden Regel.</p>
 </div>

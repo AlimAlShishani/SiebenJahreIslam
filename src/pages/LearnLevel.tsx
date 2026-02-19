@@ -368,14 +368,14 @@ export default function LearnLevel() {
                 
                 if (selectedOptionId) {
                     if (option.is_correct) {
-                        btnClass += "bg-emerald-100 border-emerald-500 text-emerald-800"; 
+                        btnClass += "bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 text-emerald-800 dark:text-emerald-200"; 
                     } else if (option.id === selectedOptionId && !isCorrect) {
-                        btnClass += "bg-red-100 border-red-500 text-red-800"; 
+                        btnClass += "bg-red-100 dark:bg-red-900/40 border-red-500 text-red-800 dark:text-red-200"; 
                     } else {
-                        btnClass += "bg-gray-50 border-gray-100 text-gray-400 opacity-50"; 
+                        btnClass += "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 text-gray-400 dark:text-gray-500 opacity-50"; 
                     }
                 } else {
-                    btnClass += "bg-white border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 text-gray-700 shadow-sm";
+                    btnClass += "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 shadow-sm";
                 }
 
                 return (
@@ -390,7 +390,7 @@ export default function LearnLevel() {
                     {option.audio_url && (
                       <div 
                         onClick={(e) => playAudio(option.audio_url!, e)}
-                        className="ml-2 p-2 rounded-full bg-white/50 hover:bg-white text-emerald-600 cursor-pointer z-10"
+                        className="ml-2 p-2 rounded-full bg-white/50 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-800 text-emerald-600 cursor-pointer z-10"
                         title="Antwort anhören"
                       >
                         <Volume2 size={16} />
