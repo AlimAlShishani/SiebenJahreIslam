@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X } from 'lucide-react';
 
 interface DailyAssignment {
   id: string;
@@ -21,11 +21,13 @@ export default function Quran() {
   const { user } = useAuth();
   const [assignments, setAssignments] = useState<DailyAssignment[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [distributionUsers, setDistributionUsers] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [swapping, setSwapping] = useState<string | null>(null);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   // Farben für die Seiten-Boxen (eine pro Person)
   const SEGMENT_COLORS = [
@@ -72,8 +74,13 @@ export default function Quran() {
       // 1. Fetch Active Users
       const { data: usersData } = await supabase
         .from('profiles')
-        .select('id, email, full_name');
-      setUsers(usersData || []);
+        .select('id, email, full_name, role');
+      const allUsers = usersData || [];
+      setUsers(allUsers);
+
+      // Admin erkennen (role = 'admin')
+      const me = allUsers.find((u: any) => u.id === user?.id);
+      setIsAdmin(me?.role === 'admin');
 
       // 2. Fetch Assignments for selected day
       const { data: assignmentsData, error } = await supabase
@@ -106,23 +113,47 @@ export default function Quran() {
     }
   };
 
-  const getDefaultPagesPerUser = (): number[] => {
+  const getDefaultPagesPerUser = (count: number): number[] => {
     const { length: totalPages } = getJuzPageInfo(selectedRamadanDay);
-    const base = Math.floor(totalPages / users.length);
-    const remainder = totalPages % users.length;
-    return users.map((_, i) => base + (i < remainder ? 1 : 0));
+    if (count === 0) return [];
+    const base = Math.floor(totalPages / count);
+    const remainder = totalPages % count;
+    return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
   };
 
   const openDistributeModal = () => {
+    if (!isAdmin) return;
     if (users.length === 0) return;
-    if (assignments.length > 0 && !window.confirm(`Es existiert bereits ein Plan für Tag ${selectedRamadanDay}. Neu verteilen? Der alte Fortschritt geht verloren.`)) return;
-    setPagesPerUser(getDefaultPagesPerUser());
+    if (
+      assignments.length > 0 &&
+      !window.confirm(
+        `Es existiert bereits ein Plan für Tag ${selectedRamadanDay}. Neu verteilen? Der alte Fortschritt geht verloren.`
+      )
+    )
+      return;
+
+    // Standard-Reihenfolge: vorhandene Zuweisung (nach Seiten sortiert), sonst alle Nutzer
+    if (assignments.length > 0) {
+      const sorted = [...assignments].sort((a, b) => a.start_page - b.start_page);
+      const ordered = sorted
+        .map((a) => users.find((u) => u.id === a.user_id))
+        .filter(Boolean);
+      setDistributionUsers(ordered);
+      setPagesPerUser(getDefaultPagesPerUser(ordered.length));
+    } else {
+      setDistributionUsers(users);
+      setPagesPerUser(getDefaultPagesPerUser(users.length));
+    }
+
     setShowDistributeModal(true);
   };
 
   const totalPagesForJuz = getJuzPageInfo(selectedRamadanDay).length;
   const distributeSum = pagesPerUser.reduce((a, b) => a + b, 0);
-  const distributeValid = pagesPerUser.length === users.length && distributeSum === totalPagesForJuz && pagesPerUser.every(p => p >= 1);
+  const distributeValid =
+    pagesPerUser.length === distributionUsers.length &&
+    distributeSum === totalPagesForJuz &&
+    pagesPerUser.every((p) => p >= 0);
 
   const doGenerateAssignments = async () => {
     if (!distributeValid) return;
@@ -139,7 +170,7 @@ export default function Quran() {
       let currentPage = juzStartPage;
       const newAssignments = [];
 
-      for (let i = 0; i < users.length; i++) {
+      for (let i = 0; i < distributionUsers.length; i++) {
         const count = pagesPerUser[i] ?? 0;
         if (count <= 0) continue;
         const start = currentPage;
@@ -147,7 +178,7 @@ export default function Quran() {
         newAssignments.push({
           date: selectedDateStr,
           juz_number: juzNumber,
-          user_id: users[i].id,
+          user_id: distributionUsers[i].id,
           start_page: start,
           end_page: end,
           is_completed: false
@@ -178,6 +209,29 @@ export default function Quran() {
     });
   };
 
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    if (dragIndex === null || dragIndex === targetIndex) return;
+
+    setDistributionUsers((prev) => {
+      const updated = [...prev];
+      const [movedUser] = updated.splice(dragIndex, 1);
+      updated.splice(targetIndex, 0, movedUser);
+      return updated;
+    });
+
+    setPagesPerUser((prev) => {
+      const updated = [...prev];
+      const [movedPages] = updated.splice(dragIndex, 1);
+      updated.splice(targetIndex, 0, movedPages);
+      return updated;
+    });
+
+    setDragIndex(null);
+  };
   const toggleCompletion = async (assignmentId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -194,33 +248,6 @@ export default function Quran() {
 
     } catch (error) {
       console.error('Error updating status:', error);
-    }
-  };
-
-  const swapWithNeighbor = async (index: number, direction: 'up' | 'down') => {
-    const sorted = [...assignments].sort((a, b) => a.start_page - b.start_page);
-    const otherIndex = direction === 'up' ? index - 1 : index + 1;
-    if (otherIndex < 0 || otherIndex >= sorted.length) return;
-    const a = sorted[index];
-    const b = sorted[otherIndex];
-    setSwapping(a.id);
-    try {
-      const { error } = await supabase.rpc('swap_daily_reading_assignments', {
-        a_id: a.id,
-        b_id: b.id,
-      });
-      if (error) throw error;
-      await fetchData();
-    } catch (err: unknown) {
-      console.error('Swap failed:', err);
-      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : '';
-      alert(
-        msg.includes('function') || msg.includes('exist') || msg.includes('permission')
-          ? 'Verschieben fehlgeschlagen. Bitte in Supabase das SQL-Skript „08_swap_reading_assignments.sql“ ausführen (und ggf. erneut ausführen).'
-          : 'Verschieben fehlgeschlagen.'
-      );
-    } finally {
-      setSwapping(null);
     }
   };
 
@@ -283,14 +310,16 @@ export default function Quran() {
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
           </h3>
-          <button 
-            onClick={openDistributeModal}
-            disabled={generating}
-            className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
-          >
-            {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            {assignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={openDistributeModal}
+              disabled={generating}
+              className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+            >
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {assignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
+            </button>
+          )}
         </div>
 
         {assignments.length === 0 ? (
@@ -298,19 +327,22 @@ export default function Quran() {
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               {isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`}
             </p>
-            <button 
-              onClick={openDistributeModal}
-              disabled={generating}
-              className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
-            >
-              Jetzt generieren
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={openDistributeModal}
+                disabled={generating}
+                className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
+              >
+                Jetzt generieren
+              </button>
+            )}
           </div>
         ) : (
           <>
             <div className="grid gap-4">
               {sortedAssignments.map((assignment, index) => {
                 const isMe = assignment.user_id === user?.id;
+                const canToggle = isMe || isAdmin;
                 const pageCount = assignment.end_page - assignment.start_page + 1;
                 const colorClass = SEGMENT_COLORS[index % SEGMENT_COLORS.length];
                 
@@ -326,28 +358,6 @@ export default function Quran() {
                     }`}
                   >
                     <div className="flex gap-3 items-start">
-                      {/* Verschieben: Nach oben / Nach unten */}
-                      <div className="flex flex-col gap-0.5 shrink-0 pt-0.5">
-                        <button
-                          type="button"
-                          onClick={() => swapWithNeighbor(index, 'up')}
-                          disabled={index === 0 || swapping !== null}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                          title="Nach oben (tauscht mit Person darüber)"
-                        >
-                          <ChevronUp size={20} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => swapWithNeighbor(index, 'down')}
-                          disabled={index === sortedAssignments.length - 1 || swapping !== null}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                          title="Nach unten (tauscht mit Person darunter)"
-                        >
-                          <ChevronDown size={20} />
-                        </button>
-                      </div>
-
                       {/* Farbige Box für diese Person (Seitenbereich) */}
                       <div className="shrink-0 w-24 flex flex-col justify-center">
                         <div className={`h-10 rounded-lg ${colorClass} flex items-center justify-center text-white text-sm font-bold shadow-inner`}>
@@ -376,7 +386,7 @@ export default function Quran() {
                             </div>
                           </div>
 
-                          {isMe ? (
+                          {canToggle ? (
                             <button
                               onClick={() => toggleCompletion(assignment.id, assignment.is_completed)}
                               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shrink-0 ${
@@ -405,12 +415,6 @@ export default function Quran() {
                           )}
                         </div>
                       </div>
-
-                      {swapping === assignment.id && (
-                        <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-xl flex items-center justify-center">
-                          <Loader2 size={24} className="animate-spin text-emerald-600" />
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -421,7 +425,7 @@ export default function Quran() {
       </div>
 
       {/* Modal: Seitenanzahl pro Person beim Neuverteilen */}
-      {showDistributeModal && (
+      {isAdmin && showDistributeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
@@ -440,8 +444,15 @@ export default function Quran() {
               Gesamt: {totalPagesForJuz} Seiten. Die Summe pro Person muss genau {totalPagesForJuz} ergeben.
             </p>
             <div className="p-6 overflow-y-auto space-y-3">
-              {users.map((u, idx) => (
-                <div key={u.id} className="flex items-center gap-3">
+              {distributionUsers.map((u, idx) => (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-3 cursor-move rounded-lg border border-transparent hover:border-emerald-300 dark:hover:border-emerald-600 bg-transparent"
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDrop(idx)}
+                >
                   <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-sm font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                     {(u.full_name || u.email || '?')[0].toUpperCase()}
                   </div>
