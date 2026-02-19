@@ -256,7 +256,7 @@ export default function Quran() {
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 min-w-0 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="bg-emerald-600 dark:bg-emerald-800 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden">
         <div className="relative z-10">
@@ -305,9 +305,9 @@ export default function Quran() {
       </div>
 
       {/* Assignments List */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+      <div className="space-y-4 min-w-0 max-w-full">
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 min-w-0">
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
           </h3>
           {isAdmin && (
@@ -339,7 +339,7 @@ export default function Quran() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4">
+            <div className="grid gap-4 min-w-0 max-w-full">
               {sortedAssignments.map((assignment, index) => {
                 const isMe = assignment.user_id === user?.id;
                 const canToggle = isMe || isAdmin;
@@ -349,7 +349,7 @@ export default function Quran() {
                 return (
                   <div 
                     key={assignment.id} 
-                    className={`relative p-5 rounded-xl border transition-all ${
+                    className={`relative min-w-0 max-w-full p-4 sm:p-5 rounded-xl border transition-all overflow-hidden ${
                       assignment.is_completed 
                         ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' 
                         : isMe 
@@ -357,10 +357,10 @@ export default function Quran() {
                           : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                     }`}
                   >
-                    <div className="flex gap-3 items-start">
+                    <div className="flex gap-2 sm:gap-3 items-start min-w-0">
                       {/* Farbige Box für diese Person (Seitenbereich) */}
-                      <div className="shrink-0 w-24 flex flex-col justify-center">
-                        <div className={`h-10 rounded-lg ${colorClass} flex items-center justify-center text-white text-sm font-bold shadow-inner`}>
+                      <div className="shrink-0 w-14 sm:w-24 flex flex-col justify-center">
+                        <div className={`h-9 sm:h-10 rounded-lg ${colorClass} flex items-center justify-center text-white text-xs sm:text-sm font-bold shadow-inner`}>
                           {pageCount} S.
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
@@ -368,28 +368,28 @@ export default function Quran() {
                         </p>
                       </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-2">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-bold text-gray-800 dark:text-gray-100">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex justify-between items-start gap-2 min-w-0">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1 min-w-0">
+                              <span className="font-bold text-gray-800 dark:text-gray-100 truncate block" title={assignment.profiles.full_name || assignment.profiles.email}>
                                 {assignment.profiles.full_name || assignment.profiles.email}
                               </span>
                               {isMe && (
-                                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold shrink-0">
                                   Du
                                 </span>
                               )}
                             </div>
-                            <div className="text-gray-600 dark:text-gray-300">
+                            <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
                               Seite <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> bis <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
-                            </div>
+                            </p>
                           </div>
 
                           {canToggle ? (
                             <button
                               onClick={() => toggleCompletion(assignment.id, assignment.is_completed)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shrink-0 ${
+                              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold transition-all shrink-0 text-sm ${
                                 assignment.is_completed
                                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                                   : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -397,17 +397,17 @@ export default function Quran() {
                             >
                               {assignment.is_completed ? (
                                 <>
-                                  <CheckCircle size={20} /> Erledigt
+                                  <CheckCircle size={18} className="sm:w-5 sm:h-5" /> Erledigt
                                 </>
                               ) : (
                                 <>
-                                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500" />
-                                  Offen
+                                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 shrink-0" />
+                                  <span>Offen</span>
                                 </>
                               )}
                             </button>
                           ) : (
-                            <div className={`px-3 py-1 rounded-full text-sm font-medium shrink-0 ${
+                            <div className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium shrink-0 ${
                               assignment.is_completed ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                             }`}>
                               {assignment.is_completed ? 'Fertig' : 'Offen'}
