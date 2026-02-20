@@ -23,7 +23,7 @@ export const arabicLetters: ArabicLetterForm[] = [
   { name: 'thāʾ',     nameDe: 'Thā',      isolated: cp(0xFE99), initial: cp(0xFE9B), medial: cp(0xFE9C), final: cp(0xFE9A) },
   { name: 'jīm',      nameDe: 'Dschīm',   isolated: cp(0xFE9D), initial: cp(0xFE9F), medial: cp(0xFEA0), final: cp(0xFE9E) },
   { name: 'ḥāʾ',      nameDe: 'Ḥā',       isolated: cp(0xFEA1), initial: cp(0xFEA3), medial: cp(0xFEA4), final: cp(0xFEA2) },
-  { name: 'khāʾ',     nameDe: 'Chā',      isolated: cp(0xFEA5), initial: cp(0xFEA7), medial: cp(0xFEA8), final: cp(0xFEA6) },
+  { name: 'khāʾ',     nameDe: 'Khā',      isolated: cp(0xFEA5), initial: cp(0xFEA7), medial: cp(0xFEA8), final: cp(0xFEA6) },
   { name: 'dāl',      nameDe: 'Dāl',      isolated: cp(0xFEA9), initial: null,  medial: null,  final: cp(0xFEAA) },
   { name: 'dhāl',     nameDe: 'Dhāl',     isolated: cp(0xFEAB), initial: null,  medial: null,  final: cp(0xFEAC) },
   { name: 'rāʾ',      nameDe: 'Rā',       isolated: cp(0xFEAD), initial: null,  medial: null,  final: cp(0xFEAE) },

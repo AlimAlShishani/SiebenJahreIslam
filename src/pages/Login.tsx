@@ -43,7 +43,7 @@ export default function Login() {
     if (error) {
       setError(error.message);
     } else {
-      alert('Registrierung erfolgreich! Bitte überprüfe deine E-Mails.');
+      navigate('/');
     }
     setLoading(false);
   };

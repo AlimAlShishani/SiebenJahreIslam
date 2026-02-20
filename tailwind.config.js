@@ -9,6 +9,7 @@ export default {
     extend: {
       fontFamily: {
         quran: ['UthmanicHafs', 'serif'],
+        arabic: ['UthmanicHafs', 'serif'],
       },
     },
   },

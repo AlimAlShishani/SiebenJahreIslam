@@ -25,7 +25,17 @@
   font-style: normal;
 }
 
+/* Alle arabischen / RTL-Texte im Projekt (und zukünftig) nutzen Uthmanic Hafs */
+[dir="rtl"],
+[lang="ar"] {
+  font-family: 'UthmanicHafs', serif;
+}
+
 .font-quran {
   font-family: 'UthmanicHafs', serif;
   line-height: 2;
+}
+
+.font-arabic {
+  font-family: 'UthmanicHafs', serif;
 }

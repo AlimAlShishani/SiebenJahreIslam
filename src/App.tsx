@@ -6,8 +6,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Quran from './pages/Quran';
 import Learn from './pages/Learn';
-import LearnLevel from './pages/LearnLevel';
 import BuchstabenUebersicht from './pages/BuchstabenUebersicht';
+import LearnLevel from './pages/LearnLevel';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 

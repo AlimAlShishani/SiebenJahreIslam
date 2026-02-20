@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy, BookOpen, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy, BookOpen, HelpCircle, Film } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
 import { GenericLevelModal } from '../components/GenericLevelModal';
@@ -30,6 +30,17 @@ interface LevelInfo {
   modal_content: string | null;
   modal_audio_url: string | null;
   modal_audio_urls?: string[] | null;
+  intro_video_url: string | null;
+}
+
+function isYouTubeUrl(url: string | null): boolean {
+  if (!url) return false;
+  return /youtube\.com\/watch|youtu\.be\//i.test(url);
+}
+
+function getYouTubeEmbedUrl(url: string): string {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : url;
 }
 
 export default function LearnLevel() {
@@ -56,6 +67,10 @@ export default function LearnLevel() {
   // Level modal (Stufen-Info während des Quiz)
   const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null);
   const [showLevelModal, setShowLevelModal] = useState(false);
+  // Intro-Video: zuerst anzeigen, dann Quiz; kann während des Quiz wieder geöffnet werden
+  const [showIntroVideo, setShowIntroVideo] = useState(false);
+
+  const [levelAccessAllowed, setLevelAccessAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetchItems();
@@ -66,12 +81,42 @@ export default function LearnLevel() {
     (async () => {
       const { data } = await supabase
         .from('learning_levels')
-        .select('title, description, modal_content, modal_audio_url, modal_audio_urls')
+        .select('title, description, modal_content, modal_audio_url, modal_audio_urls, intro_video_url')
         .eq('level_number', parseInt(levelId))
         .single();
-      if (data) setLevelInfo(data);
+      if (data) {
+        setLevelInfo(data);
+        setShowIntroVideo(!!data.intro_video_url);
+      }
     })();
   }, [levelId]);
+
+  // Prüfen ob Stufe freigeschaltet ist (Stufe 1 immer, sonst nur wenn vorherige bestanden)
+  useEffect(() => {
+    if (!levelId) {
+      setLevelAccessAllowed(true);
+      return;
+    }
+    const num = parseInt(levelId);
+    if (num <= 1) {
+      setLevelAccessAllowed(true);
+      return;
+    }
+    if (!user) {
+      setLevelAccessAllowed(false);
+      return;
+    }
+    (async () => {
+      const [itemsRes, progressRes] = await Promise.all([
+        supabase.from('learning_items').select('id').eq('level_id', num - 1),
+        supabase.from('user_progress').select('item_id').eq('user_id', user.id).eq('is_completed', true),
+      ]);
+      const prevIds = (itemsRes.data || []).map((r: { id: string }) => r.id);
+      const completedSet = new Set((progressRes.data || []).map((r: { item_id: string }) => r.item_id));
+      const prevCompleted = prevIds.length === 0 || prevIds.every((id) => completedSet.has(id));
+      setLevelAccessAllowed(prevCompleted);
+    })();
+  }, [levelId, user?.id]);
 
   const fetchItems = async () => {
     if (!levelId) return;
@@ -220,10 +265,85 @@ export default function LearnLevel() {
   };
 
   if (loading) return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Laden...</div>;
+
+  const levelNum = parseInt(levelId || '0');
+  if (levelNum > 1 && levelAccessAllowed === null) {
+    return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Laden...</div>;
+  }
+
+  if (levelAccessAllowed === false) {
+    return (
+      <div className="p-8 text-center max-w-md mx-auto">
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Diese Stufe ist noch gesperrt. Schließe zuerst die vorherige Stufe ab (Quiz ohne alle Leben zu verlieren).
+        </p>
+        <button
+          onClick={() => navigate('/learn')}
+          className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
+        >
+          Zur Lernübersicht
+        </button>
+      </div>
+    );
+  }
+
+  // Intro-Video anzeigen (wenn vorhanden und gewünscht)
+  if (showIntroVideo && levelInfo?.intro_video_url) {
+    return (
+      <div className="pb-20 max-w-3xl mx-auto">
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={() => navigate('/learn')} className="flex items-center text-gray-500 hover:text-emerald-600">
+            <ArrowLeft size={20} className="mr-1" /> Zurück
+          </button>
+        </div>
+        <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-600 bg-black shadow-lg aspect-video">
+          {isYouTubeUrl(levelInfo.intro_video_url) ? (
+            <iframe
+              src={getYouTubeEmbedUrl(levelInfo.intro_video_url!)}
+              title="Stufen-Intro"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          ) : (
+            <video src={levelInfo.intro_video_url!} controls className="w-full h-full" />
+          )}
+        </div>
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={() => setShowIntroVideo(false)}
+            className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold shadow-lg"
+          >
+            Quiz starten
+          </button>
+          <button
+            onClick={() => navigate('/learn')}
+            className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
+          >
+            Zur Lernübersicht
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (allItems.length === 0) return (
-    <div className="p-8 text-center">
-      <p>Keine Inhalte für diese Stufe gefunden.</p>
-      <button onClick={() => navigate('/learn')} className="mt-4 text-emerald-600 underline">Zurück zur Übersicht</button>
+    <div className="p-8 text-center max-w-md mx-auto">
+      <p className="text-gray-600 dark:text-gray-400 mb-4">Noch keine Inhalte in dieser Stufe.</p>
+      {levelInfo?.intro_video_url && (
+        <button
+          onClick={() => setShowIntroVideo(true)}
+          className="px-4 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg mb-4 flex items-center gap-2 mx-auto"
+        >
+          <Film size={18} /> Zum Video
+        </button>
+      )}
+      <button
+        onClick={() => navigate('/learn')}
+        className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
+      >
+        Zur Lernübersicht
+      </button>
     </div>
   );
 
@@ -238,7 +358,15 @@ export default function LearnLevel() {
         <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
           Du hast leider 3 Fehler gemacht. Versuche es noch einmal, um die Stufe zu meistern.
         </p>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3 justify-center">
+          {levelInfo?.intro_video_url && (
+            <button
+              onClick={() => setShowIntroVideo(true)}
+              className="px-4 py-2 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Film size={18} /> Zum Video
+            </button>
+          )}
           <button 
             onClick={() => navigate('/learn')}
             className="px-6 py-3 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 font-semibold"
@@ -267,12 +395,22 @@ export default function LearnLevel() {
         <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
           Du hast die Stufe erfolgreich abgeschlossen und {lives} Leben behalten.
         </p>
-        <button 
-          onClick={() => navigate('/learn')}
-          className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold shadow-lg"
-        >
-          Zur Übersicht
-        </button>
+        <div className="flex flex-wrap gap-3 justify-center">
+          {levelInfo?.intro_video_url && (
+            <button
+              onClick={() => setShowIntroVideo(true)}
+              className="px-4 py-2 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Film size={18} /> Zum Video
+            </button>
+          )}
+          <button 
+            onClick={() => navigate('/learn')}
+            className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold shadow-lg"
+          >
+            Zur Übersicht
+          </button>
+        </div>
       </div>
     );
   }
@@ -282,8 +420,8 @@ export default function LearnLevel() {
   return (
     <div className="pb-20 max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
+        <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-2 flex-wrap">
           <button 
             onClick={() => navigate('/learn')} 
             className="flex items-center text-gray-500 hover:text-emerald-600"
@@ -297,6 +435,15 @@ export default function LearnLevel() {
           >
             <BookOpen size={18} /> Stufen-Info
           </button>
+          {levelInfo?.intro_video_url && (
+            <button
+              onClick={() => setShowIntroVideo(true)}
+              className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 px-2 py-1 rounded-lg hover:bg-emerald-50"
+              title="Intro-Video ansehen"
+            >
+              <Film size={18} /> Zum Video
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-red-100 dark:border-gray-600">
