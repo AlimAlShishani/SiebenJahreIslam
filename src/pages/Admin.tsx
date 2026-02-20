@@ -9,13 +9,6 @@ function isYouTubeUrl(url: string | null): boolean {
   return /youtube\.com\/watch|youtu\.be\//i.test(url);
 }
 
-function getYouTubeEmbedUrl(url: string): string {
-  let id = '';
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
-  if (match) id = match[1];
-  return id ? `https://www.youtube.com/embed/${id}` : url;
-}
-
 interface Option {
   id: string;
   text: string;
