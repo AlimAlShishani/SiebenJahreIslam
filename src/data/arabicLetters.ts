@@ -1,10 +1,29 @@
 /**
- * Arabische Buchstaben mit Unicode-Präsentationsformen
- * (alleine, Anfang, Mitte, Ende)
- * Einige Buchstaben (ا د ذ ر ز و) verbinden sich nicht nach links → nur 2 Formen.
+ * Arabische Buchstaben – Schreibweisen mit Basis-Unicode + Tatweel (ـ U+0640)
+ * wie in der Wikipedia-Tabelle „Arabic alphabet“ (Contextual forms).
+ * Buchstaben ا د ذ ر ز و verbinden sich nicht nach links → gleiche Form für Anfang/Mitte/Ende (wird wiederholt).
  */
+const TATWEEL = '\u0640'; // ـ
+
 function cp(hex: number): string {
   return String.fromCodePoint(hex);
+}
+
+function forms(
+  base: number,
+  connecting: boolean
+): { isolated: string; initial: string | null; medial: string | null; final: string } {
+  const char = cp(base);
+  const finalForm = TATWEEL + char;
+  if (!connecting) {
+    return { isolated: char, initial: char, medial: finalForm, final: finalForm };
+  }
+  return {
+    isolated: char,
+    initial: char + TATWEEL,
+    medial: TATWEEL + char + TATWEEL,
+    final: finalForm,
+  };
 }
 
 export interface ArabicLetterForm {
@@ -16,33 +35,34 @@ export interface ArabicLetterForm {
   final: string;
 }
 
+// Basis-Arabisch U+0627–U+064A (Wikipedia / Unicode block)
 export const arabicLetters: ArabicLetterForm[] = [
-  { name: 'alif',     nameDe: 'Alif',     isolated: cp(0xFE8D), initial: null,  medial: null,  final: cp(0xFE8E) },
-  { name: 'bāʾ',      nameDe: 'Bā',       isolated: cp(0xFE8F), initial: cp(0xFE91), medial: cp(0xFE92), final: cp(0xFE90) },
-  { name: 'tāʾ',      nameDe: 'Tā',       isolated: cp(0xFE95), initial: cp(0xFE97), medial: cp(0xFE98), final: cp(0xFE96) },
-  { name: 'thāʾ',     nameDe: 'Thā',      isolated: cp(0xFE99), initial: cp(0xFE9B), medial: cp(0xFE9C), final: cp(0xFE9A) },
-  { name: 'jīm',      nameDe: 'Dschīm',   isolated: cp(0xFE9D), initial: cp(0xFE9F), medial: cp(0xFEA0), final: cp(0xFE9E) },
-  { name: 'ḥāʾ',      nameDe: 'Ḥā',       isolated: cp(0xFEA1), initial: cp(0xFEA3), medial: cp(0xFEA4), final: cp(0xFEA2) },
-  { name: 'khāʾ',     nameDe: 'Khā',      isolated: cp(0xFEA5), initial: cp(0xFEA7), medial: cp(0xFEA8), final: cp(0xFEA6) },
-  { name: 'dāl',      nameDe: 'Dāl',      isolated: cp(0xFEA9), initial: null,  medial: null,  final: cp(0xFEAA) },
-  { name: 'dhāl',     nameDe: 'Dhāl',     isolated: cp(0xFEAB), initial: null,  medial: null,  final: cp(0xFEAC) },
-  { name: 'rāʾ',      nameDe: 'Rā',       isolated: cp(0xFEAD), initial: null,  medial: null,  final: cp(0xFEAE) },
-  { name: 'zāy',      nameDe: 'Zāy',      isolated: cp(0xFEAF), initial: null,  medial: null,  final: cp(0xFEB0) },
-  { name: 'sīn',      nameDe: 'Sīn',      isolated: cp(0xFEB1), initial: cp(0xFEB3), medial: cp(0xFEB4), final: cp(0xFEB2) },
-  { name: 'shīn',     nameDe: 'Schīn',    isolated: cp(0xFEB5), initial: cp(0xFEB7), medial: cp(0xFEB8), final: cp(0xFEB6) },
-  { name: 'ṣād',      nameDe: 'Ṣād',      isolated: cp(0xFEB9), initial: cp(0xFEBB), medial: cp(0xFEBC), final: cp(0xFEBA) },
-  { name: 'ḍād',      nameDe: 'Ḍād',      isolated: cp(0xFEBD), initial: cp(0xFEBF), medial: cp(0xFEC0), final: cp(0xFEBE) },
-  { name: 'ṭāʾ',      nameDe: 'Ṭā',       isolated: cp(0xFEC1), initial: cp(0xFEC3), medial: cp(0xFEC4), final: cp(0xFEC2) },
-  { name: 'ẓāʾ',      nameDe: 'Ẓā',       isolated: cp(0xFEC5), initial: cp(0xFEC7), medial: cp(0xFEC8), final: cp(0xFEC6) },
-  { name: 'ʿayn',     nameDe: 'ʿAyn',     isolated: cp(0xFEC9), initial: cp(0xFECB), medial: cp(0xFECC), final: cp(0xFECA) },
-  { name: 'ghayn',    nameDe: 'Ghayn',    isolated: cp(0xFECD), initial: cp(0xFECF), medial: cp(0xFED0), final: cp(0xFECE) },
-  { name: 'fāʾ',      nameDe: 'Fā',       isolated: cp(0xFED1), initial: cp(0xFED3), medial: cp(0xFED4), final: cp(0xFED2) },
-  { name: 'qāf',      nameDe: 'Qāf',      isolated: cp(0xFED5), initial: cp(0xFED7), medial: cp(0xFED8), final: cp(0xFED6) },
-  { name: 'kāf',      nameDe: 'Kāf',      isolated: cp(0xFED9), initial: cp(0xFEDB), medial: cp(0xFEDC), final: cp(0xFEDA) },
-  { name: 'lām',      nameDe: 'Lām',      isolated: cp(0xFEDD), initial: cp(0xFEDF), medial: cp(0xFEE0), final: cp(0xFEDE) },
-  { name: 'mīm',      nameDe: 'Mīm',      isolated: cp(0xFEE1), initial: cp(0xFEE3), medial: cp(0xFEE4), final: cp(0xFEE2) },
-  { name: 'nūn',      nameDe: 'Nūn',      isolated: cp(0xFEE5), initial: cp(0xFEE7), medial: cp(0xFEE8), final: cp(0xFEE6) },
-  { name: 'hāʾ',      nameDe: 'Hā',       isolated: cp(0xFEE9), initial: cp(0xFEEB), medial: cp(0xFEEC), final: cp(0xFEEA) },
-  { name: 'wāw',      nameDe: 'Wāw',      isolated: cp(0xFEED), initial: null,  medial: null,  final: cp(0xFEEE) },
-  { name: 'yāʾ',      nameDe: 'Yā',       isolated: cp(0xFEF1), initial: cp(0xFEF3), medial: cp(0xFEF4), final: cp(0xFEF2) },
+  { name: 'alif',     nameDe: 'Alif',     ...forms(0x0627, false) },
+  { name: 'bāʾ',      nameDe: 'Bā',       ...forms(0x0628, true) },
+  { name: 'tāʾ',      nameDe: 'Tā',       ...forms(0x062A, true) },
+  { name: 'thāʾ',     nameDe: 'Thā',      ...forms(0x062B, true) },
+  { name: 'jīm',      nameDe: 'Dschīm',  ...forms(0x062C, true) },
+  { name: 'ḥāʾ',      nameDe: 'Ḥā',       ...forms(0x062D, true) },
+  { name: 'khāʾ',     nameDe: 'Khā',      ...forms(0x062E, true) },
+  { name: 'dāl',      nameDe: 'Dāl',      ...forms(0x062F, false) },
+  { name: 'dhāl',     nameDe: 'Dhāl',     ...forms(0x0630, false) },
+  { name: 'rāʾ',      nameDe: 'Rā',       ...forms(0x0631, false) },
+  { name: 'zāy',      nameDe: 'Zāy',     ...forms(0x0632, false) },
+  { name: 'sīn',      nameDe: 'Sīn',     ...forms(0x0633, true) },
+  { name: 'shīn',     nameDe: 'Shīn',    ...forms(0x0634, true) },
+  { name: 'ṣād',      nameDe: 'Ṣād',     ...forms(0x0635, true) },
+  { name: 'ḍād',      nameDe: 'Ḍād',     ...forms(0x0636, true) },
+  { name: 'ṭāʾ',      nameDe: 'Ṭā',      ...forms(0x0637, true) },
+  { name: 'ẓāʾ',      nameDe: 'Ẓā',      ...forms(0x0638, true) },
+  { name: 'ʿayn',     nameDe: 'ʿAyn',    ...forms(0x0639, true) },
+  { name: 'ghayn',    nameDe: 'Ghayn',   ...forms(0x063A, true) },
+  { name: 'fāʾ',      nameDe: 'Fā',      ...forms(0x0641, true) },
+  { name: 'qāf',      nameDe: 'Qāf',     ...forms(0x0642, true) },
+  { name: 'kāf',      nameDe: 'Kāf',     ...forms(0x0643, true) },
+  { name: 'lām',      nameDe: 'Lām',     ...forms(0x0644, true) },
+  { name: 'mīm',      nameDe: 'Mīm',     ...forms(0x0645, true) },
+  { name: 'nūn',      nameDe: 'Nūn',     ...forms(0x0646, true) },
+  { name: 'hāʾ',      nameDe: 'Hā',      ...forms(0x0647, true) },
+  { name: 'wāw',      nameDe: 'Wāw',     ...forms(0x0648, false) },
+  { name: 'yāʾ',      nameDe: 'Yā',      ...forms(0x064A, true) },
 ];

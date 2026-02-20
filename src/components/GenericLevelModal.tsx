@@ -61,7 +61,7 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
                 <button
                   key={i}
                   type="button"
-                  onClick={() => new Audio(url).play()}
+                  onClick={() => { const a = new Audio(url); a.volume = 0.6; a.play(); }}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/70 transition-colors"
                 >
                   <Volume2 size={18} /> Audio {audioUrls.length > 1 ? i + 1 : ''} abspielen

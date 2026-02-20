@@ -199,6 +199,7 @@ export default function LearnLevel() {
     if (e) e.stopPropagation();
     if (!url) return;
     const audio = new Audio(url);
+    audio.volume = 0.6;
     setIsPlaying(true);
     audio.play();
     audio.onended = () => setIsPlaying(false);

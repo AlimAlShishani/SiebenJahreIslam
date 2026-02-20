@@ -340,6 +340,7 @@ export function AudioInput({ label, currentUrl, onAudioChange, onSave, suggested
       if (!audioRef.current || audioRef.current.src !== targetUrl) {
         if (audioRef.current) audioRef.current.pause(); 
         audioRef.current = new Audio(targetUrl);
+        audioRef.current.volume = 0.6;
         audioRef.current.onended = () => setIsPlaying(false);
         audioRef.current.onerror = (e: Event | string) => {
             console.error("Audio playback error", e);

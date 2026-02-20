@@ -15,7 +15,7 @@ export const playSuccessSound = () => {
     oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
     oscillator.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.1); // C6
     
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
 
     oscillator.start();
