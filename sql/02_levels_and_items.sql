@@ -30,7 +30,7 @@ DELETE FROM learning_items WHERE level_id BETWEEN 1 AND 6;
 INSERT INTO learning_items (level_id, content, transliteration, order_index, options)
 SELECT 1, v.content, v.transliteration, v.order_index, v.options
 FROM (VALUES
-  ('ا','Alif',1,'[{"id":"1","text":"Alif","is_correct":true,"audio_url":null},{"id":"2","text":"ʿAyn","is_correct":false,"audio_url":null},{"id":"3","text":"Hamza","is_correct":false,"audio_url":null}]'::jsonb),
+  ('أ','Alif',1,'[{"id":"1","text":"Alif","is_correct":true,"audio_url":null},{"id":"2","text":"ʿAyn","is_correct":false,"audio_url":null},{"id":"3","text":"Hamza","is_correct":false,"audio_url":null}]'::jsonb),
   ('ب','Ba',2,'[{"id":"1","text":"Ta","is_correct":false,"audio_url":null},{"id":"2","text":"Ba","is_correct":true,"audio_url":null},{"id":"3","text":"Tha","is_correct":false,"audio_url":null}]'::jsonb),
   ('ت','Ta',3,'[{"id":"1","text":"Ta","is_correct":true,"audio_url":null},{"id":"2","text":"Ba","is_correct":false,"audio_url":null},{"id":"3","text":"Nun","is_correct":false,"audio_url":null}]'::jsonb),
   ('ث','Tha',4,'[{"id":"1","text":"Sin","is_correct":false,"audio_url":null},{"id":"2","text":"Tha","is_correct":true,"audio_url":null},{"id":"3","text":"Shin","is_correct":false,"audio_url":null}]'::jsonb),

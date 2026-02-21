@@ -8,8 +8,8 @@ UPDATE learning_levels SET description = 'Erste 7 Buchstaben des arabischen Alph
 DELETE FROM learning_items WHERE level_id = 1;
 INSERT INTO learning_items (level_id, content, transliteration, order_index, options)
 SELECT 1, v.c, v.tr, v.ord, v.opts::jsonb FROM (VALUES
-  (1, E'\u0627', 'Alif (Anfang & Allein)', '[{"id":"1","text":"Alif (Anfang & Allein)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Mitte & Ende)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Allein)","is_correct":false,"audio_url":null}]'),
-  (2, E'\u0640\u0627', 'Alif (Mitte & Ende)', '[{"id":"1","text":"Alif (Mitte & Ende)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Anfang & Allein)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Ende)","is_correct":false,"audio_url":null}]'),
+  (1, E'\u0623', 'Alif (Anfang & Allein)', '[{"id":"1","text":"Alif (Anfang & Allein)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Mitte & Ende)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Allein)","is_correct":false,"audio_url":null}]'),
+  (2, E'\u0640\u0623', 'Alif (Mitte & Ende)', '[{"id":"1","text":"Alif (Mitte & Ende)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Anfang & Allein)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Ende)","is_correct":false,"audio_url":null}]'),
   (3, E'\u0628', 'Bā (Allein)', '[{"id":"1","text":"Bā (Allein)","is_correct":true,"audio_url":null},{"id":"2","text":"Tā (Allein)","is_correct":false,"audio_url":null},{"id":"3","text":"Alif (Mitte & Ende)","is_correct":false,"audio_url":null}]'),
   (4, E'\u0628\u0640', 'Bā (Anfang)', '[{"id":"1","text":"Bā (Anfang)","is_correct":true,"audio_url":null},{"id":"2","text":"Bā (Ende)","is_correct":false,"audio_url":null},{"id":"3","text":"Tā (Anfang)","is_correct":false,"audio_url":null}]'),
   (5, E'\u0640\u0628', 'Bā (Ende)', '[{"id":"1","text":"Bā (Ende)","is_correct":true,"audio_url":null},{"id":"2","text":"Bā (Anfang)","is_correct":false,"audio_url":null},{"id":"3","text":"Tā (Ende)","is_correct":false,"audio_url":null}]'),

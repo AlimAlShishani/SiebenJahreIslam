@@ -2,7 +2,7 @@
 -- 10_seed_alphabet1.sql – Stufe 1: Erste 7 Buchstaben (Alif–Khā)
 -- 20 Fragen: 2× Alif, 3× je Bā, Tā, Thā, Dschīm, Ḥā, Khā
 -- Schreibweisen GENAU wie Nutzer: manche aus 2 Zeichen (بـ = ب + ـ), Mitte aus 3 (ـبـ = ـ + ب + ـ)
--- Unicode: ـ = U+0640 (Tatweel), Buchstaben = U+0627 (ا), U+0628 (ب), U+062A (ت), U+062B (ث), U+062C (ج), U+062D (ح), U+062E (خ)
+-- Unicode: ـ = U+0640 (Tatweel), Buchstaben = U+0623 (أ), U+0628 (ب), U+062A (ت), U+062B (ث), U+062C (ج), U+062D (ح), U+062E (خ)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 UPDATE learning_levels
@@ -14,9 +14,9 @@ DELETE FROM learning_items WHERE level_id = 1;
 INSERT INTO learning_items (level_id, content, transliteration, order_index, options)
 SELECT 1, v.c, v.tr, v.ord, v.opts::jsonb
 FROM (VALUES
-  -- Alif (2): ا , ـا
-  (1, E'\u0627', 'Alif (Anfang & Allein)', '[{"id":"1","text":"Alif (Anfang & Allein)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Mitte & Ende)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Allein)","is_correct":false,"audio_url":null}]'),
-  (2, E'\u0640\u0627', 'Alif (Mitte & Ende)', '[{"id":"1","text":"Alif (Mitte & Ende)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Anfang & Allein)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Ende)","is_correct":false,"audio_url":null}]'),
+  -- Alif (2): أ , ـأ
+  (1, E'\u0623', 'Alif (Anfang & Allein)', '[{"id":"1","text":"Alif (Anfang & Allein)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Mitte & Ende)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Allein)","is_correct":false,"audio_url":null}]'),
+  (2, E'\u0640\u0623', 'Alif (Mitte & Ende)', '[{"id":"1","text":"Alif (Mitte & Ende)","is_correct":true,"audio_url":null},{"id":"2","text":"Alif (Anfang & Allein)","is_correct":false,"audio_url":null},{"id":"3","text":"Bā (Ende)","is_correct":false,"audio_url":null}]'),
   -- Bā (3): ب , بـ , ـب
   (3, E'\u0628', 'Bā (Allein)', '[{"id":"1","text":"Bā (Allein)","is_correct":true,"audio_url":null},{"id":"2","text":"Tā (Allein)","is_correct":false,"audio_url":null},{"id":"3","text":"Alif (Mitte & Ende)","is_correct":false,"audio_url":null}]'),
   (4, E'\u0628\u0640', 'Bā (Anfang)', '[{"id":"1","text":"Bā (Anfang)","is_correct":true,"audio_url":null},{"id":"2","text":"Bā (Ende)","is_correct":false,"audio_url":null},{"id":"3","text":"Tā (Anfang)","is_correct":false,"audio_url":null}]'),

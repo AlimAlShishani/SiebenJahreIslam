@@ -1,7 +1,7 @@
 /**
  * Arabische Buchstaben – Schreibweisen mit Basis-Unicode + Tatweel (ـ U+0640)
  * wie in der Wikipedia-Tabelle „Arabic alphabet“ (Contextual forms).
- * Buchstaben ا د ذ ر ز و verbinden sich nicht nach links → gleiche Form für Anfang/Mitte/Ende (wird wiederholt).
+ * Buchstaben أ د ذ ر ز و verbinden sich nicht nach links → gleiche Form für Anfang/Mitte/Ende (wird wiederholt).
  */
 const TATWEEL = '\u0640'; // ـ
 
@@ -37,7 +37,7 @@ export interface ArabicLetterForm {
 
 // Basis-Arabisch U+0627–U+064A (Wikipedia / Unicode block)
 export const arabicLetters: ArabicLetterForm[] = [
-  { name: 'alif',     nameDe: 'Alif',     ...forms(0x0627, false) },
+  { name: 'alif',     nameDe: 'Alif',     ...forms(0x0623, false) },
   { name: 'bāʾ',      nameDe: 'Bā',       ...forms(0x0628, true) },
   { name: 'tāʾ',      nameDe: 'Tā',       ...forms(0x062A, true) },
   { name: 'thāʾ',     nameDe: 'Thā',      ...forms(0x062B, true) },
