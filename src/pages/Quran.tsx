@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
 
 interface DailyAssignment {
   id: string;
@@ -26,6 +26,9 @@ export default function Quran() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
+  const [showManageGroupModal, setShowManageGroupModal] = useState(false);
+  const [allProfilesForManage, setAllProfilesForManage] = useState<any[]>([]);
+  const [managingGroup, setManagingGroup] = useState(false);
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
@@ -71,16 +74,28 @@ export default function Quran() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Active Users
-      const { data: usersData } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, role');
-      const allUsers = usersData || [];
-      setUsers(allUsers);
+      // 1. Lese-Gruppe: nur Nutzer aus reading_group_members
+      const { data: memberRows } = await supabase
+        .from('reading_group_members')
+        .select('user_id');
+      const groupIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+      if (groupIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role')
+          .in('id', groupIds);
+        setUsers(usersData || []);
+      } else {
+        setUsers([]);
+      }
 
-      // Admin erkennen (role = 'admin')
-      const me = allUsers.find((u: any) => u.id === user?.id);
-      setIsAdmin(me?.role === 'admin');
+      // Admin erkennen (eigener Profil-Eintrag)
+      const { data: meProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single();
+      setIsAdmin(meProfile?.role === 'admin');
 
       // 2. Fetch Assignments for selected day
       const { data: assignmentsData, error } = await supabase
@@ -132,20 +147,43 @@ export default function Quran() {
     )
       return;
 
-    // Standard-Reihenfolge: vorhandene Zuweisung (nach Seiten sortiert), sonst alle Nutzer
-    if (assignments.length > 0) {
-      const sorted = [...assignments].sort((a, b) => a.start_page - b.start_page);
-      const ordered = sorted
-        .map((a) => users.find((u) => u.id === a.user_id))
-        .filter(Boolean);
-      setDistributionUsers(ordered);
-      setPagesPerUser(getDefaultPagesPerUser(ordered.length));
-    } else {
-      setDistributionUsers(users);
-      setPagesPerUser(getDefaultPagesPerUser(users.length));
-    }
+    // Immer aktuelle Lese-Gruppe verwenden (nicht nur aus alten Zuweisungen)
+    setDistributionUsers(users);
+    setPagesPerUser(getDefaultPagesPerUser(users.length));
 
     setShowDistributeModal(true);
+  };
+
+  const openManageGroupModal = async () => {
+    if (!isAdmin) return;
+    setManagingGroup(true);
+    setShowManageGroupModal(true);
+    try {
+      const { data } = await supabase.from('profiles').select('id, email, full_name');
+      setAllProfilesForManage(data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setManagingGroup(false);
+    }
+  };
+
+  const addToGroup = async (userId: string) => {
+    try {
+      await supabase.from('reading_group_members').insert({ user_id: userId });
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const removeFromGroup = async (userId: string) => {
+    try {
+      await supabase.from('reading_group_members').delete().eq('user_id', userId);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const totalPagesForJuz = getJuzPageInfo(selectedRamadanDay).length;
@@ -289,18 +327,33 @@ export default function Quran() {
 
       {/* Active Group */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-          <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> Aktive Gruppe
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> Aktive Gruppe
+          </h3>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={openManageGroupModal}
+              className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+            >
+              <Settings2 size={16} /> Gruppe verwalten
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
-          {users.map((u) => (
-            <div key={u.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600">
-              <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                {(u.full_name || u.email || '?')[0].toUpperCase()}
+          {users.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Noch niemand in der Lese-Gruppe. {isAdmin && 'Nutze „Gruppe verwalten“, um dich und andere hinzuzufügen.'}</p>
+          ) : (
+            users.map((u) => (
+              <div key={u.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600">
+                <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  {(u.full_name || u.email || '?')[0].toUpperCase()}
+                </div>
+                <span className="text-sm text-gray-600 dark:text-gray-300">{u.full_name || u.email}</span>
               </div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">{u.full_name || u.email}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -492,6 +545,73 @@ export default function Quran() {
                   Plan generieren
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Lese-Gruppe verwalten (nur Admin) */}
+      {isAdmin && showManageGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                Lese-Gruppe verwalten
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowManageGroupModal(false)}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
+              Nur Nutzer in der Lese-Gruppe erscheinen bei „Aktive Gruppe“ und können in den Plan.
+            </p>
+            <div className="p-6 overflow-y-auto space-y-2">
+              {managingGroup ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>
+              ) : (
+                allProfilesForManage.map((p) => {
+                  const inGroup = users.some((u) => u.id === p.id);
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-sm font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
+                          {(p.full_name || p.email || '?')[0].toUpperCase()}
+                        </div>
+                        <span className="text-gray-800 dark:text-gray-200 truncate">{p.full_name || p.email}</span>
+                        {inGroup && (
+                          <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full shrink-0">
+                            In Gruppe
+                          </span>
+                        )}
+                      </div>
+                      {inGroup ? (
+                        <button
+                          type="button"
+                          onClick={() => removeFromGroup(p.id)}
+                          className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium shrink-0"
+                        >
+                          <UserMinus size={16} /> Entfernen
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => addToGroup(p.id)}
+                          className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium shrink-0"
+                        >
+                          <UserPlus size={16} /> Hinzufügen
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
