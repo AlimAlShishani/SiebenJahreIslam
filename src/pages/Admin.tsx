@@ -402,6 +402,15 @@ function EditMaddItemModal({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Ausgewählt: {correctIndices.size} Buchstabe(n). Indizes: {[...correctIndices].sort((a,b)=>a-b).join(', ') || '–'}
             </p>
+            {correctIndices.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setCorrectIndices(new Set())}
+                className="mt-2 text-sm text-amber-600 dark:text-amber-400 hover:underline"
+              >
+                Alle richtigen Madd-Stellen aufheben
+              </button>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-600">
