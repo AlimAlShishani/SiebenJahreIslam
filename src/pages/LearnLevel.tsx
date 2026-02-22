@@ -5,6 +5,13 @@ import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy, BookOpen,
 import { useAuth } from '../context/AuthContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
 import { GenericLevelModal } from '../components/GenericLevelModal';
+import { ClickableArabicVerse } from '../components/ClickableArabicVerse';
+
+/** Stufe 8: Optionen für „Madd-Buchstaben anklicken“ (richtige Auswahl im Admin festgelegt) */
+export interface MaddClickOptions {
+  task_type?: 'madd_click';
+  correct_madd_indices: number[];
+}
 
 interface Option {
   id: string;
@@ -19,7 +26,7 @@ interface LearningItem {
   transliteration: string;
   audio_url: string | null;
   order_index: number;
-  options?: Option[];
+  options?: Option[] | MaddClickOptions;
   help_audio_url?: string | null;
   rule_audio_url?: string | null;
 }
@@ -63,6 +70,10 @@ export default function LearnLevel() {
   const [currentOptions, setCurrentOptions] = useState<Option[]>([]);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
+  // Stufe 8 (Madd): Auswahl der als „natürlicher Madd“ markierten Buchstaben
+  const [selectedMaddIndices, setSelectedMaddIndices] = useState<Set<number>>(new Set());
+  const [hasCheckedMadd, setHasCheckedMadd] = useState(false);
 
   // Level modal (Stufen-Info während des Quiz)
   const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null);
@@ -149,15 +160,24 @@ export default function LearnLevel() {
     setIsCorrect(null);
   };
 
-  // Initialize Options when current item changes
+  // Initialize Options when current item changes (Stufe 8: Madd-State zurücksetzen)
   useEffect(() => {
-    if (currentItem) {
-      prepareOptions();
+    if (!currentItem) return;
+    if (parseInt(levelId || '0') === 8) {
+      setSelectedMaddIndices(new Set());
+      setHasCheckedMadd(false);
+      setSelectedOptionId(null);
+      setIsCorrect(null);
+      return;
     }
-  }, [currentItem]);
+    prepareOptions();
+  }, [currentItem, levelId]);
 
   const prepareOptions = () => {
     if (!currentItem) return;
+
+    // Stufe 8 nutzt kein Options-Grid
+    if (parseInt(levelId || '0') === 8) return;
 
     // 1. Check if item has explicit options saved in DB
     if (currentItem.options && Array.isArray(currentItem.options) && currentItem.options.length > 0) {
@@ -203,6 +223,41 @@ export default function LearnLevel() {
     setIsPlaying(true);
     audio.play();
     audio.onended = () => setIsPlaying(false);
+  };
+
+  /** Stufe 8: Buchstabe als Madd markieren / Markierung aufheben */
+  const handleMaddLetterClick = (letterIndex: number) => {
+    if (parseInt(levelId || '0') !== 8 || hasCheckedMadd) return;
+    setSelectedMaddIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(letterIndex)) next.delete(letterIndex);
+      else next.add(letterIndex);
+      return next;
+    });
+  };
+
+  /** Stufe 8: Auswahl prüfen (erster Klick auf Weiter) oder zur nächsten Aufgabe (zweiter Klick). */
+  const handleMaddWeiter = () => {
+    if (parseInt(levelId || '0') !== 8 || !currentItem) return;
+    const opts = currentItem.options as MaddClickOptions | undefined;
+    const correctIndices = Array.isArray(opts?.correct_madd_indices) ? opts.correct_madd_indices : [];
+
+    if (!hasCheckedMadd) {
+      const selected = [...selectedMaddIndices].sort((a, b) => a - b);
+      const correct = [...new Set(correctIndices)].sort((a, b) => a - b);
+      const same = selected.length === correct.length && selected.every((v, i) => v === correct[i]);
+      setHasCheckedMadd(true);
+      setIsCorrect(same);
+      if (same) playSuccessSound();
+      else {
+        playErrorSound();
+        const newLives = lives - 1;
+        setLives(newLives);
+        if (newLives === 0) setGameStatus('lost');
+      }
+      return;
+    }
+    handleNext();
   };
 
   const handleOptionClick = async (option: Option) => {
@@ -471,7 +526,31 @@ export default function LearnLevel() {
           <span className="text-sm text-gray-400 mb-4">Frage {allItems.length - queue.length + 1} von {allItems.length}</span>
           
           <div className="mb-8 w-full flex flex-col items-center animate-fade-in" key={currentItem.id}>
-            <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
+            {/* Stufe 8 (Madd): Vers mit klickbaren Buchstaben – nur natürliche Madd-Buchstaben markieren */}
+            {levelNum === 8 ? (
+              <div className="w-full px-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Markiere alle Buchstaben mit <strong>natürlichem Madd</strong> (Alif, Yā, Wāw mit passendem Tashkīl davor), dann „Prüfen“. Du kannst beliebig viele anklicken.</p>
+                <ClickableArabicVerse
+                  content={currentItem.content}
+                  selectedIndices={selectedMaddIndices}
+                  onToggle={handleMaddLetterClick}
+                  disabled={hasCheckedMadd}
+                  selectedClassName="bg-amber-400/35 dark:bg-amber-500/40"
+                />
+                {hasCheckedMadd && (
+                  <p className={`mt-4 text-lg font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {isCorrect ? 'Richtig!' : 'Leider falsch.'}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+            {/* Stufe 7 (Tanween): Frage = Transliteration, Antworten = Arabisch */}
+            {levelNum === 7 ? (
+              <h1 className="text-5xl md:text-6xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 leading-tight" dir="ltr">{currentItem.transliteration}</h1>
+            ) : (
+              <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
+            )}
             
             <div className="flex flex-wrap gap-3 justify-center mb-6">
               {currentItem.audio_url && (
@@ -533,7 +612,7 @@ export default function LearnLevel() {
                     disabled={selectedOptionId !== null}
                     className={btnClass}
                   >
-                    <span className="flex-grow text-center">{option.text}</span>
+                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined}>{option.text}</span>
                     
                     {option.audio_url && (
                       <div 
@@ -548,29 +627,38 @@ export default function LearnLevel() {
                 );
               })}
             </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Footer Actions */}
         <div className="bg-gray-50 dark:bg-gray-900/50 p-6 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center h-24">
-           {isCorrect === true && (
-             <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in">
-               <Check size={24} /> Richtig!
-             </div>
-           )}
-           {isCorrect === false && (
-             <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in">
-               <X size={24} /> Falsch! -1 ❤️
-             </div>
-           )}
-
-           {selectedOptionId && (
-             <button 
-               onClick={handleNext}
-               className="ml-auto px-8 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transform active:scale-95 transition-all flex items-center gap-2"
-             >
-               {queue.length === 1 ? 'Beenden' : 'Weiter'} <Check size={18} />
-             </button>
+           {levelNum === 8 ? (
+             <>
+               {hasCheckedMadd && (isCorrect === true ? (
+                 <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in"><Check size={24} /> Richtig!</div>
+               ) : isCorrect === false ? (
+                 <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in"><X size={24} /> Falsch! -1 ❤️</div>
+               ) : null)}
+               <button onClick={handleMaddWeiter} className="ml-auto px-8 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transform active:scale-95 transition-all flex items-center gap-2">
+                 {hasCheckedMadd ? (queue.length === 1 ? 'Beenden' : 'Weiter') : 'Prüfen'} <Check size={18} />
+               </button>
+             </>
+           ) : (
+             <>
+               {isCorrect === true && (
+                 <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in"><Check size={24} /> Richtig!</div>
+               )}
+               {isCorrect === false && (
+                 <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in"><X size={24} /> Falsch! -1 ❤️</div>
+               )}
+               {selectedOptionId && (
+                 <button onClick={handleNext} className="ml-auto px-8 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transform active:scale-95 transition-all flex items-center gap-2">
+                   {queue.length === 1 ? 'Beenden' : 'Weiter'} <Check size={18} />
+                 </button>
+               )}
+             </>
            )}
         </div>
       </div>

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { VideoInput } from '../components/VideoInput';
 import { AudioInput } from '../components/AudioInput';
-import { Edit2, ChevronDown, ChevronUp, Save, X } from 'lucide-react';
+import { Edit2, ChevronDown, ChevronUp, Save, X, Trash2 } from 'lucide-react';
+import { ClickableArabicVerse } from '../components/ClickableArabicVerse';
 
 function isYouTubeUrl(url: string | null): boolean {
   if (!url) return false;
@@ -24,13 +25,18 @@ interface LearningLevel {
   intro_video_url: string | null;
 }
 
+interface MaddClickOptions {
+  task_type?: 'madd_click';
+  correct_madd_indices: number[];
+}
+
 interface LearningItem {
   id: string;
   level_id: number;
   content: string;
   transliteration: string | null;
   order_index: number;
-  options?: Option[] | null;
+  options?: Option[] | MaddClickOptions | null;
 }
 
 export default function Admin() {
@@ -40,6 +46,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<LearningItem | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [savingVideo, setSavingVideo] = useState<number | null>(null);
   const [youtubeUrlDraft, setYoutubeUrlDraft] = useState<Record<number, string>>({});
 
@@ -81,6 +88,20 @@ export default function Admin() {
     } else {
       setLevels((prev) => prev.map((l) => (l.level_number === levelNumber ? { ...l, intro_video_url: url } : l)));
       setMessage('');
+    }
+  };
+
+  const handleDeleteItem = async (item: LearningItem) => {
+    if (!confirm(`Aufgabe wirklich löschen?\n\n„${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}"`)) return;
+    setDeletingItemId(item.id);
+    const { error } = await supabase.from('learning_items').delete().eq('id', item.id);
+    setDeletingItemId(null);
+    if (error) {
+      setMessage('Fehler beim Löschen: ' + error.message);
+    } else {
+      fetchData();
+      setMessage('Aufgabe gelöscht.');
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -204,6 +225,18 @@ export default function Admin() {
                               >
                                 <Edit2 size={16} />
                               </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteItem(it);
+                                }}
+                                disabled={deletingItemId === it.id}
+                                className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50"
+                                title="Aufgabe löschen"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </li>
                           ))}
                         </ul>
@@ -237,17 +270,31 @@ export default function Admin() {
       </section>
 
       {editingItem && (
-        <EditItemModal
-          key={editingItem.id}
-          item={editingItem}
-          onClose={() => setEditingItem(null)}
-          onSaved={() => {
-            fetchData();
-            setEditingItem(null);
-            setMessage('Aufgabe gespeichert.');
-            setTimeout(() => setMessage(''), 3000);
-          }}
-        />
+        editingItem.level_id === 8 ? (
+          <EditMaddItemModal
+            key={editingItem.id}
+            item={editingItem}
+            onClose={() => setEditingItem(null)}
+            onSaved={() => {
+              fetchData();
+              setEditingItem(null);
+              setMessage('Aufgabe gespeichert.');
+              setTimeout(() => setMessage(''), 3000);
+            }}
+          />
+        ) : (
+          <EditItemModal
+            key={editingItem.id}
+            item={editingItem}
+            onClose={() => setEditingItem(null)}
+            onSaved={() => {
+              fetchData();
+              setEditingItem(null);
+              setMessage('Aufgabe gespeichert.');
+              setTimeout(() => setMessage(''), 3000);
+            }}
+          />
+        )
       )}
 
       <button
@@ -256,6 +303,116 @@ export default function Admin() {
       >
         Mein Fortschritt zurücksetzen
       </button>
+    </div>
+  );
+}
+
+function getMaddCorrectIndices(raw: unknown): number[] {
+  if (raw && typeof raw === 'object' && 'correct_madd_indices' in raw && Array.isArray((raw as MaddClickOptions).correct_madd_indices)) {
+    return [...(raw as MaddClickOptions).correct_madd_indices].sort((a, b) => a - b);
+  }
+  return [];
+}
+
+function EditMaddItemModal({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: LearningItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [content, setContent] = useState(item.content);
+  const [correctIndices, setCorrectIndices] = useState<Set<number>>(() => new Set(getMaddCorrectIndices(item.options)));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setContent(item.content);
+    setCorrectIndices(new Set(getMaddCorrectIndices(item.options)));
+  }, [item.id, item.content, item.options]);
+
+  const toggleMaddIndex = (letterIndex: number) => {
+    setCorrectIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(letterIndex)) next.delete(letterIndex);
+      else next.add(letterIndex);
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const options: MaddClickOptions = {
+      task_type: 'madd_click',
+      correct_madd_indices: [...correctIndices].sort((a, b) => a - b),
+    };
+    const { error } = await supabase
+      .from('learning_items')
+      .update({
+        content: content.trim() || item.content,
+        transliteration: null,
+        options,
+      })
+      .eq('id', item.id);
+    setSaving(false);
+    if (error) {
+      alert('Fehler beim Speichern: ' + error.message);
+    } else {
+      onSaved();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-600"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-600">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Madd-Aufgabe (Stufe 8)</h3>
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Quran-Abschnitt (arabischer Text)</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={5}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xl font-arabic"
+              dir="rtl"
+              placeholder="Vers oder Abschnitt einfügen…"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+              Klicke die Buchstaben an, die als <strong>richtige</strong> Madd-Buchstaben gelten sollen (diese Auswahl wird beim Lernenden als korrekt gewertet).
+            </label>
+            <div className="min-h-[120px] py-4 px-2 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+              <ClickableArabicVerse
+                content={content}
+                selectedIndices={correctIndices}
+                onToggle={toggleMaddIndex}
+                selectedClassName="bg-emerald-400/40 dark:bg-emerald-500/45"
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Ausgewählt: {correctIndices.size} Buchstabe(n). Indizes: {[...correctIndices].sort((a,b)=>a-b).join(', ') || '–'}
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-600">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+            Abbrechen
+          </button>
+          <button type="button" onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50">
+            <Save size={16} /> {saving ? 'Speichern…' : 'Speichern'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
