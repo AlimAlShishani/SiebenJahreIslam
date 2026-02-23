@@ -11,6 +11,9 @@ type Props = {
   className?: string;
   /** Für Markierung: CSS-Klasse wenn ausgewählt */
   selectedClassName?: string;
+  /** Nach falscher Antwort: richtige Indizes anzeigen (grün), falsch markierte (rot) */
+  correctIndices?: Set<number> | number[];
+  showFeedback?: boolean;
 };
 
 /**
@@ -24,10 +27,13 @@ export function ClickableArabicVerse({
   disabled = false,
   className = '',
   selectedClassName = 'bg-amber-400/35 dark:bg-amber-500/40',
+  correctIndices,
+  showFeedback = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const [rects, setRects] = useState<Rect[]>([]);
+  const correctSet = correctIndices instanceof Set ? correctIndices : new Set(correctIndices ?? []);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -75,19 +81,37 @@ export function ClickableArabicVerse({
       >
         {content}
       </div>
-      {rects.map(({ letterIndex, left, top, width, height }) => (
-        <button
-          key={letterIndex}
-          type="button"
-          disabled={disabled}
-          onClick={() => onToggle(letterIndex)}
-          className={`absolute rounded-sm transition-colors pointer-events-auto ${
-            selectedIndices.has(letterIndex) ? selectedClassName : 'hover:bg-emerald-200/40 dark:hover:bg-emerald-800/30'
-          } ${disabled ? 'pointer-events-none' : ''}`}
-          style={{ left, top, width, height, minWidth: 4, minHeight: 4 }}
-          aria-label={`Buchstabe ${letterIndex + 1}`}
-        />
-      ))}
+      {rects.map(({ letterIndex, left, top, width, height }) => {
+        const isSelected = selectedIndices.has(letterIndex);
+        const isCorrect = correctSet.has(letterIndex);
+        const showAsCorrectMarked = showFeedback && isCorrect && isSelected;   // richtig markiert → grün
+        const showAsCorrectMissed = showFeedback && isCorrect && !isSelected;  // richtig, aber nicht markiert → gelb-grün
+        const showAsWrong = showFeedback && isSelected && !isCorrect;           // falsch markiert → rot
+        let btnClass = 'absolute rounded-sm transition-colors pointer-events-auto ';
+        if (showAsCorrectMarked) {
+          btnClass += 'bg-emerald-400/50 dark:bg-emerald-500/55 ';
+        } else if (showAsCorrectMissed) {
+          btnClass += 'bg-lime-400/50 dark:bg-lime-500/55 ';
+        } else if (showAsWrong) {
+          btnClass += 'bg-red-400/50 dark:bg-red-500/55 ';
+        } else if (isSelected) {
+          btnClass += selectedClassName + ' ';
+        } else {
+          btnClass += 'hover:bg-emerald-200/40 dark:hover:bg-emerald-800/30 ';
+        }
+        if (disabled) btnClass += 'pointer-events-none ';
+        return (
+          <button
+            key={letterIndex}
+            type="button"
+            disabled={disabled}
+            onClick={() => onToggle(letterIndex)}
+            className={btnClass.trim()}
+            style={{ left, top, width, height, minWidth: 4, minHeight: 4 }}
+            aria-label={`Buchstabe ${letterIndex + 1}`}
+          />
+        );
+      })}
     </div>
   );
 }

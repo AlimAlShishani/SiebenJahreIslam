@@ -536,6 +536,11 @@ export default function LearnLevel() {
                   onToggle={handleMaddLetterClick}
                   disabled={hasCheckedMadd}
                   selectedClassName="bg-amber-400/35 dark:bg-amber-500/40"
+                  correctIndices={(() => {
+                    const opts = currentItem.options as MaddClickOptions | undefined;
+                    return Array.isArray(opts?.correct_madd_indices) ? opts.correct_madd_indices : [];
+                  })()}
+                  showFeedback={hasCheckedMadd && isCorrect === false}
                 />
                 {hasCheckedMadd && (
                   <p className={`mt-4 text-lg font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
