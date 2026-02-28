@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
@@ -24,6 +24,7 @@ export default function Quran() {
   const [distributionUsers, setDistributionUsers] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInGroup, setIsInGroup] = useState(false);
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
@@ -80,6 +81,7 @@ export default function Quran() {
         .from('reading_group_members')
         .select('user_id');
       const groupIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+      setGroupMemberIds(groupIds);
       setIsInGroup(!!user?.id && groupIds.includes(user.id));
       if (groupIds.length > 0) {
         const { data: usersData } = await supabase
@@ -291,7 +293,14 @@ export default function Quran() {
     }
   };
 
-  const sortedAssignments = [...assignments].sort((a, b) => a.start_page - b.start_page);
+  // In Gruppe: Aufteilung der Gruppe; sonst: nur eigene Aufteilung (Einzelnutzer)
+  const visibleAssignments = useMemo(() => {
+    const list = isInGroup
+      ? assignments.filter((a) => groupMemberIds.includes(a.user_id))
+      : assignments.filter((a) => a.user_id === user?.id);
+    return [...list].sort((a, b) => a.start_page - b.start_page);
+  }, [assignments, isInGroup, groupMemberIds, user?.id]);
+  const sortedAssignments = visibleAssignments;
 
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
 
@@ -361,31 +370,32 @@ export default function Quran() {
         </div>
       </div>
 
-      {/* Assignments List – nur für Gruppenmitglieder */}
-      {isInGroup && (
+      {/* Assignments List – für alle: Gruppe oder nur eigene Aufteilung */}
       <div className="space-y-4 min-w-0 max-w-full">
         <div className="flex flex-wrap justify-between items-center gap-2">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 min-w-0">
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
           </h3>
-          {isAdmin && (
+          {isAdmin && isInGroup && (
             <button 
               onClick={openDistributeModal}
               disabled={generating}
               className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
             >
               {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              {assignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
+              {visibleAssignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
             </button>
           )}
         </div>
 
-        {assignments.length === 0 ? (
+        {visibleAssignments.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-600">
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`}
+              {isInGroup
+                ? (isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`)
+                : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (Tag ${selectedRamadanDay}).`)}
             </p>
-            {isAdmin && (
+            {isAdmin && isInGroup && (
               <button 
                 onClick={openDistributeModal}
                 disabled={generating}
@@ -481,7 +491,6 @@ export default function Quran() {
           </>
         )}
       </div>
-      )}
 
       {/* Modal: Seitenanzahl pro Person beim Neuverteilen */}
       {isAdmin && isInGroup && showDistributeModal && (
