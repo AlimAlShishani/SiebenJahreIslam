@@ -2,6 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
+import { ReadingAudioCell } from '../components/ReadingAudioCell';
+
+const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
+type VoteValue = typeof VOTE_OPTIONS[number];
+const VOTE_ORDER: VoteValue[] = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'];
+
+interface DailyReadingVote {
+  id: string;
+  date: string;
+  user_id: string;
+  vote: VoteValue;
+  profiles?: { full_name: string | null; email: string };
+}
 
 interface DailyAssignment {
   id: string;
@@ -11,6 +24,7 @@ interface DailyAssignment {
   start_page: number;
   end_page: number;
   is_completed: boolean;
+  audio_url: string | null;
   profiles: {
     full_name: string | null;
     email: string;
@@ -33,6 +47,9 @@ export default function Quran() {
   const [managingGroup, setManagingGroup] = useState(false);
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // Voting (nur wenn in Gruppe)
+  const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>([]);
+  const [savingVote, setSavingVote] = useState(false);
 
   // Farben für die Seiten-Boxen (eine pro Person)
   const SEGMENT_COLORS = [
@@ -88,7 +105,16 @@ export default function Quran() {
           .from('profiles')
           .select('id, email, full_name, role')
           .in('id', groupIds);
-        setUsers(usersData || []);
+        const { data: settingsData } = await supabase
+          .from('reading_group_member_settings')
+          .select('user_id, reader_language')
+          .in('user_id', groupIds);
+        const settingsMap = new Map((settingsData || []).map((s: { user_id: string; reader_language: string | null }) => [s.user_id, s.reader_language]));
+        const usersWithLang = (usersData || []).map((u: { id: string; email: string; full_name: string | null; role: string }) => ({
+          ...u,
+          reader_language: settingsMap.get(u.id) ?? null
+        }));
+        setUsers(usersWithLang);
       } else {
         setUsers([]);
       }
@@ -113,6 +139,17 @@ export default function Quran() {
       if (error) throw error;
       setAssignments(assignmentsData || []);
 
+      // 3. Votes für diesen Tag (nur wenn in Gruppe)
+      if (isInGroup) {
+        const { data: votesData } = await supabase
+          .from('daily_reading_votes')
+          .select('id, date, user_id, vote, profiles(full_name, email)')
+          .eq('date', selectedDateStr);
+        setVotesForDay(votesData || []);
+      } else {
+        setVotesForDay([]);
+      }
+
     } catch (error) {
       console.error('Error fetching Quran data:', error);
     } finally {
@@ -132,12 +169,44 @@ export default function Quran() {
     }
   };
 
+  /** Gleichmäßige Verteilung (ohne Sprach-Logik), z.B. für Einzelnutzer. */
   const getDefaultPagesPerUser = (count: number): number[] => {
     const { length: totalPages } = getJuzPageInfo(selectedRamadanDay);
     if (count === 0) return [];
     const base = Math.floor(totalPages / count);
     const remainder = totalPages % count;
     return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
+  };
+
+  /** 2 Seiten für Arabisch, 3 für Deutsch/null; Ausgleich so dass Summe = totalPages. */
+  const getPagesByReaderLanguage = (
+    userList: { id: string; reader_language?: string | null }[],
+    totalPages: number
+  ): number[] => {
+    if (userList.length === 0) return [];
+    let pages = userList.map((u) => (u.reader_language === 'ar' ? 2 : 3));
+    let sum = pages.reduce((a, b) => a + b, 0);
+    const arIndices = userList.map((u, i) => (u.reader_language === 'ar' ? i : -1)).filter((i) => i >= 0);
+    while (sum < totalPages && arIndices.length > 0) {
+      const idx = arIndices[sum % arIndices.length];
+      pages[idx] += 1;
+      sum += 1;
+    }
+    while (sum > totalPages) {
+      const reduced = pages.findIndex((p, i) => userList[i].reader_language === 'ar' && p > 1);
+      if (reduced >= 0) {
+        pages[reduced] -= 1;
+        sum -= 1;
+      } else {
+        const deReduced = pages.findIndex((p, i) => userList[i].reader_language !== 'ar' && p > 2);
+        if (deReduced >= 0) {
+          pages[deReduced] -= 1;
+          sum -= 1;
+        } else break;
+        }
+      }
+    }
+    return pages;
   };
 
   const openDistributeModal = () => {
@@ -151,9 +220,10 @@ export default function Quran() {
     )
       return;
 
-    // Immer aktuelle Lese-Gruppe verwenden (nicht nur aus alten Zuweisungen)
+    // Immer aktuelle Lese-Gruppe verwenden; Vorbefüllung mit 2/3-Seiten nach Sprach-Markierung
+    const totalPages = getJuzPageInfo(selectedRamadanDay).length;
     setDistributionUsers(users);
-    setPagesPerUser(getDefaultPagesPerUser(users.length));
+    setPagesPerUser(getPagesByReaderLanguage(users, totalPages));
 
     setShowDistributeModal(true);
   };
@@ -184,6 +254,22 @@ export default function Quran() {
   const removeFromGroup = async (userId: string) => {
     try {
       await supabase.from('reading_group_members').delete().eq('user_id', userId);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const setReaderLanguage = async (userId: string, value: 'ar' | 'de' | null) => {
+    try {
+      if (value === null) {
+        await supabase.from('reading_group_member_settings').delete().eq('user_id', userId);
+      } else {
+        await supabase.from('reading_group_member_settings').upsert(
+          { user_id: userId, reader_language: value, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+      }
       await fetchData();
     } catch (e) {
       console.error(e);
@@ -242,6 +328,61 @@ export default function Quran() {
     }
   };
 
+  const generatePlanFromVotes = async () => {
+    if (!isAdmin || !isInGroup || !user) return;
+    setGenerating(true);
+    try {
+      const { data: votesData } = await supabase
+        .from('daily_reading_votes')
+        .select('user_id, vote')
+        .eq('date', selectedDateStr);
+      const votes = (votesData || []) as { user_id: string; vote: VoteValue }[];
+      const sorted = [...votes].sort(
+        (a, b) => VOTE_ORDER.indexOf(a.vote) - VOTE_ORDER.indexOf(b.vote) || a.user_id.localeCompare(b.user_id)
+      );
+      const orderedUserIds = sorted.filter((v) => v.vote !== 'abgeben').map((v) => v.user_id);
+      const orderedUsers = orderedUserIds
+        .map((id) => users.find((u) => u.id === id))
+        .filter((u): u is (typeof users)[0] => !!u);
+      const totalPages = getJuzPageInfo(selectedRamadanDay).length;
+      const pagesPerUserFromVotes = getPagesByReaderLanguage(orderedUsers, totalPages);
+
+      await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
+
+      const juzNumber = selectedRamadanDay;
+      const { start: juzStartPage } = getJuzPageInfo(juzNumber);
+      let currentPage = juzStartPage;
+      const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean }[] = [];
+
+      for (let i = 0; i < orderedUsers.length; i++) {
+        const count = pagesPerUserFromVotes[i] ?? 0;
+        if (count <= 0) continue;
+        const start = currentPage;
+        const end = currentPage + count - 1;
+        newAssignments.push({
+          date: selectedDateStr,
+          juz_number: juzNumber,
+          user_id: orderedUsers[i].id,
+          start_page: start,
+          end_page: end,
+          is_completed: false
+        });
+        currentPage = end + 1;
+      }
+
+      if (newAssignments.length > 0) {
+        const { error } = await supabase.from('daily_reading_status').insert(newAssignments);
+        if (error) throw error;
+      }
+      await fetchData();
+    } catch (error) {
+      console.error('Error generating plan from votes:', error);
+      alert('Fehler beim Erzeugen des Plans aus Votes.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const setPageCountForUser = (userIndex: number, value: number) => {
     const n = Math.max(0, Math.floor(value));
     setPagesPerUser(prev => {
@@ -274,6 +415,29 @@ export default function Quran() {
 
     setDragIndex(null);
   };
+  const myVote = votesForDay.find((v) => v.user_id === user?.id)?.vote ?? null;
+
+  const saveVote = async (vote: VoteValue) => {
+    if (!user?.id) return;
+    setSavingVote(true);
+    try {
+      const { error } = await supabase.from('daily_reading_votes').upsert(
+        { date: selectedDateStr, user_id: user.id, vote, updated_at: new Date().toISOString() },
+        { onConflict: 'date,user_id' }
+      );
+      if (error) throw error;
+      setVotesForDay((prev) => {
+        const rest = prev.filter((v) => v.user_id !== user.id);
+        return [...rest, { id: '', date: selectedDateStr, user_id: user.id, vote, profiles: undefined }];
+      });
+    } catch (e) {
+      console.error(e);
+      await fetchData();
+    } finally {
+      setSavingVote(false);
+    }
+  };
+
   const toggleCompletion = async (assignmentId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -282,14 +446,25 @@ export default function Quran() {
         .eq('id', assignmentId);
 
       if (error) throw error;
-      
-      // Optimistic update
-      setAssignments(prev => prev.map(a => 
+
+      setAssignments(prev => prev.map(a =>
         a.id === assignmentId ? { ...a, is_completed: !currentStatus } : a
       ));
-
     } catch (error) {
       console.error('Error updating status:', error);
+    }
+  };
+
+  const updateAssignmentAudio = async (assignmentId: string, audioUrl: string) => {
+    try {
+      const { error } = await supabase
+        .from('daily_reading_status')
+        .update({ audio_url: audioUrl })
+        .eq('id', assignmentId);
+      if (error) throw error;
+      setAssignments(prev => prev.map(a => (a.id === assignmentId ? { ...a, audio_url: audioUrl } : a)));
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -370,6 +545,42 @@ export default function Quran() {
         </div>
       </div>
 
+      {/* Zeit-Voting (nur wenn in Gruppe) */}
+      {isInGroup && (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-3">
+            Wann kannst du lesen? (Tag {selectedRamadanDay})
+          </h3>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {VOTE_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => saveVote(opt)}
+                disabled={savingVote}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  myVote === opt
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {opt === '0' || opt === '1' ? `${opt} Uhr` : opt}
+              </button>
+            ))}
+          </div>
+          {myVote && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              Deine Wahl: {myVote === '0' || myVote === '1' ? `${myVote} Uhr` : myVote}
+            </p>
+          )}
+          {votesForDay.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-500">
+              Gruppe: {votesForDay.map((v) => `${v.profiles?.full_name || v.profiles?.email || '?'}: ${v.vote === '0' || v.vote === '1' ? v.vote + ' Uhr' : v.vote}`).join(', ')}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Assignments List – für alle: Gruppe oder nur eigene Aufteilung */}
       <div className="space-y-4 min-w-0 max-w-full">
         <div className="flex flex-wrap justify-between items-center gap-2">
@@ -377,14 +588,24 @@ export default function Quran() {
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
           </h3>
           {isAdmin && isInGroup && (
-            <button 
-              onClick={openDistributeModal}
-              disabled={generating}
-              className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
-            >
-              {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              {visibleAssignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={generatePlanFromVotes}
+                disabled={generating}
+                className="text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+              >
+                {generating ? <Loader2 size={14} className="animate-spin" /> : null}
+                Plan aus Votes erzeugen
+              </button>
+              <button
+                onClick={openDistributeModal}
+                disabled={generating}
+                className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+              >
+                {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                {visibleAssignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
+              </button>
+            </div>
           )}
         </div>
 
@@ -396,13 +617,22 @@ export default function Quran() {
                 : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (Tag ${selectedRamadanDay}).`)}
             </p>
             {isAdmin && isInGroup && (
-              <button 
-                onClick={openDistributeModal}
-                disabled={generating}
-                className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
-              >
-                Jetzt generieren
-              </button>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={generatePlanFromVotes}
+                  disabled={generating}
+                  className="bg-amber-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-amber-700 transition-colors shadow-md"
+                >
+                  Plan aus Votes erzeugen
+                </button>
+                <button
+                  onClick={openDistributeModal}
+                  disabled={generating}
+                  className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
+                >
+                  Jetzt generieren
+                </button>
+              </div>
             )}
           </div>
         ) : (
@@ -452,6 +682,12 @@ export default function Quran() {
                             <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
                               Seite <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> bis <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
                             </p>
+                            <ReadingAudioCell
+                              assignmentId={assignment.id}
+                              audioUrl={assignment.audio_url ?? null}
+                              canEdit={isMe || isAdmin}
+                              onSaved={(url) => updateAssignmentAudio(assignment.id, url)}
+                            />
                           </div>
 
                           {canToggle ? (
@@ -590,10 +826,12 @@ export default function Quran() {
               ) : (
                 allProfilesForManage.map((p) => {
                   const inGroup = users.some((u) => u.id === p.id);
+                  const member = users.find((u) => u.id === p.id);
+                  const readerLang = (member as { reader_language?: string | null })?.reader_language ?? null;
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700"
+                      className="flex flex-wrap items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700"
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-sm font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
@@ -606,23 +844,37 @@ export default function Quran() {
                           </span>
                         )}
                       </div>
-                      {inGroup ? (
-                        <button
-                          type="button"
-                          onClick={() => removeFromGroup(p.id)}
-                          className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium shrink-0"
-                        >
-                          <UserMinus size={16} /> Entfernen
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => addToGroup(p.id)}
-                          className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium shrink-0"
-                        >
-                          <UserPlus size={16} /> Hinzufügen
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {inGroup && (
+                          <select
+                            value={readerLang ?? ''}
+                            onChange={(e) => setReaderLanguage(p.id, (e.target.value || null) as 'ar' | 'de' | null)}
+                            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                            title="Lese-Sprache für Seitenverteilung"
+                          >
+                            <option value="">Nicht festgelegt</option>
+                            <option value="ar">Arabisch (2 S.)</option>
+                            <option value="de">Deutsch (3 S.)</option>
+                          </select>
+                        )}
+                        {inGroup ? (
+                          <button
+                            type="button"
+                            onClick={() => removeFromGroup(p.id)}
+                            className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium"
+                          >
+                            <UserMinus size={16} /> Entfernen
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => addToGroup(p.id)}
+                            className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium"
+                          >
+                            <UserPlus size={16} /> Hinzufügen
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })
