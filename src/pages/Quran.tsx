@@ -509,6 +509,20 @@ export default function Quran() {
     }
   };
 
+  const clearAssignmentAudio = async (assignmentId: string, assignmentUserId: string) => {
+    if (!isAdmin && assignmentUserId !== user?.id) return;
+    try {
+      const { error } = await supabase
+        .from('daily_reading_status')
+        .update({ audio_url: null })
+        .eq('id', assignmentId);
+      if (error) throw error;
+      setAssignments(prev => prev.map(a => (a.id === assignmentId ? { ...a, audio_url: null } : a)));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // In Gruppe: Aufteilung der Gruppe; sonst: nur eigene Aufteilung (Einzelnutzer)
   const visibleAssignments = useMemo(() => {
     const list = isInGroup
@@ -728,6 +742,7 @@ export default function Quran() {
                               audioUrl={assignment.audio_url ?? null}
                               canEdit={isMe || isAdmin}
                               onSaved={(url) => updateAssignmentAudio(assignment.id, assignment.user_id, url)}
+                              onDeleted={() => clearAssignmentAudio(assignment.id, assignment.user_id)}
                             />
                           </div>
 
