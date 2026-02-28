@@ -12,7 +12,7 @@ interface DailyReadingVote {
   id: string;
   date: string;
   user_id: string;
-  vote: VoteValue;
+  vote: VoteValue[];
   profiles?: { full_name: string | null; email: string };
 }
 
@@ -50,6 +50,26 @@ export default function Quran() {
   // Voting (nur wenn in Gruppe)
   const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>([]);
   const [savingVote, setSavingVote] = useState(false);
+
+  const normalizeVoteSelections = (value: unknown): VoteValue[] => {
+    const allowed = new Set<string>(VOTE_OPTIONS);
+    if (Array.isArray(value)) {
+      return value.filter((v): v is VoteValue => typeof v === 'string' && allowed.has(v));
+    }
+    if (typeof value === 'string' && allowed.has(value)) {
+      return [value as VoteValue];
+    }
+    return [];
+  };
+
+  const formatVoteLabel = (vote: VoteValue) => (vote === '0' || vote === '1' ? `${vote} Uhr` : vote);
+
+  const getEarliestVote = (votes: VoteValue[]): VoteValue | null => {
+    if (votes.length === 0) return null;
+    const unique = Array.from(new Set(votes));
+    unique.sort((a, b) => VOTE_ORDER.indexOf(a) - VOTE_ORDER.indexOf(b));
+    return unique[0] ?? null;
+  };
 
   // Farben für die Seiten-Boxen (eine pro Person)
   const SEGMENT_COLORS = [
@@ -147,6 +167,7 @@ export default function Quran() {
           .eq('date', selectedDateStr);
         const normalizedVotes: DailyReadingVote[] = (votesData || []).map((v: any) => ({
           ...v,
+          vote: normalizeVoteSelections(v.vote),
           profiles: Array.isArray(v.profiles) ? v.profiles[0] : v.profiles
         }));
         setVotesForDay(normalizedVotes);
@@ -330,11 +351,20 @@ export default function Quran() {
         .from('daily_reading_votes')
         .select('user_id, vote')
         .eq('date', selectedDateStr);
-      const votes = (votesData || []) as { user_id: string; vote: VoteValue }[];
-      const sorted = [...votes].sort(
-        (a, b) => VOTE_ORDER.indexOf(a.vote) - VOTE_ORDER.indexOf(b.vote) || a.user_id.localeCompare(b.user_id)
-      );
-      const orderedUserIds = sorted.filter((v) => v.vote !== 'abgeben').map((v) => v.user_id);
+      const votesByUser = new Map<string, VoteValue[]>();
+      for (const row of (votesData || []) as { user_id: string; vote: VoteValue[] | VoteValue }[]) {
+        const normalized = normalizeVoteSelections(row.vote);
+        if (normalized.length === 0) continue;
+        const prev = votesByUser.get(row.user_id) || [];
+        votesByUser.set(row.user_id, Array.from(new Set([...prev, ...normalized])));
+      }
+      const sorted = Array.from(votesByUser.entries())
+        .map(([user_id, voteList]) => ({ user_id, earliestVote: getEarliestVote(voteList) }))
+        .filter((v): v is { user_id: string; earliestVote: VoteValue } => !!v.earliestVote)
+        .sort(
+          (a, b) => VOTE_ORDER.indexOf(a.earliestVote) - VOTE_ORDER.indexOf(b.earliestVote) || a.user_id.localeCompare(b.user_id)
+        );
+      const orderedUserIds = sorted.filter((v) => v.earliestVote !== 'abgeben').map((v) => v.user_id);
       const orderedUsers = orderedUserIds
         .map((id) => users.find((u) => u.id === id))
         .filter((u): u is (typeof users)[0] => !!u);
@@ -409,20 +439,36 @@ export default function Quran() {
 
     setDragIndex(null);
   };
-  const myVote = votesForDay.find((v) => v.user_id === user?.id)?.vote ?? null;
+  const myVotes = votesForDay.find((v) => v.user_id === user?.id)?.vote ?? [];
 
   const saveVote = async (vote: VoteValue) => {
     if (!user?.id) return;
     setSavingVote(true);
     try {
-      const { error } = await supabase.from('daily_reading_votes').upsert(
-        { date: selectedDateStr, user_id: user.id, vote, updated_at: new Date().toISOString() },
-        { onConflict: 'date,user_id' }
-      );
-      if (error) throw error;
+      const current = new Set(myVotes);
+      if (current.has(vote)) current.delete(vote);
+      else current.add(vote);
+      const nextVotes = Array.from(current).sort((a, b) => VOTE_ORDER.indexOf(a) - VOTE_ORDER.indexOf(b));
+
+      if (nextVotes.length === 0) {
+        const { error } = await supabase
+          .from('daily_reading_votes')
+          .delete()
+          .eq('date', selectedDateStr)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('daily_reading_votes').upsert(
+          { date: selectedDateStr, user_id: user.id, vote: nextVotes, updated_at: new Date().toISOString() },
+          { onConflict: 'date,user_id' }
+        );
+        if (error) throw error;
+      }
+
       setVotesForDay((prev) => {
         const rest = prev.filter((v) => v.user_id !== user.id);
-        return [...rest, { id: '', date: selectedDateStr, user_id: user.id, vote, profiles: undefined }];
+        if (nextVotes.length === 0) return rest;
+        return [...rest, { id: '', date: selectedDateStr, user_id: user.id, vote: nextVotes, profiles: undefined }];
       });
     } catch (e) {
       console.error(e);
@@ -449,7 +495,8 @@ export default function Quran() {
     }
   };
 
-  const updateAssignmentAudio = async (assignmentId: string, audioUrl: string) => {
+  const updateAssignmentAudio = async (assignmentId: string, assignmentUserId: string, audioUrl: string) => {
+    if (!isAdmin && assignmentUserId !== user?.id) return;
     try {
       const { error } = await supabase
         .from('daily_reading_status')
@@ -471,9 +518,6 @@ export default function Quran() {
   }, [assignments, isInGroup, groupMemberIds, user?.id]);
   const sortedAssignments = visibleAssignments;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7868/ingest/d4e98f98-4e17-43fb-bd08-0a7ecb36cc6f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8722c4'},body:JSON.stringify({sessionId:'8722c4',runId:'build-debug-1',hypothesisId:'H2',location:'src/pages/Quran.tsx:480',message:'Quran component render reached',data:{loading,isAdmin,isInGroup,assignmentsCount:assignments.length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
 
   return (
@@ -556,23 +600,23 @@ export default function Quran() {
                 onClick={() => saveVote(opt)}
                 disabled={savingVote}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  myVote === opt
+                  myVotes.includes(opt)
                     ? 'bg-emerald-600 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {opt === '0' || opt === '1' ? `${opt} Uhr` : opt}
+                {formatVoteLabel(opt)}
               </button>
             ))}
           </div>
-          {myVote && (
+          {myVotes.length > 0 && (
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Deine Wahl: {myVote === '0' || myVote === '1' ? `${myVote} Uhr` : myVote}
+              Deine Wahl: {myVotes.map(formatVoteLabel).join(', ')}
             </p>
           )}
           {votesForDay.length > 0 && (
             <p className="text-xs text-gray-500 dark:text-gray-500">
-              Gruppe: {votesForDay.map((v) => `${v.profiles?.full_name || v.profiles?.email || '?'}: ${v.vote === '0' || v.vote === '1' ? v.vote + ' Uhr' : v.vote}`).join(', ')}
+              Gruppe: {votesForDay.map((v) => `${v.profiles?.full_name || v.profiles?.email || '?'}: ${v.vote.map(formatVoteLabel).join(', ')}`).join(' | ')}
             </p>
           )}
         </div>
@@ -683,7 +727,7 @@ export default function Quran() {
                               assignmentId={assignment.id}
                               audioUrl={assignment.audio_url ?? null}
                               canEdit={isMe || isAdmin}
-                              onSaved={(url) => updateAssignmentAudio(assignment.id, url)}
+                              onSaved={(url) => updateAssignmentAudio(assignment.id, assignment.user_id, url)}
                             />
                           </div>
 
