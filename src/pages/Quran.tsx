@@ -23,6 +23,7 @@ export default function Quran() {
   const [users, setUsers] = useState<any[]>([]);
   const [distributionUsers, setDistributionUsers] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isInGroup, setIsInGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
@@ -79,6 +80,7 @@ export default function Quran() {
         .from('reading_group_members')
         .select('user_id');
       const groupIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+      setIsInGroup(!!user?.id && groupIds.includes(user.id));
       if (groupIds.length > 0) {
         const { data: usersData } = await supabase
           .from('profiles')
@@ -331,7 +333,7 @@ export default function Quran() {
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> Aktive Gruppe
           </h3>
-          {isAdmin && (
+          {isAdmin && isInGroup && (
             <button
               type="button"
               onClick={openManageGroupModal}
@@ -342,7 +344,9 @@ export default function Quran() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {users.length === 0 ? (
+          {!isInGroup ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Du bist nicht in der Lese-Gruppe. Kontaktiere einen Admin, um hinzugefügt zu werden.</p>
+          ) : users.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">Noch niemand in der Lese-Gruppe. {isAdmin && 'Nutze „Gruppe verwalten“, um dich und andere hinzuzufügen.'}</p>
           ) : (
             users.map((u) => (
@@ -550,8 +554,8 @@ export default function Quran() {
         </div>
       )}
 
-      {/* Modal: Lese-Gruppe verwalten (nur Admin) */}
-      {isAdmin && showManageGroupModal && (
+      {/* Modal: Lese-Gruppe verwalten (nur Admin, nur wenn selbst in der Gruppe) */}
+      {isAdmin && isInGroup && showManageGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
