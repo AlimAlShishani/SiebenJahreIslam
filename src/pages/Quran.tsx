@@ -57,6 +57,15 @@ export default function Quran() {
     totalPages: number;
   } | null>(null);
   const [abgebenRecipients, setAbgebenRecipients] = useState<Record<string, string>>({});
+  const [showArabic3Modal, setShowArabic3Modal] = useState(false);
+  const [arabic3ModalData, setArabic3ModalData] = useState<{
+    orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[];
+    pagesPerUser: number[];
+    totalPages: number;
+    abgebenAssignments: { abgebenUserId: string; pages: number; recipientUserId: string }[];
+  } | null>(null);
+  const [arabic3SelectedUserId, setArabic3SelectedUserId] = useState<string>('');
+  const [arabic3InDistributeUserId, setArabic3InDistributeUserId] = useState<string | null>(null);
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
@@ -251,10 +260,12 @@ export default function Quran() {
     )
       return;
 
-    // Immer aktuelle Lese-Gruppe verwenden; Vorbefüllung mit 2/3-Seiten nach Sprach-Markierung
     const totalPages = getJuzPageInfo(selectedRamadanDay).length;
+    const initialPages = getPagesByReaderLanguage(users, totalPages);
     setDistributionUsers(users);
-    setPagesPerUser(getPagesByReaderLanguage(users, totalPages));
+    setPagesPerUser(initialPages);
+    const arWith3Idx = users.findIndex((u, i) => u.reader_language === 'ar' && (initialPages[i] ?? 0) === 3);
+    setArabic3InDistributeUserId(arWith3Idx >= 0 ? users[arWith3Idx].id : null);
 
     setShowDistributeModal(true);
   };
@@ -415,6 +426,36 @@ export default function Quran() {
     }
   };
 
+  const doInsertPlanFromVotes = async (
+    orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[],
+    pagesPerUser: number[]
+  ) => {
+    await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
+    const juzNumber = selectedRamadanDay;
+    const { start: juzStartPage } = getJuzPageInfo(juzNumber);
+    let currentPage = juzStartPage;
+    const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean }[] = [];
+    for (let i = 0; i < orderedUsers.length; i++) {
+      const count = pagesPerUser[i] ?? 0;
+      if (count <= 0) continue;
+      const start = currentPage;
+      const end = currentPage + count - 1;
+      newAssignments.push({
+        date: selectedDateStr,
+        juz_number: juzNumber,
+        user_id: orderedUsers[i].id,
+        start_page: start,
+        end_page: end,
+        is_completed: false
+      });
+      currentPage = end + 1;
+    }
+    if (newAssignments.length > 0) {
+      const { error } = await supabase.from('daily_reading_status').insert(newAssignments);
+      if (error) throw error;
+    }
+  };
+
   const applyPlanFromVotes = async (
     orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[],
     totalPages: number,
@@ -429,36 +470,54 @@ export default function Quran() {
         if (idx >= 0) pagesPerUser[idx] = (pagesPerUser[idx] ?? 0) + pages;
       }
 
-      await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
-
-      const juzNumber = selectedRamadanDay;
-      const { start: juzStartPage } = getJuzPageInfo(juzNumber);
-      let currentPage = juzStartPage;
-      const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean }[] = [];
-
-      for (let i = 0; i < orderedUsers.length; i++) {
-        const count = pagesPerUser[i] ?? 0;
-        if (count <= 0) continue;
-        const start = currentPage;
-        const end = currentPage + count - 1;
-        newAssignments.push({
-          date: selectedDateStr,
-          juz_number: juzNumber,
-          user_id: orderedUsers[i].id,
-          start_page: start,
-          end_page: end,
-          is_completed: false
-        });
-        currentPage = end + 1;
+      const arWith3 = orderedUsers
+        .map((u, i) => ({ u, i, pages: pagesPerUser[i] ?? 0 }))
+        .filter((x) => x.u.reader_language === 'ar' && x.pages === 3);
+      if (arWith3.length >= 1) {
+        setShowAbgebenAssignModal(false);
+        setAbgebenAssignData(null);
+        setAbgebenRecipients({});
+        setArabic3ModalData({ orderedUsers, pagesPerUser, totalPages, abgebenAssignments });
+        setArabic3SelectedUserId(arWith3[0].u.id);
+        setShowArabic3Modal(true);
+        setGenerating(false);
+        return;
       }
 
-      if (newAssignments.length > 0) {
-        const { error } = await supabase.from('daily_reading_status').insert(newAssignments);
-        if (error) throw error;
-      }
+      await doInsertPlanFromVotes(orderedUsers, pagesPerUser);
       setShowAbgebenAssignModal(false);
       setAbgebenAssignData(null);
       setAbgebenRecipients({});
+      await fetchData();
+    } catch (error) {
+      console.error('Error generating plan from votes:', error);
+      alert('Fehler beim Erzeugen des Plans aus Votes.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const confirmArabic3AndGenerate = async () => {
+    if (!arabic3ModalData) return;
+    const { orderedUsers, pagesPerUser, totalPages } = arabic3ModalData;
+    const pages = [...pagesPerUser];
+    const arIndices = orderedUsers.map((u, i) => ({ i, u })).filter((x) => x.u.reader_language === 'ar');
+    const selectedIndex = orderedUsers.findIndex((u) => u.id === arabic3SelectedUserId);
+    if (selectedIndex >= 0 && orderedUsers[selectedIndex].reader_language === 'ar') {
+      arIndices.forEach(({ i }) => { pages[i] = 2; });
+      pages[selectedIndex] = 3;
+      const sum = pages.reduce((a, b) => a + b, 0);
+      if (sum < totalPages) {
+        const deIdx = orderedUsers.findIndex((u, i) => u.reader_language !== 'ar' && (pages[i] ?? 0) > 0);
+        if (deIdx >= 0) pages[deIdx] = (pages[deIdx] ?? 0) + (totalPages - sum);
+      }
+    }
+    setGenerating(true);
+    try {
+      await doInsertPlanFromVotes(orderedUsers, pages);
+      setShowArabic3Modal(false);
+      setArabic3ModalData(null);
+      setArabic3SelectedUserId('');
       await fetchData();
     } catch (error) {
       console.error('Error generating plan from votes:', error);
@@ -517,10 +576,17 @@ export default function Quran() {
     if (!user?.id) return;
     setSavingVote(true);
     try {
-      const current = new Set(myVotes);
-      if (current.has(vote)) current.delete(vote);
-      else current.add(vote);
-      const nextVotes = Array.from(current).sort((a, b) => VOTE_ORDER.indexOf(a) - VOTE_ORDER.indexOf(b));
+      let nextVotes: VoteValue[];
+      if (vote === 'nachlesen' || vote === 'abgeben') {
+        nextVotes = [vote];
+      } else {
+        const current = new Set(myVotes);
+        current.delete('nachlesen');
+        current.delete('abgeben');
+        if (current.has(vote)) current.delete(vote);
+        else current.add(vote);
+        nextVotes = Array.from(current).sort((a, b) => VOTE_ORDER.indexOf(a) - VOTE_ORDER.indexOf(b));
+      }
 
       if (nextVotes.length === 0) {
         const { error } = await supabase
@@ -882,6 +948,38 @@ export default function Quran() {
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
               Gesamt: {totalPagesForJuz} Seiten. Die Summe pro Person muss genau {totalPagesForJuz} ergeben.
             </p>
+            {arabic3InDistributeUserId && (() => {
+              const arUsers = distributionUsers.filter((u: { reader_language?: string | null }) => u.reader_language === 'ar');
+              if (arUsers.length < 2) return null;
+              return (
+                <div className="px-6 pt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Wer von den Arabisch-Lesern liest 3 Seiten?</span>
+                  <select
+                    value={arabic3InDistributeUserId}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      const prevId = arabic3InDistributeUserId;
+                      if (!prevId || prevId === newId) return;
+                      const prevIdx = distributionUsers.findIndex((u: { id: string }) => u.id === prevId);
+                      const newIdx = distributionUsers.findIndex((u: { id: string }) => u.id === newId);
+                      if (prevIdx < 0 || newIdx < 0) return;
+                      setPagesPerUser((p) => {
+                        const next = [...p];
+                        next[prevIdx] = 2;
+                        next[newIdx] = 3;
+                        return next;
+                      });
+                      setArabic3InDistributeUserId(newId);
+                    }}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                  >
+                    {arUsers.map((u: { id: string; full_name: string | null; email: string }) => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
             <div className="p-6 overflow-y-auto space-y-3">
               {distributionUsers.map((u, idx) => (
                 <div
@@ -994,6 +1092,62 @@ export default function Quran() {
           </div>
         </div>
       )}
+
+      {/* Modal: Welcher Arabisch-Leser bekommt 3 Seiten? (Plan aus Votes) */}
+      {isAdmin && showArabic3Modal && arabic3ModalData && (() => {
+        const arUsers = arabic3ModalData.orderedUsers.filter((u) => u.reader_language === 'ar');
+        if (arUsers.length === 0) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                  Arabisch-Leser mit 3 Seiten
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowArabic3Modal(false); setArabic3ModalData(null); setArabic3SelectedUserId(''); }}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
+                Ein Arabisch-Leser erhält 3 Seiten (statt 2). Wer soll es sein?
+              </p>
+              <div className="p-6">
+                <select
+                  value={arabic3SelectedUserId}
+                  onChange={(e) => setArabic3SelectedUserId(e.target.value)}
+                  className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                >
+                  {arUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowArabic3Modal(false); setArabic3ModalData(null); setArabic3SelectedUserId(''); }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmArabic3AndGenerate}
+                  disabled={generating}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {generating ? <Loader2 size={18} className="animate-spin" /> : null}
+                  Plan erzeugen
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: Lese-Gruppe verwalten (nur Admin, nur wenn selbst in der Gruppe) */}
       {isAdmin && isInGroup && showManageGroupModal && (
