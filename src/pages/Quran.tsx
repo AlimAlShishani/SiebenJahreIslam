@@ -50,6 +50,13 @@ export default function Quran() {
   // Voting (nur wenn in Gruppe)
   const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>([]);
   const [savingVote, setSavingVote] = useState(false);
+  const [showAbgebenAssignModal, setShowAbgebenAssignModal] = useState(false);
+  const [abgebenAssignData, setAbgebenAssignData] = useState<{
+    orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[];
+    abgebenUsers: { user: { id: string; full_name: string | null; email: string; reader_language?: string | null }; pages: number }[];
+    totalPages: number;
+  } | null>(null);
+  const [abgebenRecipients, setAbgebenRecipients] = useState<Record<string, string>>({});
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
@@ -352,7 +359,7 @@ export default function Quran() {
     }
   };
 
-  const generatePlanFromVotes = async () => {
+  const openPlanFromVotesOrModal = async () => {
     if (!isAdmin || !isInGroup || !user) return;
     setGenerating(true);
     try {
@@ -364,21 +371,63 @@ export default function Quran() {
       for (const row of (votesData || []) as { user_id: string; vote: VoteValue[] | VoteValue }[]) {
         const normalized = normalizeVoteSelections(row.vote);
         if (normalized.length === 0) continue;
-        const prev = votesByUser.get(row.user_id) || [];
-        votesByUser.set(row.user_id, Array.from(new Set([...prev, ...normalized])));
+        votesByUser.set(row.user_id, normalized);
       }
-      const sorted = Array.from(votesByUser.entries())
+      const votedNonAbgeben = Array.from(votesByUser.entries())
         .map(([user_id, voteList]) => ({ user_id, earliestVote: getEarliestVote(voteList) }))
-        .filter((v): v is { user_id: string; earliestVote: VoteValue } => !!v.earliestVote)
+        .filter((v): v is { user_id: string; earliestVote: VoteValue } => !!v.earliestVote && v.earliestVote !== 'abgeben')
         .sort(
           (a, b) => VOTE_ORDER.indexOf(a.earliestVote) - VOTE_ORDER.indexOf(b.earliestVote) || a.user_id.localeCompare(b.user_id)
         );
-      const orderedUserIds = sorted.filter((v) => v.earliestVote !== 'abgeben').map((v) => v.user_id);
-      const orderedUsers = orderedUserIds
-        .map((id) => users.find((u) => u.id === id))
-        .filter((u): u is (typeof users)[0] => !!u);
+      const votedAbgeben = Array.from(votesByUser.entries())
+        .map(([user_id, voteList]) => ({ user_id, earliestVote: getEarliestVote(voteList) }))
+        .filter((v): v is { user_id: string; earliestVote: VoteValue } => v.earliestVote === 'abgeben');
+      const orderedIds = [...votedNonAbgeben.map((v) => v.user_id)];
+      const nonVoterIds = users.filter((u) => !votesByUser.has(u.id)).map((u) => u.id);
+      orderedIds.push(...nonVoterIds);
+      const orderedUsers = orderedIds.map((id) => users.find((u) => u.id === id)).filter((u): u is (typeof users)[0] => !!u);
       const totalPages = getJuzPageInfo(selectedRamadanDay).length;
-      const pagesPerUserFromVotes = getPagesByReaderLanguage(orderedUsers, totalPages);
+      const abgebenUsers: { user: (typeof users)[0]; pages: number }[] = votedAbgeben
+        .map((v) => {
+          const u = users.find((x) => x.id === v.user_id);
+          return u ? { user: u, pages: u.reader_language === 'ar' ? 2 : 3 } : null;
+        })
+        .filter((x): x is { user: (typeof users)[0]; pages: number } => !!x);
+
+      if (abgebenUsers.length > 0) {
+        if (orderedUsers.length === 0) {
+          alert('Alle haben „abgeben“ gewählt. Es gibt niemanden, dem die Seiten zugeteilt werden können. Bitte manuell verteilen.');
+          return;
+        }
+        setAbgebenRecipients(
+          Object.fromEntries(abgebenUsers.map((a) => [a.user.id, orderedUsers[0]?.id ?? '']))
+        );
+        setAbgebenAssignData({ orderedUsers, abgebenUsers, totalPages });
+        setShowAbgebenAssignModal(true);
+      } else {
+        await applyPlanFromVotes(orderedUsers, totalPages, []);
+      }
+    } catch (error) {
+      console.error('Error preparing plan from votes:', error);
+      alert('Fehler beim Erzeugen des Plans aus Votes.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const applyPlanFromVotes = async (
+    orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[],
+    totalPages: number,
+    abgebenAssignments: { abgebenUserId: string; pages: number; recipientUserId: string }[]
+  ) => {
+    setGenerating(true);
+    try {
+      const baseTotal = totalPages - abgebenAssignments.reduce((s, a) => s + a.pages, 0);
+      let pagesPerUser = getPagesByReaderLanguage(orderedUsers, baseTotal);
+      for (const { recipientUserId, pages } of abgebenAssignments) {
+        const idx = orderedUsers.findIndex((u) => u.id === recipientUserId);
+        if (idx >= 0) pagesPerUser[idx] = (pagesPerUser[idx] ?? 0) + pages;
+      }
 
       await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
 
@@ -388,7 +437,7 @@ export default function Quran() {
       const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean }[] = [];
 
       for (let i = 0; i < orderedUsers.length; i++) {
-        const count = pagesPerUserFromVotes[i] ?? 0;
+        const count = pagesPerUser[i] ?? 0;
         if (count <= 0) continue;
         const start = currentPage;
         const end = currentPage + count - 1;
@@ -407,6 +456,9 @@ export default function Quran() {
         const { error } = await supabase.from('daily_reading_status').insert(newAssignments);
         if (error) throw error;
       }
+      setShowAbgebenAssignModal(false);
+      setAbgebenAssignData(null);
+      setAbgebenRecipients({});
       await fetchData();
     } catch (error) {
       console.error('Error generating plan from votes:', error);
@@ -414,6 +466,17 @@ export default function Quran() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const confirmAbgebenAssignAndGenerate = async () => {
+    if (!abgebenAssignData) return;
+    const { orderedUsers, abgebenUsers, totalPages } = abgebenAssignData;
+    const abgebenAssignments = abgebenUsers.map((a) => ({
+      abgebenUserId: a.user.id,
+      pages: a.pages,
+      recipientUserId: abgebenRecipients[a.user.id] || orderedUsers[0]?.id
+    })).filter((a) => a.recipientUserId);
+    await applyPlanFromVotes(orderedUsers, totalPages, abgebenAssignments);
   };
 
   const setPageCountForUser = (userIndex: number, value: number) => {
@@ -661,7 +724,7 @@ export default function Quran() {
           {isAdmin && isInGroup && (
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={generatePlanFromVotes}
+                onClick={openPlanFromVotesOrModal}
                 disabled={generating}
                 className="text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
               >
@@ -690,7 +753,7 @@ export default function Quran() {
             {isAdmin && isInGroup && (
               <div className="flex flex-wrap gap-2 justify-center">
                 <button
-                  onClick={generatePlanFromVotes}
+                  onClick={openPlanFromVotesOrModal}
                   disabled={generating}
                   className="bg-amber-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-amber-700 transition-colors shadow-md"
                 >
@@ -868,6 +931,65 @@ export default function Quran() {
                   Plan generieren
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Wer bekommt die Seiten von „abgeben“-Votern? */}
+      {isAdmin && showAbgebenAssignModal && abgebenAssignData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                Seiten von „abgeben“ zuweisen
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setShowAbgebenAssignModal(false); setAbgebenAssignData(null); }}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
+              Diese Nutzer haben „abgeben“ gewählt. Wem sollen ihre Seiten zugeteilt werden?
+            </p>
+            <div className="p-6 overflow-y-auto space-y-4">
+              {abgebenAssignData.abgebenUsers.map(({ user: u, pages }) => (
+                <div key={u.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-700/50">
+                  <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{u.full_name || u.email}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({pages} S.)</span>
+                  <span className="text-gray-400 dark:text-gray-500">→</span>
+                  <select
+                    value={abgebenRecipients[u.id] ?? ''}
+                    onChange={(e) => setAbgebenRecipients((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                    className="flex-1 min-w-0 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                  >
+                    {abgebenAssignData.orderedUsers.map((r) => (
+                      <option key={r.id} value={r.id}>{r.full_name || r.email}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowAbgebenAssignModal(false); setAbgebenAssignData(null); }}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={confirmAbgebenAssignAndGenerate}
+                disabled={generating}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {generating ? <Loader2 size={18} className="animate-spin" /> : null}
+                Plan erzeugen
+              </button>
             </div>
           </div>
         </div>
