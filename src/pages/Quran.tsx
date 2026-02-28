@@ -56,8 +56,16 @@ export default function Quran() {
     if (Array.isArray(value)) {
       return value.filter((v): v is VoteValue => typeof v === 'string' && allowed.has(v));
     }
-    if (typeof value === 'string' && allowed.has(value)) {
-      return [value as VoteValue];
+    if (typeof value === 'string') {
+      if (allowed.has(value)) return [value as VoteValue];
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((v): v is VoteValue => typeof v === 'string' && allowed.has(v));
+        }
+      } catch {
+        /* ignore */
+      }
     }
     return [];
   };
@@ -119,7 +127,8 @@ export default function Quran() {
         .select('user_id');
       const groupIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
       setGroupMemberIds(groupIds);
-      setIsInGroup(!!user?.id && groupIds.includes(user.id));
+      const userInGroup = !!user?.id && groupIds.includes(user.id);
+      setIsInGroup(userInGroup);
       if (groupIds.length > 0) {
         const { data: usersData } = await supabase
           .from('profiles')
@@ -159,8 +168,8 @@ export default function Quran() {
       if (error) throw error;
       setAssignments(assignmentsData || []);
 
-      // 3. Votes für diesen Tag (nur wenn in Gruppe)
-      if (isInGroup) {
+      // 3. Votes für diesen Tag (nur wenn in Gruppe) – userInGroup nutzen, nicht State (State ist beim ersten Laden noch falsch)
+      if (userInGroup) {
         const { data: votesData } = await supabase
           .from('daily_reading_votes')
           .select('id, date, user_id, vote, profiles(full_name, email)')
@@ -458,10 +467,17 @@ export default function Quran() {
           .eq('user_id', user.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('daily_reading_votes').upsert(
+        let error = (await supabase.from('daily_reading_votes').upsert(
           { date: selectedDateStr, user_id: user.id, vote: nextVotes, updated_at: new Date().toISOString() },
           { onConflict: 'date,user_id' }
-        );
+        )).error;
+        if (error) {
+          const single = nextVotes[0];
+          error = (await supabase.from('daily_reading_votes').upsert(
+            { date: selectedDateStr, user_id: user.id, vote: single, updated_at: new Date().toISOString() },
+            { onConflict: 'date,user_id' }
+          )).error;
+        }
         if (error) throw error;
       }
 

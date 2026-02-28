@@ -82,7 +82,7 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
     const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file, { upsert: true });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-    return publicUrl;
+    return `${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
   };
 
   const startRecording = async () => {
@@ -134,7 +134,7 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
       const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file, { upsert: true });
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-      onSaved(publicUrl);
+      onSaved(`${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`);
     } catch (err) {
       console.error(err);
     } finally {
