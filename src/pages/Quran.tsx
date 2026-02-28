@@ -145,7 +145,11 @@ export default function Quran() {
           .from('daily_reading_votes')
           .select('id, date, user_id, vote, profiles(full_name, email)')
           .eq('date', selectedDateStr);
-        setVotesForDay(votesData || []);
+        const normalizedVotes: DailyReadingVote[] = (votesData || []).map((v: any) => ({
+          ...v,
+          profiles: Array.isArray(v.profiles) ? v.profiles[0] : v.profiles
+        }));
+        setVotesForDay(normalizedVotes);
       } else {
         setVotesForDay([]);
       }
@@ -167,15 +171,6 @@ export default function Quran() {
       const start = 22 + (juz - 2) * 20;
       return { start, length: 20 };
     }
-  };
-
-  /** Gleichmäßige Verteilung (ohne Sprach-Logik), z.B. für Einzelnutzer. */
-  const getDefaultPagesPerUser = (count: number): number[] => {
-    const { length: totalPages } = getJuzPageInfo(selectedRamadanDay);
-    if (count === 0) return [];
-    const base = Math.floor(totalPages / count);
-    const remainder = totalPages % count;
-    return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
   };
 
   /** 2 Seiten für Arabisch, 3 für Deutsch/null; Ausgleich so dass Summe = totalPages. */
@@ -205,7 +200,6 @@ export default function Quran() {
         } else break;
         }
       }
-    }
     return pages;
   };
 
@@ -477,6 +471,9 @@ export default function Quran() {
   }, [assignments, isInGroup, groupMemberIds, user?.id]);
   const sortedAssignments = visibleAssignments;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7868/ingest/d4e98f98-4e17-43fb-bd08-0a7ecb36cc6f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8722c4'},body:JSON.stringify({sessionId:'8722c4',runId:'build-debug-1',hypothesisId:'H2',location:'src/pages/Quran.tsx:480',message:'Quran component render reached',data:{loading,isAdmin,isInGroup,assignmentsCount:assignments.length},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
 
   return (
