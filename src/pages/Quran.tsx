@@ -135,8 +135,8 @@ export default function Quran() {
     fetchData();
   }, [user, selectedRamadanDay]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
       // 1. Lese-Gruppe: nur Nutzer aus reading_group_members
       const { data: memberRows } = await supabase
@@ -207,7 +207,7 @@ export default function Quran() {
     } catch (error) {
       console.error('Error fetching Quran data:', error);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -702,15 +702,21 @@ export default function Quran() {
 
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
     if (!isAdmin && assignmentUserId !== user?.id) return;
-    const a = assignments.find((x) => x.id === assignmentId);
-    const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
     const pathToRemove = getAudioPathFromUrl(urlToRemove);
-    const idx = current.findIndex(
-      (u) => u === urlToRemove || (pathToRemove != null && getAudioPathFromUrl(u) === pathToRemove)
-    );
-    if (idx === -1) return;
-    const next = current.filter((_, i) => i !== idx);
     try {
+      const { data: row } = await supabase
+        .from('daily_reading_status')
+        .select('audio_urls, audio_url')
+        .eq('id', assignmentId)
+        .single();
+      const current = (Array.isArray(row?.audio_urls) && row.audio_urls.length > 0
+        ? row.audio_urls
+        : (row?.audio_url ? [row.audio_url] : [])) as string[];
+      const idx = current.findIndex(
+        (u) => u === urlToRemove || (pathToRemove != null && getAudioPathFromUrl(u) === pathToRemove)
+      );
+      if (idx === -1) return;
+      const next = current.filter((_, i) => i !== idx);
       const { error } = await supabase
         .from('daily_reading_status')
         .update({ audio_urls: next })
@@ -719,6 +725,7 @@ export default function Quran() {
       setAssignments((prev) =>
         prev.map((x) => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: next[0] ?? null } : x))
       );
+      await fetchData({ silent: true });
     } catch (e) {
       console.error(e);
     }
