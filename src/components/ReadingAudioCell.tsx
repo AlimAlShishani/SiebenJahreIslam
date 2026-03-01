@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward, Send } from 'lucide-react';
 
 const BUCKET = 'reading-audio';
 const AUDIO_BITS_PER_SECOND = 48000;
@@ -29,6 +29,7 @@ function formatDuration(seconds: number): string {
 export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onDeleted }: ReadingAudioCellProps) {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingPaused, setRecordingPaused] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -114,27 +115,48 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
       };
       mr.start();
       setRecording(true);
+      setRecordingPaused(false);
     } catch (e) {
       console.error(e);
     }
   };
 
-  const stopRecording = () => {
+  const toggleRecordingPause = () => {
+    const mr = mediaRecorderRef.current;
+    if (!mr) return;
+    try {
+      if (mr.state === 'recording') {
+        mr.pause();
+        setRecordingPaused(true);
+      } else if (mr.state === 'paused') {
+        mr.resume();
+        setRecordingPaused(false);
+      }
+    } catch {
+      setRecordingPaused(false);
+    }
+  };
+
+  const sendRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setRecording(false);
+      setRecordingPaused(false);
     }
   };
 
   const onFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files?.length) return;
     setUploading(true);
     try {
-      const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file, { upsert: true });
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-      onSaved(`${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file, { upsert: true });
+        if (error) throw error;
+        const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+        onSaved(`${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -145,6 +167,7 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
 
   const deleteAudio = async () => {
     if (!onDeleted) return;
+    if (!window.confirm('Audio wirklich endgültig löschen?')) return;
     setDeleting(true);
     try {
       await supabase.storage.from(BUCKET).remove([storagePath]);
@@ -248,13 +271,26 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
             </button>
           )}
           {recording ? (
-            <button
-              type="button"
-              onClick={stopRecording}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-medium w-fit"
-            >
-              Stopp
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={toggleRecordingPause}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 w-fit"
+              >
+                {recordingPaused ? (
+                  <><Play size={14} /> Fortsetzen</>
+                ) : (
+                  <><Pause size={14} /> Pause</>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={sendRecording}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 w-fit"
+              >
+                <Send size={14} /> Senden
+              </button>
+            </>
           ) : (
             <button
               type="button"
@@ -279,6 +315,7 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
             ref={inputRef}
             type="file"
             accept="audio/*"
+            multiple
             className="hidden"
             onChange={onFileSelect}
           />

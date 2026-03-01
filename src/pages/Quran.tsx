@@ -330,6 +330,15 @@ export default function Quran() {
     setGenerating(true);
     setShowDistributeModal(false);
     try {
+      const { data: existing } = await supabase
+        .from('daily_reading_status')
+        .select('user_id, audio_url')
+        .eq('date', selectedDateStr);
+      const audioByUser = new Map<string, string | null>();
+      for (const row of existing ?? []) {
+        if (row.audio_url) audioByUser.set(row.user_id, row.audio_url);
+      }
+
       await supabase
         .from('daily_reading_status')
         .delete()
@@ -338,20 +347,22 @@ export default function Quran() {
       const juzNumber = selectedRamadanDay;
       const { start: juzStartPage } = getJuzPageInfo(juzNumber);
       let currentPage = juzStartPage;
-      const newAssignments = [];
+      const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_url?: string | null }[] = [];
 
       for (let i = 0; i < distributionUsers.length; i++) {
         const count = pagesPerUser[i] ?? 0;
         if (count <= 0) continue;
         const start = currentPage;
         const end = currentPage + count - 1;
+        const userId = distributionUsers[i].id;
         newAssignments.push({
           date: selectedDateStr,
           juz_number: juzNumber,
-          user_id: distributionUsers[i].id,
+          user_id: userId,
           start_page: start,
           end_page: end,
-          is_completed: false
+          is_completed: false,
+          audio_url: audioByUser.get(userId) ?? null
         });
         currentPage = end + 1;
       }
@@ -430,23 +441,34 @@ export default function Quran() {
     orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[],
     pagesPerUser: number[]
   ) => {
+    const { data: existing } = await supabase
+      .from('daily_reading_status')
+      .select('user_id, audio_url')
+      .eq('date', selectedDateStr);
+    const audioByUser = new Map<string, string | null>();
+    for (const row of existing ?? []) {
+      if (row.audio_url) audioByUser.set(row.user_id, row.audio_url);
+    }
+
     await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
     const juzNumber = selectedRamadanDay;
     const { start: juzStartPage } = getJuzPageInfo(juzNumber);
     let currentPage = juzStartPage;
-    const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean }[] = [];
+    const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_url?: string | null }[] = [];
     for (let i = 0; i < orderedUsers.length; i++) {
       const count = pagesPerUser[i] ?? 0;
       if (count <= 0) continue;
       const start = currentPage;
       const end = currentPage + count - 1;
+      const userId = orderedUsers[i].id;
       newAssignments.push({
         date: selectedDateStr,
         juz_number: juzNumber,
-        user_id: orderedUsers[i].id,
+        user_id: userId,
         start_page: start,
         end_page: end,
-        is_completed: false
+        is_completed: false,
+        audio_url: audioByUser.get(userId) ?? null
       });
       currentPage = end + 1;
     }
