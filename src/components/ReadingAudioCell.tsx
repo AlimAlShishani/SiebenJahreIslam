@@ -141,6 +141,38 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
   const recordingPathRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const silentAudioContextRef = useRef<AudioContext | null>(null);
+  const silentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  const startSilentPlayback = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      silentAudioContextRef.current = ctx;
+      const duration = 0.1;
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(ctx.destination);
+      source.start(0);
+      silentSourceRef.current = source;
+    } catch {
+      silentAudioContextRef.current = null;
+      silentSourceRef.current = null;
+    }
+  };
+
+  const stopSilentPlayback = () => {
+    try {
+      silentSourceRef.current?.stop();
+      silentSourceRef.current = null;
+      silentAudioContextRef.current?.close();
+      silentAudioContextRef.current = null;
+    } catch {
+      silentSourceRef.current = null;
+      silentAudioContextRef.current = null;
+    }
+  };
 
   const requestWakeLock = async () => {
     try {
@@ -174,6 +206,7 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       releaseWakeLock();
+      stopSilentPlayback();
     };
   }, [recording]);
 
@@ -213,6 +246,7 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
       mr.start();
       setRecording(true);
       setRecordingPaused(false);
+      startSilentPlayback();
       await requestWakeLock();
     } catch (e) {
       console.error(e);
@@ -236,6 +270,7 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
       setRecording(false);
       setRecordingPaused(false);
       releaseWakeLock();
+      stopSilentPlayback();
     }
   };
 
