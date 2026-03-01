@@ -719,7 +719,6 @@ export default function Quran() {
       setAssignments((prev) =>
         prev.map((x) => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: next[0] ?? null } : x))
       );
-      await fetchData();
     } catch (e) {
       console.error(e);
     }
