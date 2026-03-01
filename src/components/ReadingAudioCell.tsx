@@ -138,6 +138,42 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
   const chunksRef = useRef<Blob[]>([]);
   const recordingPathRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator && typeof (navigator as any).wakeLock?.request === 'function') {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      }
+    } catch {
+      wakeLockRef.current = null;
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch {
+      wakeLockRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!recording) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && mediaRecorderRef.current?.state === 'recording') {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [recording]);
 
   const uploadToPath = async (path: string, blob: Blob): Promise<string> => {
     const file = new File([blob], path, { type: blob.type });
@@ -175,6 +211,7 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
       mr.start();
       setRecording(true);
       setRecordingPaused(false);
+      await requestWakeLock();
     } catch (e) {
       console.error(e);
     }
@@ -196,6 +233,7 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
       mediaRecorderRef.current.stop();
       setRecording(false);
       setRecordingPaused(false);
+      releaseWakeLock();
     }
   };
 
@@ -251,6 +289,9 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
         <>
           {recording ? (
             <>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Aufnahme läuft – Tab offen lassen, dann bleibt die Aufnahme erhalten.
+              </p>
               <button type="button" onClick={toggleRecordingPause} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 w-fit">
                 {recordingPaused ? <><Play size={14} /> Fortsetzen</> : <><Pause size={14} /> Pause</>}
               </button>
