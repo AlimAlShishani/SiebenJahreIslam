@@ -25,6 +25,7 @@ interface DailyAssignment {
   end_page: number;
   is_completed: boolean;
   audio_url: string | null;
+  audio_urls?: string[] | null;
   profiles: {
     full_name: string | null;
     email: string;
@@ -182,7 +183,10 @@ export default function Quran() {
         .eq('date', selectedDateStr);
 
       if (error) throw error;
-      setAssignments(assignmentsData || []);
+      setAssignments((assignmentsData || []).map((a: any) => ({
+        ...a,
+        audio_urls: Array.isArray(a.audio_urls) && a.audio_urls.length > 0 ? a.audio_urls : (a.audio_url ? [a.audio_url] : [])
+      })));
 
       // 3. Votes für diesen Tag (nur wenn in Gruppe) – userInGroup nutzen, nicht State (State ist beim ersten Laden noch falsch)
       if (userInGroup) {
@@ -332,11 +336,14 @@ export default function Quran() {
     try {
       const { data: existing } = await supabase
         .from('daily_reading_status')
-        .select('user_id, audio_url')
+        .select('user_id, audio_url, audio_urls')
         .eq('date', selectedDateStr);
-      const audioByUser = new Map<string, string | null>();
+      const audioUrlsByUser = new Map<string, string[]>();
       for (const row of existing ?? []) {
-        if (row.audio_url) audioByUser.set(row.user_id, row.audio_url);
+        const urls = Array.isArray((row as any).audio_urls) && (row as any).audio_urls.length > 0
+          ? (row as any).audio_urls
+          : (row.audio_url ? [row.audio_url] : []);
+        if (urls.length > 0) audioUrlsByUser.set(row.user_id, urls);
       }
 
       await supabase
@@ -347,7 +354,7 @@ export default function Quran() {
       const juzNumber = selectedRamadanDay;
       const { start: juzStartPage } = getJuzPageInfo(juzNumber);
       let currentPage = juzStartPage;
-      const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_url?: string | null }[] = [];
+      const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_urls?: string[] }[] = [];
 
       for (let i = 0; i < distributionUsers.length; i++) {
         const count = pagesPerUser[i] ?? 0;
@@ -362,7 +369,7 @@ export default function Quran() {
           start_page: start,
           end_page: end,
           is_completed: false,
-          audio_url: audioByUser.get(userId) ?? null
+          audio_urls: audioUrlsByUser.get(userId) ?? []
         });
         currentPage = end + 1;
       }
@@ -443,18 +450,21 @@ export default function Quran() {
   ) => {
     const { data: existing } = await supabase
       .from('daily_reading_status')
-      .select('user_id, audio_url')
+      .select('user_id, audio_url, audio_urls')
       .eq('date', selectedDateStr);
-    const audioByUser = new Map<string, string | null>();
+    const audioUrlsByUser = new Map<string, string[]>();
     for (const row of existing ?? []) {
-      if (row.audio_url) audioByUser.set(row.user_id, row.audio_url);
+      const urls = Array.isArray((row as any).audio_urls) && (row as any).audio_urls.length > 0
+        ? (row as any).audio_urls
+        : (row.audio_url ? [row.audio_url] : []);
+      if (urls.length > 0) audioUrlsByUser.set(row.user_id, urls);
     }
 
     await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
     const juzNumber = selectedRamadanDay;
     const { start: juzStartPage } = getJuzPageInfo(juzNumber);
     let currentPage = juzStartPage;
-    const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_url?: string | null }[] = [];
+    const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_urls?: string[] }[] = [];
     for (let i = 0; i < orderedUsers.length; i++) {
       const count = pagesPerUser[i] ?? 0;
       if (count <= 0) continue;
@@ -468,7 +478,7 @@ export default function Quran() {
         start_page: start,
         end_page: end,
         is_completed: false,
-        audio_url: audioByUser.get(userId) ?? null
+        audio_urls: audioUrlsByUser.get(userId) ?? []
       });
       currentPage = end + 1;
     }
@@ -662,29 +672,35 @@ export default function Quran() {
     }
   };
 
-  const updateAssignmentAudio = async (assignmentId: string, assignmentUserId: string, audioUrl: string) => {
+  const appendAssignmentAudio = async (assignmentId: string, assignmentUserId: string, newUrl: string) => {
     if (!isAdmin && assignmentUserId !== user?.id) return;
+    const a = assignments.find((x) => x.id === assignmentId);
+    const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
+    const next = [...current, newUrl];
     try {
       const { error } = await supabase
         .from('daily_reading_status')
-        .update({ audio_url: audioUrl })
+        .update({ audio_urls: next })
         .eq('id', assignmentId);
       if (error) throw error;
-      setAssignments(prev => prev.map(a => (a.id === assignmentId ? { ...a, audio_url: audioUrl } : a)));
+      setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: null } : x)));
     } catch (e) {
       console.error(e);
     }
   };
 
-  const clearAssignmentAudio = async (assignmentId: string, assignmentUserId: string) => {
+  const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
     if (!isAdmin && assignmentUserId !== user?.id) return;
+    const a = assignments.find((x) => x.id === assignmentId);
+    const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
+    const next = current.filter((u) => u !== urlToRemove);
     try {
       const { error } = await supabase
         .from('daily_reading_status')
-        .update({ audio_url: null })
+        .update({ audio_urls: next })
         .eq('id', assignmentId);
       if (error) throw error;
-      setAssignments(prev => prev.map(a => (a.id === assignmentId ? { ...a, audio_url: null } : a)));
+      setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: next[0] ?? null } : x)));
     } catch (e) {
       console.error(e);
     }
@@ -906,10 +922,10 @@ export default function Quran() {
                             </p>
                             <ReadingAudioCell
                               assignmentId={assignment.id}
-                              audioUrl={assignment.audio_url ?? null}
+                              audioUrls={assignment.audio_urls ?? (assignment.audio_url ? [assignment.audio_url] : [])}
                               canEdit={isMe || isAdmin}
-                              onSaved={(url) => updateAssignmentAudio(assignment.id, assignment.user_id, url)}
-                              onDeleted={() => clearAssignmentAudio(assignment.id, assignment.user_id)}
+                              onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}
+                              onDeleted={(url) => removeAssignmentAudioUrl(assignment.id, assignment.user_id, url)}
                             />
                           </div>
 

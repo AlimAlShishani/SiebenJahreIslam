@@ -7,11 +7,10 @@ const AUDIO_BITS_PER_SECOND = 48000;
 
 export interface ReadingAudioCellProps {
   assignmentId: string;
-  audioUrl: string | null;
+  audioUrls: string[];
   canEdit: boolean;
   onSaved: (url: string) => void;
-  /** Nach Löschen der Datei in Storage aufrufen; DB-Update erfolgt im Parent. */
-  onDeleted?: () => void | Promise<void>;
+  onDeleted?: (url: string) => void | Promise<void>;
 }
 
 function formatTime(seconds: number): string {
@@ -26,39 +25,35 @@ function formatDuration(seconds: number): string {
   return formatTime(seconds);
 }
 
-export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onDeleted }: ReadingAudioCellProps) {
-  const [uploading, setUploading] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [recordingPaused, setRecordingPaused] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+function getStoragePathFromUrl(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split('/');
+    const name = segments[segments.length - 1]?.split('?')[0];
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
+function SingleAudioPlayer({
+  url,
+  canDelete,
+  onDelete,
+  deleting,
+}: { url: string; canDelete: boolean; onDelete: () => void; deleting?: boolean }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const storagePath = `${assignmentId}.webm`;
-
   useEffect(() => {
-    if (!audioUrl) {
-      setCurrentTime(0);
-      setDuration(0);
-      setIsPlaying(false);
-      return;
-    }
-    setCurrentTime(0);
-    setDuration(0);
     const el = audioRef.current;
     if (!el) return;
     const onTimeUpdate = () => setCurrentTime(el.currentTime);
     const onLoadedMetadata = () => setDuration(el.duration);
     const onDurationChange = () => setDuration(el.duration);
-    const onEnded = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
+    const onEnded = () => { setIsPlaying(false); setCurrentTime(0); };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     el.addEventListener('timeupdate', onTimeUpdate);
@@ -76,109 +71,7 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
       el.removeEventListener('play', onPlay);
       el.removeEventListener('pause', onPause);
     };
-  }, [audioUrl]);
-
-  const uploadBlob = async (blob: Blob): Promise<string> => {
-    const file = new File([blob], storagePath, { type: blob.type });
-    const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file, { upsert: true });
-    if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-    return `${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const options: MediaRecorderOptions = { audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        options.mimeType = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-        options.mimeType = 'audio/webm';
-      }
-      const mr = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mr;
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
-        if (blob.size === 0) return;
-        setUploading(true);
-        try {
-          const url = await uploadBlob(blob);
-          onSaved(url);
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setUploading(false);
-        }
-      };
-      mr.start();
-      setRecording(true);
-      setRecordingPaused(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const toggleRecordingPause = () => {
-    const mr = mediaRecorderRef.current;
-    if (!mr) return;
-    try {
-      if (mr.state === 'recording') {
-        mr.pause();
-        setRecordingPaused(true);
-      } else if (mr.state === 'paused') {
-        mr.resume();
-        setRecordingPaused(false);
-      }
-    } catch {
-      setRecordingPaused(false);
-    }
-  };
-
-  const sendRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-      setRecordingPaused(false);
-    }
-  };
-
-  const onFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-    setUploading(true);
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file, { upsert: true });
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-        onSaved(`${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const deleteAudio = async () => {
-    if (!onDeleted) return;
-    if (!window.confirm('Audio wirklich endgültig löschen?')) return;
-    setDeleting(true);
-    try {
-      await supabase.storage.from(BUCKET).remove([storagePath]);
-      onDeleted();
-    } catch (e) {
-      console.error(e);
-      onDeleted();
-    } finally {
-      setDeleting(false);
-    }
-  };
+  }, [url]);
 
   const seek = (delta: number) => {
     const el = audioRef.current;
@@ -199,126 +92,183 @@ export function ReadingAudioCell({ assignmentId, audioUrl, canEdit, onSaved, onD
     const el = audioRef.current;
     if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const pct = x / rect.width;
-    const time = pct * el.duration;
-    el.currentTime = time;
-    setCurrentTime(time);
+    const pct = (e.clientX - rect.left) / rect.width;
+    el.currentTime = pct * el.duration;
+    setCurrentTime(el.currentTime);
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="mt-2 flex flex-col gap-2">
-      {audioUrl && (
-        <>
-          <audio ref={audioRef} src={audioUrl} preload="metadata" className="hidden" />
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-              title={isPlaying ? 'Pause' : 'Abspielen'}
-            >
-              {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => seek(-10)}
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0"
-              title="-10 Sekunden"
-            >
-              <SkipBack size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => seek(10)}
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0"
-              title="+10 Sekunden"
-            >
-              <SkipForward size={16} />
-            </button>
-            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[4.5rem]">
-              {formatTime(currentTime)} / {formatDuration(duration)}
-            </span>
-          </div>
-          <div
-            role="progressbar"
-            aria-valuenow={progress}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="h-2 w-full max-w-xs rounded-full bg-gray-200 dark:bg-gray-700 cursor-pointer overflow-hidden"
-            onClick={onProgressClick}
-          >
-            <div
-              className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-150"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </>
-      )}
+    <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+      <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <button type="button" onClick={togglePlay} className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0" title={isPlaying ? 'Pause' : 'Abspielen'}>
+          {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+        </button>
+        <button type="button" onClick={() => seek(-10)} className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0" title="-10 s">
+          <SkipBack size={16} />
+        </button>
+        <button type="button" onClick={() => seek(10)} className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0" title="+10 s">
+          <SkipForward size={16} />
+        </button>
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[4.5rem]">
+          {formatTime(currentTime)} / {formatDuration(duration)}
+        </span>
+        {canDelete && (
+          <button type="button" onClick={onDelete} disabled={deleting} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-medium hover:bg-rose-200 dark:hover:bg-rose-900/60 disabled:opacity-50 ml-auto">
+            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            Löschen
+          </button>
+        )}
+      </div>
+      <div role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} className="h-2 w-full max-w-xs rounded-full bg-gray-200 dark:bg-gray-700 cursor-pointer overflow-hidden" onClick={onProgressClick}>
+        <div className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-150" style={{ width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, onDeleted }: ReadingAudioCellProps) {
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingPaused, setRecordingPaused] = useState(false);
+  const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordingPathRef = useRef<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const uploadToPath = async (path: string, blob: Blob): Promise<string> => {
+    const file = new File([blob], path, { type: blob.type });
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    return `${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      recordingPathRef.current = `${assignmentId}_${Date.now()}.webm`;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const options: MediaRecorderOptions = { audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/webm')) options.mimeType = 'audio/webm';
+      const mr = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mr;
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
+        if (blob.size === 0) return;
+        setUploading(true);
+        try {
+          const url = await uploadToPath(recordingPathRef.current, blob);
+          onSaved(url);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setUploading(false);
+        }
+      };
+      mr.start();
+      setRecording(true);
+      setRecordingPaused(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleRecordingPause = () => {
+    const mr = mediaRecorderRef.current;
+    if (!mr) return;
+    try {
+      if (mr.state === 'recording') { mr.pause(); setRecordingPaused(true); }
+      else if (mr.state === 'paused') { mr.resume(); setRecordingPaused(false); }
+    } catch {
+      setRecordingPaused(false);
+    }
+  };
+
+  const sendRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+      setRecordingPaused(false);
+    }
+  };
+
+  const onFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const path = `${assignmentId}_${Date.now()}_${i}.webm`;
+        const file = files[i];
+        const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
+        if (error) throw error;
+        const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        onSaved(`${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const deleteOneAudio = async (url: string) => {
+    if (!onDeleted) return;
+    if (!window.confirm('Dieses Audio wirklich endgültig löschen?')) return;
+    setDeletingUrl(url);
+    try {
+      const path = getStoragePathFromUrl(url);
+      if (path) await supabase.storage.from(BUCKET).remove([path]);
+      onDeleted(url);
+    } catch (e) {
+      console.error(e);
+      onDeleted(url);
+    } finally {
+      setDeletingUrl(null);
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-col gap-3">
+      {audioUrls.map((url) => (
+        <SingleAudioPlayer
+          key={url}
+          url={url}
+          canDelete={canEdit}
+          onDelete={() => deleteOneAudio(url)}
+          deleting={deletingUrl === url}
+        />
+      ))}
       {canEdit && (
         <>
-          {audioUrl && (
-            <button
-              type="button"
-              onClick={deleteAudio}
-              disabled={deleting}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-medium hover:bg-rose-200 dark:hover:bg-rose-900/60 disabled:opacity-50 w-fit"
-            >
-              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-              Audio löschen
-            </button>
-          )}
           {recording ? (
             <>
-              <button
-                type="button"
-                onClick={toggleRecordingPause}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 w-fit"
-              >
-                {recordingPaused ? (
-                  <><Play size={14} /> Fortsetzen</>
-                ) : (
-                  <><Pause size={14} /> Pause</>
-                )}
+              <button type="button" onClick={toggleRecordingPause} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 w-fit">
+                {recordingPaused ? <><Play size={14} /> Fortsetzen</> : <><Pause size={14} /> Pause</>}
               </button>
-              <button
-                type="button"
-                onClick={sendRecording}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 w-fit"
-              >
+              <button type="button" onClick={sendRecording} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 w-fit">
                 <Send size={14} /> Senden
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={startRecording}
-              disabled={uploading}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 w-fit"
-            >
+            <button type="button" onClick={startRecording} disabled={uploading} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
               Aufnehmen
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 w-fit"
-          >
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
             {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
             Hochladen
           </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="audio/*"
-            multiple
-            className="hidden"
-            onChange={onFileSelect}
-          />
+          <input ref={inputRef} type="file" accept="audio/*" multiple className="hidden" onChange={onFileSelect} />
         </>
       )}
     </div>
