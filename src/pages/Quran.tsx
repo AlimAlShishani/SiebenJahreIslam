@@ -689,18 +689,37 @@ export default function Quran() {
     }
   };
 
+  /** Speicher-Pfad (Dateiname) aus Audio-URL für stabilen Vergleich (DB-URL kann anders formatiert sein). */
+  const getAudioPathFromUrl = (url: string): string | null => {
+    try {
+      const segs = new URL(url).pathname.split('/');
+      const name = segs[segs.length - 1]?.split('?')[0];
+      return name || null;
+    } catch {
+      return null;
+    }
+  };
+
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
     if (!isAdmin && assignmentUserId !== user?.id) return;
     const a = assignments.find((x) => x.id === assignmentId);
     const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
-    const next = current.filter((u) => u !== urlToRemove);
+    const pathToRemove = getAudioPathFromUrl(urlToRemove);
+    const idx = current.findIndex(
+      (u) => u === urlToRemove || (pathToRemove != null && getAudioPathFromUrl(u) === pathToRemove)
+    );
+    if (idx === -1) return;
+    const next = current.filter((_, i) => i !== idx);
     try {
       const { error } = await supabase
         .from('daily_reading_status')
         .update({ audio_urls: next })
         .eq('id', assignmentId);
       if (error) throw error;
-      setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: next[0] ?? null } : x)));
+      setAssignments((prev) =>
+        prev.map((x) => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: next[0] ?? null } : x))
+      );
+      await fetchData();
     } catch (e) {
       console.error(e);
     }
