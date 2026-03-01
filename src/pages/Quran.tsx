@@ -689,14 +689,17 @@ export default function Quran() {
     }
   };
 
-  /** Speicher-Pfad (Dateiname) aus Audio-URL für stabilen Vergleich (DB-URL kann anders formatiert sein). */
+  /** Vergleichs-Key aus URL (funktioniert auch bei relativen Pfaden oder nur Dateiname). */
   const getAudioPathFromUrl = (url: string): string | null => {
+    if (!url?.trim()) return null;
     try {
-      const segs = new URL(url).pathname.split('/');
+      const u = new URL(url);
+      const segs = u.pathname.split('/');
       const name = segs[segs.length - 1]?.split('?')[0];
       return name || null;
     } catch {
-      return null;
+      const last = url.split('/').pop()?.split('?')[0];
+      return last || null;
     }
   };
 

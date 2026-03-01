@@ -26,13 +26,15 @@ function formatDuration(seconds: number): string {
 }
 
 function getStoragePathFromUrl(url: string): string | null {
+  if (!url?.trim()) return null;
   try {
     const pathname = new URL(url).pathname;
     const segments = pathname.split('/');
     const name = segments[segments.length - 1]?.split('?')[0];
     return name || null;
   } catch {
-    return null;
+    const last = url.split('/').pop()?.split('?')[0];
+    return last || null;
   }
 }
 
@@ -264,7 +266,13 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
     setDeletingUrl(url);
     try {
       const path = getStoragePathFromUrl(url);
-      if (path) await supabase.storage.from(BUCKET).remove([path]);
+      if (path) {
+        try {
+          await supabase.storage.from(BUCKET).remove([path]);
+        } catch {
+          // Datei existiert nicht mehr im Storage – trotzdem aus DB/Anzeige entfernen
+        }
+      }
       onDeleted(url);
     } catch (e) {
       console.error(e);
