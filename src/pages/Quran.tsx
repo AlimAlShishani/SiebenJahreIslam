@@ -703,9 +703,13 @@ export default function Quran() {
     }
   };
 
+  /** Normalisiert URL für Vergleich (Blob/unterschiedliche Formate). */
+  const normalizeUrlForCompare = (url: string) => (url || '').trim().replace(/#.*$/, '').replace(/\?.*$/, '');
+
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
     if (!isAdmin && assignmentUserId !== user?.id) return;
     const pathToRemove = getAudioPathFromUrl(urlToRemove);
+    const urlNorm = normalizeUrlForCompare(urlToRemove);
     try {
       const { data: row } = await supabase
         .from('daily_reading_status')
@@ -715,9 +719,13 @@ export default function Quran() {
       const current = (Array.isArray(row?.audio_urls) && row.audio_urls.length > 0
         ? row.audio_urls
         : (row?.audio_url ? [row.audio_url] : [])) as string[];
-      const idx = current.findIndex(
-        (u) => u === urlToRemove || (pathToRemove != null && getAudioPathFromUrl(u) === pathToRemove)
+      let idx = current.findIndex(
+        (u) =>
+          u === urlToRemove ||
+          (pathToRemove != null && getAudioPathFromUrl(u) === pathToRemove) ||
+          normalizeUrlForCompare(u) === urlNorm
       );
+      if (idx === -1 && current.length === 1) idx = 0;
       if (idx === -1) return;
       const next = current.filter((_, i) => i !== idx);
       const { error } = await supabase
