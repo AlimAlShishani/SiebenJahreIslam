@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 
 const BUCKET = 'reading-audio';
-const AUDIO_BITS_PER_SECOND = 64000;
+const AUDIO_BITS_PER_SECOND = 48000;
 
 export interface ReadingAudioCellProps {
   assignmentId: string;
