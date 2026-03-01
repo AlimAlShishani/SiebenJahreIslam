@@ -722,7 +722,7 @@ export default function Quran() {
       const next = current.filter((_, i) => i !== idx);
       const { error } = await supabase
         .from('daily_reading_status')
-        .update({ audio_urls: next })
+        .update({ audio_urls: next, audio_url: next[0] ?? null })
         .eq('id', assignmentId);
       if (error) throw error;
       setAssignments((prev) =>
