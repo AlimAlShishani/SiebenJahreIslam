@@ -40,9 +40,11 @@ const FONT_SIZE_STORAGE_KEY = 'quran-reader-font-size';
 const VIEW_LAYOUT_STORAGE_KEY = 'quran-reader-view-layout';
 const QURAN_TEXT_STORAGE_KEY = 'quran-reader-text-type';
 const HIDE_PAUSE_MARKS_STORAGE_KEY = 'quran-reader-hide-pause-marks';
+const ARABIC_FONT_STORAGE_KEY = 'quran-reader-arabic-font';
 const DEFAULT_FONT_SIZE = 36;
 
 type ViewLayout = 'verse' | 'flow';
+type ArabicFontChoice = 'uthmanic' | 'scheherazade';
 const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
   'quran-uthmani',
   'quran-uthmani-min',
@@ -246,6 +248,11 @@ export default function QuranReader() {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem(HIDE_PAUSE_MARKS_STORAGE_KEY) === 'true';
   });
+  const [arabicFont, setArabicFont] = useState<ArabicFontChoice>(() => {
+    if (typeof window === 'undefined') return 'uthmanic';
+    const saved = window.localStorage.getItem(ARABIC_FONT_STORAGE_KEY);
+    return saved === 'scheherazade' ? 'scheherazade' : 'uthmanic';
+  });
   const [translationEdition, setTranslationEdition] = useState(getDefaultTranslationEdition());
   const [translationOptions, setTranslationOptions] = useState<TranslationEdition[]>([]);
   const [fontSize, setFontSize] = useState(() => {
@@ -343,6 +350,17 @@ export default function QuranReader() {
           <option value="quran-simple-plain">Simple Plain</option>
           <option value="quran-simple-min">Simple Minimal</option>
           <option value="quran-simple-clean">Simple Clean</option>
+        </select>
+      </label>
+      <label className="text-sm text-gray-600 dark:text-gray-300 block">
+        Quran Schriftart
+        <select
+          value={arabicFont}
+          onChange={(e) => setArabicFont(e.target.value as ArabicFontChoice)}
+          className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
+        >
+          <option value="uthmanic">Uthmanic Hafs</option>
+          <option value="scheherazade">Scheherazade New</option>
         </select>
       </label>
       <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
@@ -511,6 +529,12 @@ export default function QuranReader() {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(HIDE_PAUSE_MARKS_STORAGE_KEY, hidePauseMarks ? 'true' : 'false');
   }, [hidePauseMarks]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ARABIC_FONT_STORAGE_KEY, arabicFont);
+    document.documentElement.setAttribute('data-quran-font', arabicFont);
+  }, [arabicFont]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

@@ -18,8 +18,24 @@
   }
 }
 
-/* Stabiler Arabisch/Quran-Stack; auf iOS zuerst Geeza Pro gegen verschobene Tashkeel. */
+@font-face {
+  font-family: "UthmanicHafs";
+  src: local("UthmanicHafs"), url("/UthmanicHafs.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Stabiler Arabisch/Quran-Stack; Default ist Uthmanic Hafs. */
 :root {
+  --quran-font-stack: "UthmanicHafs", "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
+}
+
+:root[data-quran-font="uthmanic"] {
+  --quran-font-stack: "UthmanicHafs", "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
+}
+
+:root[data-quran-font="scheherazade"] {
   --quran-font-stack: "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
 }
 
