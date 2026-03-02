@@ -999,9 +999,21 @@ export default function Quran() {
             </p>
           )}
           {votesForDay.length > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-500">
-              Gruppe: {votesForDay.map((v) => `${v.profiles?.full_name || v.profiles?.email || '?'}: ${v.vote.map(formatVoteLabel).join(', ')}`).join(' | ')}
-            </p>
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Wer hat was gewählt:</p>
+              <ul className="space-y-2">
+                {votesForDay.map((v) => (
+                  <li key={v.user_id} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-gray-800 dark:text-gray-200 min-w-[8rem]">
+                      {v.profiles?.full_name || v.profiles?.email || 'Unbekannt'}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {v.vote.length === 0 ? '–' : v.vote.map(formatVoteLabel).join(', ')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}
