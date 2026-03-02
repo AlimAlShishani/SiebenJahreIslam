@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
@@ -41,6 +41,7 @@ type QuranPageCache = {
   groupMemberIds: string[];
   votesForDay: DailyReadingVote[];
   loadedKey: string | null;
+  scrollY: number;
 };
 
 let quranPageCache: QuranPageCache | null = null;
@@ -145,6 +146,22 @@ export default function Quran() {
   const isToday = selectedRamadanDay === getRamadanDay();
   const loadedKeyRef = useRef<string | null>(quranPageCache?.loadedKey ?? null);
 
+  useLayoutEffect(() => {
+    if (quranPageCache?.scrollY) {
+      window.scrollTo(0, quranPageCache.scrollY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (quranPageCache) {
+        quranPageCache.scrollY = window.scrollY;
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => {
     quranPageCache = {
       selectedRamadanDay,
@@ -155,6 +172,7 @@ export default function Quran() {
       groupMemberIds,
       votesForDay,
       loadedKey: loadedKeyRef.current,
+      scrollY: window.scrollY,
     };
   }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay]);
 
