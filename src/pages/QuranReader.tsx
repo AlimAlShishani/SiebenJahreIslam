@@ -22,6 +22,8 @@ import {
 
 interface AssignmentForReader {
   id: string;
+  date?: string;
+  juz_number?: number;
   user_id: string;
   start_page: number;
   end_page: number;
@@ -228,6 +230,7 @@ export default function QuranReader() {
   const [searchParams] = useSearchParams();
 
   const assignmentId = searchParams.get('assignmentId');
+  const assignmentDate = searchParams.get('date');
   const assignmentStartPage = Number(searchParams.get('startPage') || 1);
   const assignmentEndPage = Number(searchParams.get('endPage') || 604);
 
@@ -427,7 +430,7 @@ export default function QuranReader() {
       setLoadingAssignment(true);
       const { data, error } = await supabase
         .from('daily_reading_status')
-        .select('id, user_id, start_page, end_page, audio_url, audio_urls')
+        .select('id, date, juz_number, user_id, start_page, end_page, audio_url, audio_urls')
         .eq('id', assignmentId)
         .single();
       if (error || !data) {
@@ -640,6 +643,20 @@ export default function QuranReader() {
       .eq('id', assignment.id);
     if (!error) {
       setAssignment((old) => (old ? { ...old, audio_urls: next, audio_url: next[0] ?? null } : old));
+      if (user?.id) {
+        const logDate = assignment.date || assignmentDate || null;
+        const logJuz = assignment.juz_number ?? selectedJuz;
+        if (logDate) {
+          const { error: logError } = await supabase.from('reading_activity_logs').insert({
+            date: logDate,
+            juz_number: logJuz,
+            activity_type: 'audio_added',
+            actor_user_id: user.id,
+            assignment_user_id: assignment.user_id,
+          });
+          if (logError) console.error('Error writing activity log:', logError);
+        }
+      }
     }
   };
 
