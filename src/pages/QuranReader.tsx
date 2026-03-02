@@ -79,17 +79,24 @@ function nextRelevantArabicLetter(text: string, fromIndex: number): string | nul
 
 function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean): ReactNode[] {
   const rendered: ReactNode[] = [];
+  let buffer = '';
+  const flushBuffer = () => {
+    if (!buffer) return;
+    rendered.push(buffer);
+    buffer = '';
+  };
   let idx = 0;
   for (const ch of text) {
     if (isConditionalMeemMark(ch)) {
       // Dieses Tajweed-Meem nur bei nächstem Buchstaben "ب" anzeigen (Iqlab).
       const next = nextRelevantArabicLetter(text, idx);
-      if (next === 'ب') rendered.push(ch);
+      if (next === 'ب') buffer += ch;
       idx += 1;
       continue;
     }
     if (PAUSE_MARKS.has(ch)) {
       if (!hidePauseMarks) {
+        flushBuffer();
         rendered.push(
           <span
             key={`pause-${idx}`}
@@ -101,10 +108,11 @@ function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean): Reac
         );
       }
     } else {
-      rendered.push(ch);
+      buffer += ch;
     }
     idx += 1;
   }
+  flushBuffer();
   return rendered;
 }
 
