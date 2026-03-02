@@ -18,7 +18,32 @@ type LearnPageCache = {
   completedItemIds: Set<string>;
 };
 
-let learnPageCache: LearnPageCache | null = null;
+type LearnPageCacheStorage = {
+  userId: string | null;
+  levels: LearningLevel[];
+  itemIdsByLevel: Record<number, string[]>;
+  completedItemIds: string[];
+};
+
+const LEARN_CACHE_KEY = 'learn_page_cache_v1';
+
+const readLearnPageCache = (): LearnPageCache | null => {
+  try {
+    const raw = window.sessionStorage.getItem(LEARN_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LearnPageCacheStorage;
+    return {
+      userId: parsed.userId ?? null,
+      levels: Array.isArray(parsed.levels) ? parsed.levels : [],
+      itemIdsByLevel: parsed.itemIdsByLevel ?? {},
+      completedItemIds: new Set(parsed.completedItemIds ?? []),
+    };
+  } catch {
+    return null;
+  }
+};
+
+let learnPageCache: LearnPageCache | null = typeof window !== 'undefined' ? readLearnPageCache() : null;
 
 export default function Learn() {
   const navigate = useNavigate();
@@ -59,6 +84,19 @@ export default function Learn() {
         itemIdsByLevel: byLevel,
         completedItemIds: new Set((progressRes.data as { item_id: string }[] | null)?.map((r) => r.item_id) ?? []),
       };
+      try {
+        window.sessionStorage.setItem(
+          LEARN_CACHE_KEY,
+          JSON.stringify({
+            userId: learnPageCache.userId,
+            levels: learnPageCache.levels,
+            itemIdsByLevel: learnPageCache.itemIdsByLevel,
+            completedItemIds: Array.from(learnPageCache.completedItemIds),
+          } satisfies LearnPageCacheStorage)
+        );
+      } catch {
+        // ignore sessionStorage errors
+      }
       setLoading(false);
     };
     fetch();

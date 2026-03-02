@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { BookOpen, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +10,24 @@ export const Layout = () => {
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
+
+  useLayoutEffect(() => {
+    const key = `scroll:${location.pathname}`;
+    const raw = window.sessionStorage.getItem(key);
+    const y = raw ? Number(raw) : 0;
+    if (Number.isFinite(y) && y > 0) {
+      window.scrollTo(0, y);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const key = `scroll:${location.pathname}`;
+    const onScroll = () => {
+      window.sessionStorage.setItem(key, String(window.scrollY));
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors">

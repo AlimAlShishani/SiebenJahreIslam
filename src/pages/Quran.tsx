@@ -44,7 +44,19 @@ type QuranPageCache = {
   scrollY: number;
 };
 
-let quranPageCache: QuranPageCache | null = null;
+const QURAN_CACHE_KEY = 'quran_page_cache_v1';
+
+const readQuranPageCache = (): QuranPageCache | null => {
+  try {
+    const raw = window.sessionStorage.getItem(QURAN_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as QuranPageCache;
+  } catch {
+    return null;
+  }
+};
+
+let quranPageCache: QuranPageCache | null = typeof window !== 'undefined' ? readQuranPageCache() : null;
 
 export default function Quran() {
   const { user } = useAuth();
@@ -174,6 +186,11 @@ export default function Quran() {
       loadedKey: loadedKeyRef.current,
       scrollY: window.scrollY,
     };
+    try {
+      window.sessionStorage.setItem(QURAN_CACHE_KEY, JSON.stringify(quranPageCache));
+    } catch {
+      // ignore sessionStorage errors
+    }
   }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay]);
 
   useEffect(() => {
