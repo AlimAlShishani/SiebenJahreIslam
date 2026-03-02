@@ -3,11 +3,19 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { BookOpen, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import Quran from '../pages/Quran';
+import Learn from '../pages/Learn';
+import Profile from '../pages/Profile';
 
 export const Layout = () => {
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const path = location.pathname;
+  const isQuranPath = path === '/';
+  const isLearnPath = path === '/learn';
+  const isProfilePath = path === '/profile';
+  const isTabRootPath = isQuranPath || isLearnPath || isProfilePath;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -50,7 +58,16 @@ export const Layout = () => {
       </header>
 
       <main className="flex-grow container mx-auto px-4 py-6">
-        <Outlet />
+        <div className={isQuranPath ? 'block' : 'hidden'} aria-hidden={!isQuranPath}>
+          <Quran />
+        </div>
+        <div className={isLearnPath ? 'block' : 'hidden'} aria-hidden={!isLearnPath}>
+          <Learn />
+        </div>
+        <div className={isProfilePath ? 'block' : 'hidden'} aria-hidden={!isProfilePath}>
+          <Profile />
+        </div>
+        {!isTabRootPath && <Outlet />}
       </main>
 
       <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 w-full md:relative md:border-t-0 md:bg-transparent md:mb-6 dark:md:bg-transparent">
