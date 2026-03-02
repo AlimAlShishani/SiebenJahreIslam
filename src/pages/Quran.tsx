@@ -1037,6 +1037,25 @@ export default function Quran() {
         .update({ audio_urls: next, audio_url: next[0] ?? null })
         .eq('id', assignmentId);
       if (error) throw error;
+
+      const { data: latestLog } = await supabase
+        .from('reading_activity_logs')
+        .select('id')
+        .eq('date', selectedDateStr)
+        .eq('juz_number', selectedRamadanDay)
+        .eq('assignment_user_id', assignmentUserId)
+        .eq('activity_type', 'audio_added')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestLog?.id) {
+        const { error: logDeleteError } = await supabase
+          .from('reading_activity_logs')
+          .delete()
+          .eq('id', latestLog.id);
+        if (logDeleteError) console.error('Error deleting activity log:', logDeleteError);
+      }
+
       setAssignments((prev) =>
         prev.map((x) => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: next[0] ?? null } : x))
       );

@@ -672,6 +672,27 @@ export default function QuranReader() {
       })
       .eq('id', assignment.id);
     if (!error) {
+      const logDate = assignment.date || assignmentDate || null;
+      const logJuz = assignment.juz_number ?? selectedJuz;
+      if (logDate) {
+        const { data: latestLog } = await supabase
+          .from('reading_activity_logs')
+          .select('id')
+          .eq('date', logDate)
+          .eq('juz_number', logJuz)
+          .eq('assignment_user_id', assignment.user_id)
+          .eq('activity_type', 'audio_added')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (latestLog?.id) {
+          const { error: logDeleteError } = await supabase
+            .from('reading_activity_logs')
+            .delete()
+            .eq('id', latestLog.id);
+          if (logDeleteError) console.error('Error deleting activity log:', logDeleteError);
+        }
+      }
       setAssignment((old) => (old ? { ...old, audio_urls: next, audio_url: next[0] ?? null } : old));
     }
   };
