@@ -133,7 +133,7 @@ export default function Quran() {
 
   useEffect(() => {
     fetchData();
-  }, [user, selectedRamadanDay]);
+  }, [user?.id, selectedRamadanDay]);
 
   const fetchData = async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
