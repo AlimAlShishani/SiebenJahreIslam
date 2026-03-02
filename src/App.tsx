@@ -1,10 +1,11 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Quran from './pages/Quran';
+import QuranReader from './pages/QuranReader';
 import Learn from './pages/Learn';
 import BuchstabenUebersicht from './pages/BuchstabenUebersicht';
 import LearnLevel from './pages/LearnLevel';
@@ -21,7 +22,9 @@ function App() {
           
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<Quran />} />
+              <Route path="/" element={<Navigate to="/hatim" replace />} />
+              <Route path="/hatim" element={<Quran />} />
+              <Route path="/quran" element={<QuranReader />} />
               <Route path="/learn" element={<Learn />} />
               <Route path="/learn/alphabet" element={<BuchstabenUebersicht />} />
               <Route path="/learn/:levelId" element={<LearnLevel />} />

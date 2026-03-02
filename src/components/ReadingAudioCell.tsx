@@ -11,6 +11,7 @@ export interface ReadingAudioCellProps {
   canEdit: boolean;
   onSaved: (url: string) => void;
   onDeleted?: (url: string) => void | Promise<void>;
+  showUploadControls?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -131,7 +132,14 @@ function SingleAudioPlayer({
   );
 }
 
-export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, onDeleted }: ReadingAudioCellProps) {
+export function ReadingAudioCell({
+  assignmentId,
+  audioUrls,
+  canEdit,
+  onSaved,
+  onDeleted,
+  showUploadControls = true,
+}: ReadingAudioCellProps) {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
@@ -328,7 +336,7 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
           deleting={deletingUrl === url}
         />
       ))}
-      {canEdit && (
+      {canEdit && showUploadControls && (
         <>
           {recording ? (
             <>

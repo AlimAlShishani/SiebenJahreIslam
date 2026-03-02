@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { getRunsWithOffsets } from '../utils/arabicLetters';
-import { normalizeArabicForDisplay } from '../utils/arabicText';
 
 export type Rect = { letterIndex: number; left: number; top: number; width: number; height: number };
 
@@ -31,7 +30,6 @@ export function ClickableArabicVerse({
   correctIndices,
   showFeedback = false,
 }: Props) {
-  const displayContent = normalizeArabicForDisplay(content);
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const [rects, setRects] = useState<Rect[]>([]);
@@ -40,7 +38,7 @@ export function ClickableArabicVerse({
   useLayoutEffect(() => {
     const container = containerRef.current;
     const textEl = textRef.current;
-    if (!container || !textEl || !displayContent) {
+    if (!container || !textEl || !content) {
       setRects([]);
       return;
     }
@@ -50,7 +48,7 @@ export function ClickableArabicVerse({
       return;
     }
 
-    const runs = getRunsWithOffsets(displayContent).filter((r): r is typeof r & { letterIndex: number } => r.letterIndex !== undefined);
+    const runs = getRunsWithOffsets(content).filter((r): r is typeof r & { letterIndex: number } => r.letterIndex !== undefined);
     const measure: Rect[] = [];
     const containerRect = container.getBoundingClientRect();
 
@@ -72,7 +70,7 @@ export function ClickableArabicVerse({
       }
     }
     setRects(measure);
-  }, [displayContent]);
+  }, [content]);
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -81,7 +79,7 @@ export function ClickableArabicVerse({
         className="font-quran text-3xl md:text-4xl leading-loose text-center text-emerald-900 dark:text-emerald-200 select-none pointer-events-none"
         dir="rtl"
       >
-        {displayContent}
+        {content}
       </div>
       {rects.map(({ letterIndex, left, top, width, height }) => {
         const isSelected = selectedIndices.has(letterIndex);

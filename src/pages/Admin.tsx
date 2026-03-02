@@ -4,7 +4,6 @@ import { VideoInput } from '../components/VideoInput';
 import { AudioInput } from '../components/AudioInput';
 import { Edit2, ChevronDown, ChevronUp, Save, X, Trash2 } from 'lucide-react';
 import { ClickableArabicVerse } from '../components/ClickableArabicVerse';
-import { normalizeArabicForDisplay } from '../utils/arabicText';
 
 function isYouTubeUrl(url: string | null): boolean {
   if (!url) return false;
@@ -210,7 +209,7 @@ export default function Admin() {
                             >
                               <span className="text-gray-500 w-6">{idx + 1}.</span>
                               <span className="font-arabic text-lg flex-1" dir="rtl">
-                                {normalizeArabicForDisplay(it.content)}
+                                {it.content}
                               </span>
                               <span className="text-gray-600 dark:text-gray-300 truncate max-w-[180px]">
                                 {it.transliteration || '–'}
@@ -251,7 +250,7 @@ export default function Admin() {
                         <li key={it.id} className="flex items-center gap-2 text-sm">
                           <span className="text-gray-500 w-6">{idx + 1}.</span>
                           <span className="font-arabic text-lg" dir="rtl" title={it.transliteration || ''}>
-                            {normalizeArabicForDisplay(it.content)}
+                            {it.content}
                           </span>
                           {it.transliteration && (
                             <span className="text-gray-600 dark:text-gray-300 truncate">{it.transliteration}</span>

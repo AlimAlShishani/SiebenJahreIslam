@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History } from 'lucide-react';
@@ -72,6 +73,7 @@ let quranPageCache: QuranPageCache | null = typeof window !== 'undefined' ? read
 
 export default function Quran() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [assignments, setAssignments] = useState<DailyAssignment[]>(() => quranPageCache?.assignments ?? []);
   const [users, setUsers] = useState<any[]>(() => quranPageCache?.users ?? []);
   const [distributionUsers, setDistributionUsers] = useState<any[]>([]);
@@ -1119,12 +1121,27 @@ export default function Quran() {
                             <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
                               Seite <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> bis <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
                             </p>
+                            {isMe && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/quran?assignmentId=${encodeURIComponent(assignment.id)}&startPage=${assignment.start_page}&endPage=${assignment.end_page}&date=${encodeURIComponent(selectedDateStr)}`
+                                  )
+                                }
+                                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                              >
+                                <BookOpen size={14} />
+                                Lesen
+                              </button>
+                            )}
                             <ReadingAudioCell
                               assignmentId={assignment.id}
                               audioUrls={assignment.audio_urls ?? (assignment.audio_url ? [assignment.audio_url] : [])}
                               canEdit={isMe || isAdmin}
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}
                               onDeleted={(url) => removeAssignmentAudioUrl(assignment.id, assignment.user_id, url)}
+                              showUploadControls={false}
                             />
                           </div>
 

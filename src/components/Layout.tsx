@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { BookOpen, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
+import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -11,7 +11,7 @@ export const Layout = () => {
   const keepAliveCtxRef = useRef<AudioContext | null>(null);
   const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   useEffect(() => {
     const startKeepAliveAudio = () => {
@@ -121,13 +121,24 @@ export const Layout = () => {
           <ul className="flex justify-around md:justify-center md:gap-8 py-3">
             <li>
               <Link
-                to="/"
+                to="/hatim"
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
-                  isActive('/') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
+                  isActive('/hatim') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
                 }`}
               >
                 <BookOpen size={24} />
-                <span className="text-xs mt-1">Koran</span>
+                <span className="text-xs mt-1">Hatim</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/quran"
+                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+                  isActive('/quran') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
+                }`}
+              >
+                <BookText size={24} />
+                <span className="text-xs mt-1">Quran</span>
               </Link>
             </li>
             <li>
