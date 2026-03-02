@@ -2,13 +2,13 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-const DEBUG_REMOUNT =
+const isDebugRemount = () =>
   typeof window !== 'undefined' &&
   (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
     window.sessionStorage.getItem('debugRemount') === '1');
 
 const logDebug = (...args: unknown[]) => {
-  if (!DEBUG_REMOUNT) return;
+  if (!isDebugRemount()) return;
   console.log('[debug-remount][Auth]', ...args);
 };
 

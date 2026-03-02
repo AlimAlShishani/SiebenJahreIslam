@@ -4,13 +4,13 @@ import { Type, Star, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-const DEBUG_REMOUNT =
+const isDebugRemount = () =>
   typeof window !== 'undefined' &&
   (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
     window.sessionStorage.getItem('debugRemount') === '1');
 
 const logDebug = (...args: unknown[]) => {
-  if (!DEBUG_REMOUNT) return;
+  if (!isDebugRemount()) return;
   console.log('[debug-remount][Learn]', ...args);
 };
 

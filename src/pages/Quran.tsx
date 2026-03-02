@@ -4,13 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
-const DEBUG_REMOUNT =
+const isDebugRemount = () =>
   typeof window !== 'undefined' &&
   (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
     window.sessionStorage.getItem('debugRemount') === '1');
 
 const logDebug = (...args: unknown[]) => {
-  if (!DEBUG_REMOUNT) return;
+  if (!isDebugRemount()) return;
   console.log('[debug-remount][Quran]', ...args);
 };
 
