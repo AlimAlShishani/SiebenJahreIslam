@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronUp, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -7,10 +7,12 @@ import { ReadingAudioCell } from '../components/ReadingAudioCell';
 import {
   getAyahPosition,
   getDefaultTranslationEdition,
+  getDefaultQuranTextEdition,
   getTranslationEditions,
   getJuzStartPage,
   getQuranPage,
   getSurahList,
+  type QuranTextEdition,
   type QuranPageData,
   type QuranVerse,
   type ReaderMode,
@@ -33,9 +35,44 @@ const SMALL_HIGH_ROUNDED_ZERO = '\u06DF';
 const MADD_LETTERS = new Set(['ا', 'و', 'ي', 'ى']);
 const FONT_SIZE_STORAGE_KEY = 'quran-reader-font-size';
 const VIEW_LAYOUT_STORAGE_KEY = 'quran-reader-view-layout';
+const QURAN_TEXT_STORAGE_KEY = 'quran-reader-text-type';
+const HIDE_PAUSE_MARKS_STORAGE_KEY = 'quran-reader-hide-pause-marks';
 const DEFAULT_FONT_SIZE = 36;
 
 type ViewLayout = 'verse' | 'flow';
+const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
+  'quran-uthmani',
+  'quran-uthmani-min',
+  'quran-simple',
+  'quran-simple-plain',
+  'quran-simple-min',
+  'quran-simple-clean',
+];
+
+const PAUSE_MARKS = new Set([
+  '\u06D6', '\u06D7', '\u06D8', '\u06D9', '\u06DA', '\u06DB', '\u06DC',
+  '\u06DD', '\u06DE', '\u06E2', '\u06E3',
+]);
+
+function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean): ReactNode[] {
+  const rendered: ReactNode[] = [];
+  let idx = 0;
+  for (const ch of text) {
+    if (PAUSE_MARKS.has(ch)) {
+      if (!hidePauseMarks) {
+        rendered.push(
+          <span key={`pause-${idx}`} className="text-rose-600 dark:text-rose-400">
+            {ch}
+          </span>
+        );
+      }
+    } else {
+      rendered.push(ch);
+    }
+    idx += 1;
+  }
+  return rendered;
+}
 
 /** Ost-arabische Ziffern (٠١٢٣٤٥٦٧٨٩) für Versnummern im Arabisch-Modus. */
 function toArabicIndicDigits(n: number): string {
@@ -50,33 +87,58 @@ const BISMILLAH_PREFIX = BISMILLAH_ARABIC.trim();
 /** Dieselbe Zeichenkette für Anzeige der Bismillah (fest, nicht aus API). */
 const BISMILLAH_DISPLAY = BISMILLAH_PREFIX;
 
-function isBismillahOnlyVerse(surahNumber: number, ayahNumber: number, arabicText: string): boolean {
-  if (surahNumber === 1 || surahNumber === 9) return false;
-  if (ayahNumber === 0) return true;
-  if (Number(ayahNumber) !== 1) return false;
-  const n = arabicText.trim().replace(/\u06E1/g, '\u0652').normalize('NFC');
-  return n === BISMILLAH_PREFIX || (n.startsWith(BISMILLAH_PREFIX) && n.length < 80);
+function shouldShowSurahBismillah(surahNumber: number, ayahNumber: number): boolean {
+  return surahNumber !== 1 && surahNumber !== 9 && Number(ayahNumber) === 1;
 }
 
-/** Liefert nur den 1.-Vers-Text (ohne Bismillah). Zuerst 06E1→0652, dann exakter Präfix; Fallback: erstes " اَل". */
-function getFirstVerseTextOnly(
+/** Ende der Bismillah-Phrase (الرَّحِيمِ), um Trennung auch bei abweichender API-Schreibung zu finden. */
+const END_OF_BISMILLAH = '\u0671\u0644\u0631\u0651\u064e\u062d\u0650\u064a\u0645\u0650';
+
+/** Normalisiert für zuverlässigen Vergleich mit API-Text (Kombinationszeichen-Reihenfolge kann abweichen). */
+function normalizeForBismillah(s: string): string {
+  return s.replace(/\u06E1/g, '\u0652').normalize('NFD');
+}
+
+/** Entfernt die Bismillah-Übersetzung vom Anfang des ersten Verses (z. B. DE/EN), falls vorhanden. */
+function getFirstVerseTranslationOnly(translationText: string | null): string {
+  if (!translationText || !translationText.trim()) return translationText || '';
+  const t = translationText.trim();
+  const prefixes = [
+    'Im Namen Allahs, des Allerbarmers, des Barmherzigen.',
+    'Im Namen Allahs, des Allerbarmers, des Barmherzigen',
+    'In the name of Allah, the Entirely Merciful, the Especially Merciful.',
+    'In the name of Allah, the Entirely Merciful, the Especially Merciful',
+  ];
+  for (const p of prefixes) {
+    if (t === p) return '';
+    if (t.startsWith(p)) return t.slice(p.length).replace(/^[\s.;]+/, '').trim();
+  }
+  return t;
+}
+
+/** Entfernt Bismillah aus Vers 1 (nur Suren != 1/9). */
+function stripBismillahFromArabicFirstVerse(
   surahNumber: number,
   ayahNumber: number,
   arabicText: string
-): string | null {
-  if (surahNumber === 1 || surahNumber === 9 || Number(ayahNumber) !== 1) return null;
+): string {
+  if (!shouldShowSurahBismillah(surahNumber, ayahNumber)) return arabicText;
   const raw = arabicText.trim();
-  if (raw.length < 40) return null;
-  const n = raw.replace(/\u06E1/g, '\u0652').normalize('NFC');
-  let rest: string;
-  if (n.startsWith(BISMILLAH_PREFIX)) {
-    rest = n.slice(BISMILLAH_PREFIX.length).replace(/^\s+/, '').trim();
+  const n = normalizeForBismillah(raw);
+  const prefixNorm = normalizeForBismillah(BISMILLAH_PREFIX);
+  const endNorm = normalizeForBismillah(END_OF_BISMILLAH);
+  let rest = '';
+  if (n.startsWith(prefixNorm)) {
+    rest = n.slice(prefixNorm.length).replace(/^\s+/, '').trim().normalize('NFC');
   } else {
-    const fallbackIdx = n.indexOf(' \u0627\u0644');
-    if (fallbackIdx < 20) return null;
-    rest = n.slice(fallbackIdx).trim();
+    const endIdx = n.indexOf(endNorm);
+    if (endIdx >= 0 && endIdx < 80) {
+      rest = n.slice(endIdx + endNorm.length).replace(/^\s+/, '').trim().normalize('NFC');
+    } else {
+      return raw;
+    }
   }
-  return rest.length > 0 ? rest : null;
+  return rest.length > 0 ? rest : raw;
 }
 
 function isArabicCombiningMark(ch: string): boolean {
@@ -141,7 +203,16 @@ export default function QuranReader() {
   const assignmentEndPage = Number(searchParams.get('endPage') || 604);
 
   const [mode, setMode] = useState<ReaderMode>('arabic');
-  const [script, setScript] = useState('quran-uthmani');
+  const [quranTextType, setQuranTextType] = useState<QuranTextEdition>(() => {
+    if (typeof window === 'undefined') return getDefaultQuranTextEdition();
+    const saved = window.localStorage.getItem(QURAN_TEXT_STORAGE_KEY);
+    if (saved && QURAN_TEXT_OPTIONS.includes(saved as QuranTextEdition)) return saved as QuranTextEdition;
+    return getDefaultQuranTextEdition();
+  });
+  const [hidePauseMarks, setHidePauseMarks] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(HIDE_PAUSE_MARKS_STORAGE_KEY) === 'true';
+  });
   const [translationEdition, setTranslationEdition] = useState(getDefaultTranslationEdition());
   const [translationOptions, setTranslationOptions] = useState<TranslationEdition[]>([]);
   const [fontSize, setFontSize] = useState(() => {
@@ -227,14 +298,28 @@ export default function QuranReader() {
         </select>
       </label>
       <label className="text-sm text-gray-600 dark:text-gray-300 block">
-        Arabisch Schrift / Skript
+        Quran Text
         <select
-          value={script}
-          onChange={(e) => setScript(e.target.value)}
+          value={quranTextType}
+          onChange={(e) => setQuranTextType(e.target.value as QuranTextEdition)}
           className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
         >
-          <option value="quran-uthmani">Uthmani (Default)</option>
+          <option value="quran-uthmani">Uthmani</option>
+          <option value="quran-uthmani-min">Uthmani Minimal</option>
+          <option value="quran-simple">Simple</option>
+          <option value="quran-simple-plain">Simple Plain</option>
+          <option value="quran-simple-min">Simple Minimal</option>
+          <option value="quran-simple-clean">Simple Clean</option>
         </select>
+      </label>
+      <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={hidePauseMarks}
+          onChange={(e) => setHidePauseMarks(e.target.checked)}
+          className="rounded border-gray-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500"
+        />
+        Pausenmarkierungen ausblenden
       </label>
       <label className="text-sm text-gray-600 dark:text-gray-300 block">
         Ansicht
@@ -261,7 +346,7 @@ export default function QuranReader() {
         <span className="text-xs text-gray-500 dark:text-gray-400">{fontSize}px</span>
       </label>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Weitere Skripte können später ergänzt werden. Aktuell nutzt der Reader standardmäßig Uthmani.
+        Standard ist Uthmani.
       </p>
     </div>
   );
@@ -332,7 +417,7 @@ export default function QuranReader() {
       setLoadingPage(true);
       setErrorMessage(null);
       try {
-        const data = await getQuranPage(currentPage, translationEdition);
+        const data = await getQuranPage(currentPage, translationEdition, quranTextType);
         if (cancelled) return;
         setPageData(data);
         setSelectedJuz(data.juzNumber);
@@ -349,18 +434,19 @@ export default function QuranReader() {
     return () => {
       cancelled = true;
     };
-  }, [currentPage, translationEdition]);
+  }, [currentPage, translationEdition, quranTextType]);
 
   useEffect(() => {
-    if (!pageData?.verses.length) {
+    const visibleVerses = pageData?.verses.filter((v) => v.ayahNumber !== 0) ?? [];
+    if (!visibleVerses.length) {
       setSelectedVerseKey(null);
       return;
     }
-    let verseToSelect = pageData.verses[0];
+    let verseToSelect = visibleVerses[0];
     if (pendingVerseSelection === 'last') {
-      verseToSelect = pageData.verses[pageData.verses.length - 1];
+      verseToSelect = visibleVerses[visibleVerses.length - 1];
     } else if (pendingVerseSelection !== 'first') {
-      const existing = selectedVerseKey ? pageData.verses.find((v) => v.key === selectedVerseKey) : null;
+      const existing = selectedVerseKey ? visibleVerses.find((v) => v.key === selectedVerseKey) : null;
       if (existing) verseToSelect = existing;
     }
     setSelectedVerseKey(verseToSelect.key);
@@ -384,6 +470,16 @@ export default function QuranReader() {
   }, [viewLayout]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(QURAN_TEXT_STORAGE_KEY, quranTextType);
+  }, [quranTextType]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(HIDE_PAUSE_MARKS_STORAGE_KEY, hidePauseMarks ? 'true' : 'false');
+  }, [hidePauseMarks]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (typeof window === 'undefined' || !window.matchMedia('(min-width: 768px)').matches) return;
 
@@ -397,7 +493,8 @@ export default function QuranReader() {
         tag === 'button';
       if (isEditable || loadingPage || loadingJump || pendingVerseSelection || !pageData?.verses?.length) return;
 
-      const verses = pageData.verses;
+      const verses = pageData.verses.filter((v) => v.ayahNumber !== 0);
+      if (!verses.length) return;
       const selectedIndex = selectedVerseKey ? verses.findIndex((v) => v.key === selectedVerseKey) : -1;
 
       if (event.key === 'ArrowDown') {
@@ -930,22 +1027,16 @@ export default function QuranReader() {
                 <span>Übersetzung: {pageData.translationEditionUsed}</span>
               </div>
               {viewLayout === 'flow' ? (() => {
-                type Segment = { surahNumber: number; showBismillah: boolean; verses: QuranVerse[] };
+                type Segment = { surahNumber: number; showHeader: boolean; showBismillah: boolean; verses: QuranVerse[] };
                 const segments: Segment[] = [];
                 let current: Segment | null = null;
                 for (const v of pageData.verses) {
-                  const isBismillahOnly = v.ayahNumber === 0 || isBismillahOnlyVerse(v.surahNumber, v.ayahNumber, v.arabicText);
-                  if (isBismillahOnly) {
-                    if (!current || current.surahNumber !== v.surahNumber) {
-                      current = { surahNumber: v.surahNumber, showBismillah: true, verses: [] };
-                      segments.push(current);
-                    }
-                    continue;
-                  }
+                  if (v.ayahNumber === 0) continue;
                   if (!current || current.surahNumber !== v.surahNumber) {
                     current = {
                       surahNumber: v.surahNumber,
-                      showBismillah: v.surahNumber !== 1 && v.surahNumber !== 9 && v.ayahNumber === 1,
+                      showHeader: Number(v.ayahNumber) === 1,
+                      showBismillah: shouldShowSurahBismillah(v.surahNumber, v.ayahNumber),
                       verses: [v],
                     };
                     segments.push(current);
@@ -960,20 +1051,22 @@ export default function QuranReader() {
                       const surahName = surahMeta?.name ?? `سورة ${seg.surahNumber}`;
                       return (
                         <Fragment key={`seg-${segIdx}-${seg.surahNumber}`}>
-                          <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
-                            <div className="relative mx-auto max-w-md rounded-xl border-2 border-emerald-500/60 dark:border-emerald-400/50 bg-white dark:bg-gray-800/80 py-3 px-4 shadow-sm">
-                              <div className="absolute inset-y-0 left-0 w-8 rounded-l-xl border-r border-emerald-500/40 dark:border-emerald-400/30 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-900/20" aria-hidden />
-                              <div className="absolute inset-y-0 right-0 w-8 rounded-r-xl border-l border-emerald-500/40 dark:border-emerald-400/30 bg-gradient-to-l from-emerald-50/80 to-transparent dark:from-emerald-900/20" aria-hidden />
-                              <p className="relative text-center font-bold text-gray-900 dark:text-gray-100 font-quran" dir="rtl" style={{ fontSize: `${Math.max(26, Math.round(fontSize * 0.9))}px` }}>
-                                {surahName}
-                              </p>
+                          {seg.showHeader && (
+                            <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                              <div className="relative mx-auto max-w-md rounded-xl border-2 border-emerald-500/60 dark:border-emerald-400/50 bg-white dark:bg-gray-800/80 py-3 px-4 shadow-sm">
+                                <div className="absolute inset-y-0 left-0 w-8 rounded-l-xl border-r border-emerald-500/40 dark:border-emerald-400/30 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-900/20" aria-hidden />
+                                <div className="absolute inset-y-0 right-0 w-8 rounded-r-xl border-l border-emerald-500/40 dark:border-emerald-400/30 bg-gradient-to-l from-emerald-50/80 to-transparent dark:from-emerald-900/20" aria-hidden />
+                                <p className="relative text-center font-bold text-gray-900 dark:text-gray-100 font-quran" dir="rtl" style={{ fontSize: `${Math.max(26, Math.round(fontSize * 0.9))}px` }}>
+                                  {surahName}
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           {seg.showBismillah && (
                             <div className="border-b border-gray-100 dark:border-gray-700 pb-2 rounded-lg px-2">
                               {mode === 'arabic' ? (
                                 <p className="leading-loose text-center font-quran font-bold text-gray-900 dark:text-gray-100" dir="rtl" style={{ fontSize: `${fontSize}px` }}>
-                                  {toQuranicSukoon(BISMILLAH_DISPLAY)}
+                                  {renderArabicWithPauseMarks(toQuranicSukoon(BISMILLAH_DISPLAY), hidePauseMarks)}
                                 </p>
                               ) : (
                                 <p className="leading-relaxed text-center font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${Math.max(16, Math.round(fontSize * 0.5))}px` }}>
@@ -989,28 +1082,33 @@ export default function QuranReader() {
                           >
                             {seg.verses.map((verse) => {
                               const text = mode === 'arabic'
-                                ? (verse.ayahNumber === 1 ? (getFirstVerseTextOnly(verse.surahNumber, verse.ayahNumber, verse.arabicText) ?? toQuranicSukoon(verse.arabicText)) : toQuranicSukoon(verse.arabicText))
-                                : (verse.translationText || '');
+                                ? toQuranicSukoon(stripBismillahFromArabicFirstVerse(verse.surahNumber, verse.ayahNumber, verse.arabicText))
+                                : (shouldShowSurahBismillah(verse.surahNumber, verse.ayahNumber)
+                                  ? getFirstVerseTranslationOnly(verse.translationText)
+                                  : (verse.translationText || ''));
                               const num = mode === 'arabic' ? toArabicIndicDigits(verse.ayahNumber) : `(${verse.ayahNumber})`;
                               const isSelected = selectedVerseKey === verse.key;
                               return (
-                                <Fragment key={verse.key}>
-                                  <span className={isSelected ? 'bg-emerald-100/50 dark:bg-emerald-900/20 rounded' : undefined}>{text}</span>
+                                <span
+                                  key={verse.key}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => { setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); }}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); } }}
+                                  className={`cursor-pointer ${isSelected ? 'bg-emerald-100/50 dark:bg-emerald-900/20 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
+                                  aria-label={`Vers ${verse.ayahNumber}`}
+                                >
+                                  <span>{mode === 'arabic' ? renderArabicWithPauseMarks(text, hidePauseMarks) : text}</span>
                                   {' '}
                                   <span
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => { setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); } }}
                                     className={mode === 'arabic'
-                                      ? `inline-flex align-middle justify-center min-w-[1.5em] w-7 h-7 rounded-full border-2 border-emerald-500/70 dark:border-emerald-400/60 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium cursor-pointer mx-0.5 ${isSelected ? 'ring-2 ring-emerald-400 dark:ring-emerald-500' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/30'}`
-                                      : `text-emerald-600 dark:text-emerald-400 font-medium cursor-pointer ${isSelected ? 'underline' : ''} hover:underline`}
-                                    aria-label={`Vers ${verse.ayahNumber}`}
+                                      ? `inline-flex align-middle justify-center min-w-[1.5em] w-7 h-7 rounded-full border-2 border-emerald-500/70 dark:border-emerald-400/60 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium mx-0.5 ${isSelected ? 'ring-2 ring-emerald-400 dark:ring-emerald-500' : ''}`
+                                      : `text-emerald-600 dark:text-emerald-400 font-medium ${isSelected ? 'underline' : ''}`}
                                   >
                                     {num}
                                   </span>
                                   {' '}
-                                </Fragment>
+                                </span>
                               );
                             })}
                           </div>
@@ -1022,50 +1120,15 @@ export default function QuranReader() {
               })() : (
               <div className="space-y-4">
                 {pageData.verses.map((verse) => {
-                  const isBismillahOnly =
-                    verse.ayahNumber === 0 ||
-                    isBismillahOnlyVerse(verse.surahNumber, verse.ayahNumber, verse.arabicText);
-                  const verse1Only = getFirstVerseTextOnly(verse.surahNumber, verse.ayahNumber, verse.arabicText);
-
-                  if (isBismillahOnly) {
-                    const surahMetaOnly = surahs.find((s) => s.number === verse.surahNumber);
-                    const surahNameOnly = surahMetaOnly?.name ?? `سورة ${verse.surahNumber}`;
-                    return (
-                      <Fragment key={verse.key}>
-                        <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
-                          <div className="relative mx-auto max-w-md rounded-xl border-2 border-emerald-500/60 dark:border-emerald-400/50 bg-white dark:bg-gray-800/80 py-3 px-4 shadow-sm">
-                            <div className="absolute inset-y-0 left-0 w-8 rounded-l-xl border-r border-emerald-500/40 dark:border-emerald-400/30 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-900/20" aria-hidden />
-                            <div className="absolute inset-y-0 right-0 w-8 rounded-r-xl border-l border-emerald-500/40 dark:border-emerald-400/30 bg-gradient-to-l from-emerald-50/80 to-transparent dark:from-emerald-900/20" aria-hidden />
-                            <p className="relative text-center font-bold text-gray-900 dark:text-gray-100 font-quran" dir="rtl" style={{ fontSize: `${Math.max(26, Math.round(fontSize * 0.9))}px` }}>
-                              {surahNameOnly}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="border-b border-gray-100 dark:border-gray-700 pb-3 rounded-lg px-2">
-                          {mode === 'arabic' ? (
-                            <p
-                              className="leading-loose text-center font-quran font-bold text-gray-900 dark:text-gray-100"
-                              dir="rtl"
-                              style={{ fontSize: `${fontSize}px` }}
-                            >
-                              {toQuranicSukoon(verse.arabicText)}
-                            </p>
-                          ) : (
-                            <p
-                              className="leading-relaxed text-center font-bold text-gray-800 dark:text-gray-200"
-                              style={{ fontSize: `${Math.max(16, Math.round(fontSize * 0.5))}px` }}
-                            >
-                              {verse.translationText || 'Im Namen Allahs, des Allerbarmers, des Barmherzigen.'}
-                            </p>
-                          )}
-                        </div>
-                      </Fragment>
-                    );
-                  }
-
-                  if (verse1Only !== null && mode === 'arabic') {
+                  if (verse.ayahNumber === 0) return null;
+                  const showFirstVerseSplit = shouldShowSurahBismillah(verse.surahNumber, verse.ayahNumber);
+                  if (showFirstVerseSplit) {
                     const surahMeta = surahs.find((s) => s.number === verse.surahNumber);
-                    const surahNameArabic = surahMeta?.name ?? `سورة ${verse.surahNumber}`;
+                    const surahName = surahMeta?.name ?? `سورة ${verse.surahNumber}`;
+                    const verse1Text =
+                      mode === 'arabic'
+                        ? stripBismillahFromArabicFirstVerse(verse.surahNumber, verse.ayahNumber, verse.arabicText)
+                        : getFirstVerseTranslationOnly(verse.translationText);
                     return (
                       <Fragment key={verse.key}>
                         <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
@@ -1077,18 +1140,27 @@ export default function QuranReader() {
                               dir="rtl"
                               style={{ fontSize: `${Math.max(26, Math.round(fontSize * 0.9))}px` }}
                             >
-                              {surahNameArabic}
+                              {surahName}
                             </p>
                           </div>
                         </div>
                         <div className="border-b border-gray-100 dark:border-gray-700 pb-2 rounded-lg px-2">
-                          <p
-                            className="leading-loose text-center font-quran font-bold text-gray-900 dark:text-gray-100"
-                            dir="rtl"
-                            style={{ fontSize: `${fontSize}px` }}
-                          >
-                            {toQuranicSukoon(BISMILLAH_DISPLAY)}
-                          </p>
+                          {mode === 'arabic' ? (
+                            <p
+                              className="leading-loose text-center font-quran font-bold text-gray-900 dark:text-gray-100"
+                              dir="rtl"
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {renderArabicWithPauseMarks(toQuranicSukoon(BISMILLAH_DISPLAY), hidePauseMarks)}
+                            </p>
+                          ) : (
+                            <p
+                              className="leading-relaxed text-center font-bold text-gray-800 dark:text-gray-200"
+                              style={{ fontSize: `${Math.max(16, Math.round(fontSize * 0.5))}px` }}
+                            >
+                              Im Namen Allahs, des Allerbarmers, des Barmherzigen.
+                            </p>
+                          )}
                         </div>
                         <article
                           className={`border-b border-gray-100 dark:border-gray-700 pb-3 rounded-lg px-2 transition-colors cursor-pointer flex gap-2 ${
@@ -1105,13 +1177,22 @@ export default function QuranReader() {
                           <p className="text-xs text-gray-500 dark:text-gray-400 shrink-0 pt-1">
                             {verse.surahNumber}:{verse.ayahNumber}
                           </p>
-                          <p
-                            className="leading-loose text-center font-quran font-normal text-gray-900 dark:text-gray-100 flex-1 min-w-0"
-                            dir="rtl"
-                            style={{ fontSize: `${fontSize}px` }}
-                          >
-                            {toQuranicSukoon(verse1Only)}
-                          </p>
+                          {mode === 'arabic' ? (
+                            <p
+                              className="leading-loose text-center font-quran font-normal text-gray-900 dark:text-gray-100 flex-1 min-w-0"
+                              dir="rtl"
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {renderArabicWithPauseMarks(toQuranicSukoon(verse1Text), hidePauseMarks)}
+                            </p>
+                          ) : (
+                            <p
+                              className="leading-relaxed text-gray-800 dark:text-gray-200 flex-1 min-w-0"
+                              style={{ fontSize: `${Math.max(16, Math.round(fontSize * 0.5))}px` }}
+                            >
+                              {verse1Text || 'Für diesen Vers ist aktuell keine Übersetzung verfügbar.'}
+                            </p>
+                          )}
                         </article>
                       </Fragment>
                     );
@@ -1137,7 +1218,10 @@ export default function QuranReader() {
                           dir="rtl"
                           style={{ fontSize: `${fontSize}px` }}
                         >
-                          {toQuranicSukoon(verse.arabicText)}
+                          {renderArabicWithPauseMarks(
+                            toQuranicSukoon(stripBismillahFromArabicFirstVerse(verse.surahNumber, verse.ayahNumber, verse.arabicText)),
+                            hidePauseMarks
+                          )}
                         </p>
                       ) : (
                         <p

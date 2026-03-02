@@ -1,6 +1,7 @@
 const API_BASE = 'https://api.alquran.cloud/v1';
 const CACHE_PREFIX = 'quran_api_cache_v2:';
 const DEFAULT_TRANSLATION_EDITION = 'de.aburida';
+const DEFAULT_QURAN_TEXT_EDITION = 'quran-uthmani';
 const FALLBACK_TRANSLATION_EDITIONS = ['de.bubenheim', 'de.khoury', 'en.sahih', 'tr.diyanet'];
 const SUPPORTED_TRANSLATION_LANGUAGES = new Set(['de', 'en', 'tr', 'fr', 'ur', 'id', 'es', 'ru', 'it', 'nl']);
 const PREFERRED_TRANSLATION_EDITIONS = [
@@ -17,6 +18,13 @@ const PREFERRED_TRANSLATION_EDITIONS = [
 ];
 
 export type ReaderMode = 'arabic' | 'translation';
+export type QuranTextEdition =
+  | 'quran-simple'
+  | 'quran-simple-plain'
+  | 'quran-simple-min'
+  | 'quran-simple-clean'
+  | 'quran-uthmani'
+  | 'quran-uthmani-min';
 
 export interface QuranVerse {
   key: string;
@@ -87,6 +95,10 @@ function toVerseKey(surahNumber: number, ayahNumber: number): string {
 
 export function getDefaultTranslationEdition(): string {
   return DEFAULT_TRANSLATION_EDITION;
+}
+
+export function getDefaultQuranTextEdition(): QuranTextEdition {
+  return DEFAULT_QURAN_TEXT_EDITION as QuranTextEdition;
 }
 
 export async function getTranslationEditions(): Promise<TranslationEdition[]> {
@@ -233,9 +245,13 @@ async function fetchPageWithEdition(pageNumber: number, edition: string) {
   return fetchJson<PageResponse>(`/page/${pageNumber}/${edition}`);
 }
 
-export async function getQuranPage(pageNumber: number, translationEdition = DEFAULT_TRANSLATION_EDITION): Promise<QuranPageData> {
+export async function getQuranPage(
+  pageNumber: number,
+  translationEdition = DEFAULT_TRANSLATION_EDITION,
+  arabicEdition: QuranTextEdition = DEFAULT_QURAN_TEXT_EDITION as QuranTextEdition
+): Promise<QuranPageData> {
   const safePage = Math.max(1, Math.min(604, Number(pageNumber) || 1));
-  const cacheKey = `page:${safePage}:${translationEdition}`;
+  const cacheKey = `page:${safePage}:${translationEdition}:${arabicEdition}`;
   const cachedMemory = memoryCache.get(cacheKey) as QuranPageData | undefined;
   if (cachedMemory) return cachedMemory;
   const cachedSession = getFromSession<QuranPageData>(cacheKey);
@@ -244,12 +260,25 @@ export async function getQuranPage(pageNumber: number, translationEdition = DEFA
     return cachedSession;
   }
 
-  const arabicPromise = fetchPageWithEdition(safePage, 'quran-uthmani');
+  const arabicCandidates = [arabicEdition, 'quran-uthmani', 'quran-uthmani-min', 'quran-simple'].filter(
+    (item, idx, arr) => arr.indexOf(item) === idx
+  );
   const translationCandidates = [translationEdition, ...FALLBACK_TRANSLATION_EDITIONS].filter(
     (item, idx, arr) => arr.indexOf(item) === idx
   );
 
-  const arabicPage = await arabicPromise;
+  let arabicPage: Awaited<ReturnType<typeof fetchPageWithEdition>> | null = null;
+  for (const candidate of arabicCandidates) {
+    try {
+      arabicPage = await fetchPageWithEdition(safePage, candidate);
+      break;
+    } catch {
+      // try next arabic text type
+    }
+  }
+  if (!arabicPage) {
+    throw new Error('Arabic page could not be loaded for any text type');
+  }
   let translationPage: Awaited<ReturnType<typeof fetchPageWithEdition>> | null = null;
   let usedEdition = translationEdition;
 
