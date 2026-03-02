@@ -32,15 +32,28 @@ interface DailyAssignment {
   };
 }
 
+type QuranPageCache = {
+  selectedRamadanDay: number;
+  assignments: DailyAssignment[];
+  users: any[];
+  isAdmin: boolean;
+  isInGroup: boolean;
+  groupMemberIds: string[];
+  votesForDay: DailyReadingVote[];
+  loadedKey: string | null;
+};
+
+let quranPageCache: QuranPageCache | null = null;
+
 export default function Quran() {
   const { user } = useAuth();
-  const [assignments, setAssignments] = useState<DailyAssignment[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<DailyAssignment[]>(() => quranPageCache?.assignments ?? []);
+  const [users, setUsers] = useState<any[]>(() => quranPageCache?.users ?? []);
   const [distributionUsers, setDistributionUsers] = useState<any[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isInGroup, setIsInGroup] = useState(false);
-  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(() => quranPageCache?.isAdmin ?? false);
+  const [isInGroup, setIsInGroup] = useState(() => quranPageCache?.isInGroup ?? false);
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>(() => quranPageCache?.groupMemberIds ?? []);
+  const [loading, setLoading] = useState(() => !quranPageCache);
   const [generating, setGenerating] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [showManageGroupModal, setShowManageGroupModal] = useState(false);
@@ -49,7 +62,7 @@ export default function Quran() {
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // Voting (nur wenn in Gruppe)
-  const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>([]);
+  const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>(() => quranPageCache?.votesForDay ?? []);
   const [savingVote, setSavingVote] = useState(false);
   const [showAbgebenAssignModal, setShowAbgebenAssignModal] = useState(false);
   const [abgebenAssignData, setAbgebenAssignData] = useState<{
@@ -127,10 +140,23 @@ export default function Quran() {
     return d.toISOString().split('T')[0];
   };
 
-  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => getRamadanDay());
+  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => quranPageCache?.selectedRamadanDay ?? getRamadanDay());
   const selectedDateStr = getDateForRamadanDay(selectedRamadanDay);
   const isToday = selectedRamadanDay === getRamadanDay();
-  const loadedKeyRef = useRef<string | null>(null);
+  const loadedKeyRef = useRef<string | null>(quranPageCache?.loadedKey ?? null);
+
+  useEffect(() => {
+    quranPageCache = {
+      selectedRamadanDay,
+      assignments,
+      users,
+      isAdmin,
+      isInGroup,
+      groupMemberIds,
+      votesForDay,
+      loadedKey: loadedKeyRef.current,
+    };
+  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay]);
 
   useEffect(() => {
     const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
@@ -214,6 +240,7 @@ export default function Quran() {
     } finally {
       if (shouldShowLoading) setLoading(false);
       loadedKeyRef.current = key;
+      if (quranPageCache) quranPageCache.loadedKey = key;
     }
   };
 

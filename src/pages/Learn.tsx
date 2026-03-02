@@ -11,16 +11,28 @@ interface LearningLevel {
   description: string | null;
 }
 
+type LearnPageCache = {
+  userId: string | null;
+  levels: LearningLevel[];
+  itemIdsByLevel: Record<number, string[]>;
+  completedItemIds: Set<string>;
+};
+
+let learnPageCache: LearnPageCache | null = null;
+
 export default function Learn() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [levels, setLevels] = useState<LearningLevel[]>([]);
-  const [itemIdsByLevel, setItemIdsByLevel] = useState<Record<number, string[]>>({});
-  const [completedItemIds, setCompletedItemIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const cachedForUser = learnPageCache?.userId === (user?.id ?? null) ? learnPageCache : null;
+  const [levels, setLevels] = useState<LearningLevel[]>(() => cachedForUser?.levels ?? []);
+  const [itemIdsByLevel, setItemIdsByLevel] = useState<Record<number, string[]>>(() => cachedForUser?.itemIdsByLevel ?? {});
+  const [completedItemIds, setCompletedItemIds] = useState<Set<string>>(() => cachedForUser?.completedItemIds ?? new Set());
+  const [loading, setLoading] = useState(() => !cachedForUser);
 
   useEffect(() => {
     const fetch = async () => {
+      const hasCache = learnPageCache?.userId === (user?.id ?? null);
+      if (!hasCache) setLoading(true);
       const [levelsRes, itemsRes, progressRes] = await Promise.all([
         supabase.from('learning_levels').select('id, level_number, title, description').order('level_number'),
         supabase.from('learning_items').select('id, level_id'),
@@ -41,6 +53,12 @@ export default function Learn() {
       } else {
         setCompletedItemIds(new Set());
       }
+      learnPageCache = {
+        userId: user?.id ?? null,
+        levels: levelsRes.data || [],
+        itemIdsByLevel: byLevel,
+        completedItemIds: new Set((progressRes.data as { item_id: string }[] | null)?.map((r) => r.item_id) ?? []),
+      };
       setLoading(false);
     };
     fetch();
