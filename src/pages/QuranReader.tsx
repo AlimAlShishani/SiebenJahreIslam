@@ -104,6 +104,8 @@ export default function QuranReader() {
   const [selectedJuz, setSelectedJuz] = useState(1);
   const [selectedSurah, setSelectedSurah] = useState(1);
   const [selectedAyah, setSelectedAyah] = useState(1);
+  const [selectedVerseKey, setSelectedVerseKey] = useState<string | null>(null);
+  const [pendingVerseSelection, setPendingVerseSelection] = useState<'first' | 'last' | null>(null);
   const [currentPage, setCurrentPage] = useState(() => Math.max(1, Math.min(604, assignmentStartPage || 1)));
   const [pageData, setPageData] = useState<QuranPageData | null>(null);
   const [loadingPage, setLoadingPage] = useState(true);
@@ -265,10 +267,6 @@ export default function QuranReader() {
         if (cancelled) return;
         setPageData(data);
         setSelectedJuz(data.juzNumber);
-        if (data.verses[0]) {
-          setSelectedSurah(data.verses[0].surahNumber);
-          setSelectedAyah(data.verses[0].ayahNumber);
-        }
       } catch {
         if (!cancelled) {
           setErrorMessage('Die Quran-Seite konnte gerade nicht geladen werden. Bitte gleich erneut versuchen.');
@@ -285,8 +283,113 @@ export default function QuranReader() {
   }, [currentPage, translationEdition]);
 
   useEffect(() => {
+    if (!pageData?.verses.length) {
+      setSelectedVerseKey(null);
+      return;
+    }
+    let verseToSelect = pageData.verses[0];
+    if (pendingVerseSelection === 'last') {
+      verseToSelect = pageData.verses[pageData.verses.length - 1];
+    } else if (pendingVerseSelection !== 'first') {
+      const existing = selectedVerseKey ? pageData.verses.find((v) => v.key === selectedVerseKey) : null;
+      if (existing) verseToSelect = existing;
+    }
+    setSelectedVerseKey(verseToSelect.key);
+    setSelectedSurah(verseToSelect.surahNumber);
+    setSelectedAyah(verseToSelect.ayahNumber);
+    if (pendingVerseSelection) setPendingVerseSelection(null);
+  }, [pageData, pendingVerseSelection, selectedVerseKey]);
+
+  useEffect(() => {
     setPageInput(String(currentPage));
   }, [currentPage]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (typeof window === 'undefined' || !window.matchMedia('(min-width: 768px)').matches) return;
+
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable =
+        target?.isContentEditable ||
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        tag === 'button';
+      if (isEditable || loadingPage || loadingJump || !pageData?.verses?.length) return;
+
+      const verses = pageData.verses;
+      const selectedIndex = selectedVerseKey ? verses.findIndex((v) => v.key === selectedVerseKey) : -1;
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (selectedIndex < 0) {
+          const first = verses[0];
+          setSelectedVerseKey(first.key);
+          setSelectedSurah(first.surahNumber);
+          setSelectedAyah(first.ayahNumber);
+          return;
+        }
+        if (selectedIndex < verses.length - 1) {
+          const next = verses[selectedIndex + 1];
+          setSelectedVerseKey(next.key);
+          setSelectedSurah(next.surahNumber);
+          setSelectedAyah(next.ayahNumber);
+          return;
+        }
+        if (currentPage < 604) {
+          setPendingVerseSelection('first');
+          setCurrentPage((prev) => Math.min(604, prev + 1));
+        }
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (selectedIndex < 0) {
+          const last = verses[verses.length - 1];
+          setSelectedVerseKey(last.key);
+          setSelectedSurah(last.surahNumber);
+          setSelectedAyah(last.ayahNumber);
+          return;
+        }
+        if (selectedIndex > 0) {
+          const prevVerse = verses[selectedIndex - 1];
+          setSelectedVerseKey(prevVerse.key);
+          setSelectedSurah(prevVerse.surahNumber);
+          setSelectedAyah(prevVerse.ayahNumber);
+          return;
+        }
+        if (currentPage > 1) {
+          setPendingVerseSelection('last');
+          setCurrentPage((prev) => Math.max(1, prev - 1));
+        }
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (mode === 'arabic') {
+          setCurrentPage((prev) => Math.max(1, prev - 1));
+        } else {
+          setCurrentPage((prev) => Math.min(604, prev + 1));
+        }
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (mode === 'arabic') {
+          setCurrentPage((prev) => Math.min(604, prev + 1));
+        } else {
+          setCurrentPage((prev) => Math.max(1, prev - 1));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [currentPage, loadingJump, loadingPage, mode, pageData, selectedVerseKey]);
 
   const jumpToJuz = async (juzNumber: number) => {
     setLoadingJump(true);
@@ -741,7 +844,19 @@ export default function QuranReader() {
               </div>
               <div className="space-y-4">
                 {pageData.verses.map((verse) => (
-                  <article key={verse.key} className="border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <article
+                    key={verse.key}
+                    className={`border-b border-gray-100 dark:border-gray-700 pb-3 rounded-lg px-2 transition-colors cursor-pointer ${
+                      selectedVerseKey === verse.key
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                    }`}
+                    onClick={() => {
+                      setSelectedVerseKey(verse.key);
+                      setSelectedSurah(verse.surahNumber);
+                      setSelectedAyah(verse.ayahNumber);
+                    }}
+                  >
                     {mode === 'arabic' ? (
                       <p
                         className="leading-loose text-center font-quran text-gray-900 dark:text-gray-100"
