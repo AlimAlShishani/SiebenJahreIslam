@@ -1203,7 +1203,7 @@ export default function QuranReader() {
                                   {' '}
                                   <span
                                     className={mode === 'arabic'
-                                      ? `inline-flex align-middle justify-center min-w-[1.5em] w-7 h-7 rounded-full border-2 border-emerald-500/70 dark:border-emerald-400/60 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium mx-0.5 ${isSelected ? 'ring-2 ring-emerald-400 dark:ring-emerald-500' : ''}`
+                                      ? `inline-flex align-middle justify-center items-center min-w-[2em] w-9 h-9 rounded-full border-2 border-emerald-500/70 dark:border-emerald-400/60 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 text-base font-semibold mx-1 ${isSelected ? 'ring-2 ring-emerald-400 dark:ring-emerald-500' : ''}`
                                       : `text-emerald-600 dark:text-emerald-400 font-medium ${isSelected ? 'underline' : ''}`}
                                   >
                                     {num}
