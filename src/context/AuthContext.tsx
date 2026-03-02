@@ -2,16 +2,6 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-const isDebugRemount = () =>
-  typeof window !== 'undefined' &&
-  (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
-    window.sessionStorage.getItem('debugRemount') === '1');
-
-const logDebug = (...args: unknown[]) => {
-  if (!isDebugRemount()) return;
-  console.warn('[debug-remount][Auth]', ...args);
-};
-
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -28,13 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    logDebug('provider mounted');
     supabase.auth.getSession().then(({ data: { session } }) => {
-      logDebug('getSession resolved', {
-        hasSession: !!session,
-        userId: session?.user?.id ?? null,
-        expiresAt: session?.expires_at ?? null,
-      });
       const nextUser = session?.user ?? null;
       const nextId = nextUser?.id ?? null;
       if (lastUserIdRef.current !== nextId) {
@@ -45,13 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      logDebug('onAuthStateChange', {
-        event,
-        hasSession: !!session,
-        userId: session?.user?.id ?? null,
-        expiresAt: session?.expires_at ?? null,
-      });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const nextUser = session?.user ?? null;
       const nextId = nextUser?.id ?? null;
       if (lastUserIdRef.current !== nextId) {
@@ -62,10 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => {
-      logDebug('provider unmounted');
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
