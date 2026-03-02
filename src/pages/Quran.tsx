@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
@@ -130,13 +130,18 @@ export default function Quran() {
   const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => getRamadanDay());
   const selectedDateStr = getDateForRamadanDay(selectedRamadanDay);
   const isToday = selectedRamadanDay === getRamadanDay();
+  const loadedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    fetchData();
+    const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
+    const showLoading = loadedKeyRef.current !== key;
+    fetchData({ showLoading });
   }, [user?.id, selectedRamadanDay]);
 
-  const fetchData = async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
+  const fetchData = async (opts?: { silent?: boolean; showLoading?: boolean }) => {
+    const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
+    const shouldShowLoading = opts?.showLoading !== false && !opts?.silent;
+    if (shouldShowLoading) setLoading(true);
     try {
       // 1. Lese-Gruppe: nur Nutzer aus reading_group_members
       const { data: memberRows } = await supabase
@@ -207,7 +212,8 @@ export default function Quran() {
     } catch (error) {
       console.error('Error fetching Quran data:', error);
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (shouldShowLoading) setLoading(false);
+      loadedKeyRef.current = key;
     }
   };
 
