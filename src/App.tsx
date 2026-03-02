@@ -4,8 +4,11 @@ import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Quran from './pages/Quran';
+import Learn from './pages/Learn';
 import BuchstabenUebersicht from './pages/BuchstabenUebersicht';
 import LearnLevel from './pages/LearnLevel';
+import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 
 function App() {
@@ -17,13 +20,13 @@ function App() {
           <Route path="/login" element={<Login />} />
           
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Layout />}>
-              <Route index element={null} />
-              <Route path="learn" element={null} />
-              <Route path="profile" element={null} />
-              <Route path="learn/alphabet" element={<BuchstabenUebersicht />} />
-              <Route path="learn/:levelId" element={<LearnLevel />} />
-              <Route path="admin" element={<Admin />} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<Quran />} />
+              <Route path="/learn" element={<Learn />} />
+              <Route path="/learn/alphabet" element={<BuchstabenUebersicht />} />
+              <Route path="/learn/:levelId" element={<LearnLevel />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/admin" element={<Admin />} />
             </Route>
           </Route>
         </Routes>

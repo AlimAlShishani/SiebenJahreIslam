@@ -157,6 +157,7 @@ export default function Quran() {
   const selectedDateStr = getDateForRamadanDay(selectedRamadanDay);
   const isToday = selectedRamadanDay === getRamadanDay();
   const loadedKeyRef = useRef<string | null>(quranPageCache?.loadedKey ?? null);
+  const firstLoadDoneRef = useRef<boolean>(!!quranPageCache);
 
   useLayoutEffect(() => {
     if (quranPageCache?.scrollY) {
@@ -194,14 +195,13 @@ export default function Quran() {
   }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay]);
 
   useEffect(() => {
-    const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
-    const showLoading = loadedKeyRef.current !== key;
+    const showLoading = !firstLoadDoneRef.current;
     fetchData({ showLoading });
   }, [user?.id, selectedRamadanDay]);
 
   const fetchData = async (opts?: { silent?: boolean; showLoading?: boolean }) => {
     const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
-    const shouldShowLoading = opts?.showLoading !== false && !opts?.silent;
+    const shouldShowLoading = !!opts?.showLoading && !opts?.silent;
     if (shouldShowLoading) setLoading(true);
     try {
       // 1. Lese-Gruppe: nur Nutzer aus reading_group_members
@@ -275,6 +275,7 @@ export default function Quran() {
     } finally {
       if (shouldShowLoading) setLoading(false);
       loadedKeyRef.current = key;
+      firstLoadDoneRef.current = true;
       if (quranPageCache) quranPageCache.loadedKey = key;
     }
   };

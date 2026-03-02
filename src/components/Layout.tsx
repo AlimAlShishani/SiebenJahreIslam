@@ -56,9 +56,24 @@ export const Layout = () => {
     const key = `scroll:${location.pathname}`;
     const raw = window.sessionStorage.getItem(key);
     const y = raw ? Number(raw) : 0;
-    if (Number.isFinite(y) && y > 0) {
-      window.scrollTo(0, y);
-    }
+    if (!Number.isFinite(y) || y <= 0) return;
+
+    // Bei Remount/Tab-Restore ist der Inhalt oft noch nicht voll gerendert.
+    // Daher mehrmals versuchen, bis die Seite wieder die alte Höhe hat.
+    const tryRestore = (remaining: number) => {
+      const maxScrollable = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const target = Math.min(y, maxScrollable);
+      window.scrollTo(0, target);
+      if (remaining <= 0) return;
+      window.requestAnimationFrame(() => tryRestore(remaining - 1));
+    };
+    tryRestore(12);
+
+    const t = window.setTimeout(() => {
+      const maxScrollable = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(y, maxScrollable));
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -66,8 +81,15 @@ export const Layout = () => {
     const onScroll = () => {
       window.sessionStorage.setItem(key, String(window.scrollY));
     };
+    const onPageHide = () => {
+      window.sessionStorage.setItem(key, String(window.scrollY));
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pagehide', onPageHide);
+    };
   }, [location.pathname]);
 
   return (
