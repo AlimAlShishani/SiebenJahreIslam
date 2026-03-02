@@ -38,6 +38,35 @@ function getStoragePathFromUrl(url: string): string | null {
   }
 }
 
+type RecorderUiState = {
+  assignmentId: string | null;
+  recording: boolean;
+  paused: boolean;
+  uploading: boolean;
+};
+
+let activeMediaRecorder: MediaRecorder | null = null;
+let activeStream: MediaStream | null = null;
+let activeChunks: Blob[] = [];
+let activeRecordingPath = '';
+let activeOnSaved: ((url: string) => void) | null = null;
+let activeWakeLock: { release: () => Promise<void> } | null = null;
+let activeSilentAudioContext: AudioContext | null = null;
+let activeSilentSource: AudioBufferSourceNode | null = null;
+const recorderListeners = new Set<(s: RecorderUiState) => void>();
+
+const recorderUiState: RecorderUiState = {
+  assignmentId: null,
+  recording: false,
+  paused: false,
+  uploading: false,
+};
+
+const emitRecorderState = () => {
+  const snapshot = { ...recorderUiState };
+  recorderListeners.forEach((listener) => listener(snapshot));
+};
+
 function SingleAudioPlayer({
   url,
   canDelete,
@@ -136,18 +165,12 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
   const [recording, setRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
   const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const recordingPathRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
-  const silentAudioContextRef = useRef<AudioContext | null>(null);
-  const silentSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const startSilentPlayback = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      silentAudioContextRef.current = ctx;
+      activeSilentAudioContext = ctx;
       const duration = 0.1;
       const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
       const source = ctx.createBufferSource();
@@ -155,58 +178,76 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
       source.loop = true;
       source.connect(ctx.destination);
       source.start(0);
-      silentSourceRef.current = source;
+      activeSilentSource = source;
     } catch {
-      silentAudioContextRef.current = null;
-      silentSourceRef.current = null;
+      activeSilentAudioContext = null;
+      activeSilentSource = null;
     }
   };
 
   const stopSilentPlayback = () => {
     try {
-      silentSourceRef.current?.stop();
-      silentSourceRef.current = null;
-      silentAudioContextRef.current?.close();
-      silentAudioContextRef.current = null;
+      activeSilentSource?.stop();
+      activeSilentSource = null;
+      activeSilentAudioContext?.close();
+      activeSilentAudioContext = null;
     } catch {
-      silentSourceRef.current = null;
-      silentAudioContextRef.current = null;
+      activeSilentSource = null;
+      activeSilentAudioContext = null;
     }
   };
 
   const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator && typeof (navigator as any).wakeLock?.request === 'function') {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        activeWakeLock = await (navigator as any).wakeLock.request('screen');
       }
     } catch {
-      wakeLockRef.current = null;
+      activeWakeLock = null;
     }
   };
 
   const releaseWakeLock = async () => {
     try {
-      if (wakeLockRef.current) {
-        await wakeLockRef.current.release();
-        wakeLockRef.current = null;
+      if (activeWakeLock) {
+        await activeWakeLock.release();
+        activeWakeLock = null;
       }
     } catch {
-      wakeLockRef.current = null;
+      activeWakeLock = null;
     }
   };
 
   useEffect(() => {
+    const listener = (s: RecorderUiState) => {
+      const sameAssignment = s.assignmentId === assignmentId;
+      setRecording(sameAssignment && s.recording);
+      setRecordingPaused(sameAssignment && s.paused);
+      setUploading(sameAssignment && s.uploading);
+      if (sameAssignment) {
+        activeOnSaved = onSaved;
+      }
+    };
+    recorderListeners.add(listener);
+    listener({ ...recorderUiState });
+    if (recorderUiState.assignmentId === assignmentId) {
+      activeOnSaved = onSaved;
+    }
+    return () => {
+      recorderListeners.delete(listener);
+    };
+  }, [assignmentId, onSaved]);
+
+  useEffect(() => {
     if (!recording) return;
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && mediaRecorderRef.current?.state === 'recording') {
+      if (document.visibilityState === 'visible' && activeMediaRecorder?.state === 'recording') {
         requestWakeLock();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      releaseWakeLock();
-      stopSilentPlayback();
     };
   }, [recording]);
 
@@ -219,33 +260,70 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
   };
 
   const startRecording = async () => {
+    if (recorderUiState.recording && recorderUiState.assignmentId !== assignmentId) {
+      alert('Es läuft bereits eine Aufnahme in einer anderen Aufgabe. Bitte zuerst dort senden.');
+      return;
+    }
+    if (recorderUiState.recording && recorderUiState.assignmentId === assignmentId) return;
     try {
-      recordingPathRef.current = `${assignmentId}_${Date.now()}.webm`;
+      activeRecordingPath = `${assignmentId}_${Date.now()}.webm`;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const options: MediaRecorderOptions = { audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
       else if (MediaRecorder.isTypeSupported('audio/webm')) options.mimeType = 'audio/webm';
       const mr = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mr;
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      activeMediaRecorder = mr;
+      activeStream = stream;
+      activeOnSaved = onSaved;
+      activeChunks = [];
+      recorderUiState.assignmentId = assignmentId;
+      recorderUiState.recording = true;
+      recorderUiState.paused = false;
+      emitRecorderState();
+      mr.ondataavailable = (e) => { if (e.data.size > 0) activeChunks.push(e.data); };
+      mr.onpause = () => {
+        recorderUiState.paused = true;
+        emitRecorderState();
+      };
+      mr.onresume = () => {
+        recorderUiState.paused = false;
+        emitRecorderState();
+      };
       mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
-        if (blob.size === 0) return;
-        setUploading(true);
+        activeStream?.getTracks().forEach((t) => t.stop());
+        activeStream = null;
+        recorderUiState.recording = false;
+        recorderUiState.paused = false;
+        recorderUiState.uploading = true;
+        emitRecorderState();
+        const blob = new Blob(activeChunks, { type: mr.mimeType || 'audio/webm' });
+        activeChunks = [];
+        if (blob.size === 0) {
+          recorderUiState.uploading = false;
+          recorderUiState.assignmentId = null;
+          emitRecorderState();
+          activeMediaRecorder = null;
+          activeRecordingPath = '';
+          await releaseWakeLock();
+          stopSilentPlayback();
+          return;
+        }
         try {
-          const url = await uploadToPath(recordingPathRef.current, blob);
-          onSaved(url);
+          const url = await uploadToPath(activeRecordingPath, blob);
+          activeOnSaved?.(url);
         } catch (e) {
           console.error(e);
         } finally {
-          setUploading(false);
+          recorderUiState.uploading = false;
+          recorderUiState.assignmentId = null;
+          emitRecorderState();
+          activeMediaRecorder = null;
+          activeRecordingPath = '';
+          await releaseWakeLock();
+          stopSilentPlayback();
         }
       };
       mr.start();
-      setRecording(true);
-      setRecordingPaused(false);
       startSilentPlayback();
       await requestWakeLock();
     } catch (e) {
@@ -254,23 +332,20 @@ export function ReadingAudioCell({ assignmentId, audioUrls, canEdit, onSaved, on
   };
 
   const toggleRecordingPause = () => {
-    const mr = mediaRecorderRef.current;
+    const mr = activeMediaRecorder;
     if (!mr) return;
     try {
-      if (mr.state === 'recording') { mr.pause(); setRecordingPaused(true); }
-      else if (mr.state === 'paused') { mr.resume(); setRecordingPaused(false); }
+      if (mr.state === 'recording') { mr.pause(); }
+      else if (mr.state === 'paused') { mr.resume(); }
     } catch {
-      setRecordingPaused(false);
+      recorderUiState.paused = false;
+      emitRecorderState();
     }
   };
 
   const sendRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-      setRecordingPaused(false);
-      releaseWakeLock();
-      stopSilentPlayback();
+    if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') {
+      activeMediaRecorder.stop();
     }
   };
 
