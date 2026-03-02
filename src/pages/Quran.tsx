@@ -67,16 +67,62 @@ type QuranPageCache = {
 const QURAN_CACHE_KEY = 'quran_page_cache_v1';
 
 function getIslamicDateParts(date: Date): { day: number; month: string; year: number } {
-  const formatter = new Intl.DateTimeFormat('en-TN-u-ca-islamic', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-  const parts = formatter.formatToParts(date);
-  const day = Number(parts.find((p) => p.type === 'day')?.value ?? '1');
-  const month = parts.find((p) => p.type === 'month')?.value ?? 'Muharram';
-  const year = Number(parts.find((p) => p.type === 'year')?.value ?? '1');
-  return { day, month, year };
+  const ISLAMIC_MONTH_NAMES = [
+    'Muharram',
+    'Safar',
+    'Rabi al-Awwal',
+    'Rabi al-Thani',
+    'Jumada al-Ula',
+    'Jumada al-Akhirah',
+    'Rajab',
+    'Shaban',
+    'Ramadan',
+    'Shawwal',
+    'Dhu al-Qadah',
+    'Dhu al-Hijjah',
+  ];
+
+  const toLatinDigits = (value: string) =>
+    value
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+
+  const parsePartNumber = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes, fallback: number) => {
+    const raw = parts.find((p) => p.type === type)?.value ?? String(fallback);
+    const n = Number(toLatinDigits(raw));
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const candidates = [
+    'en-SA-u-ca-islamic-umalqura',
+    'ar-SA-u-ca-islamic-umalqura',
+    'en-TN-u-ca-islamic',
+    'ar-SA-u-ca-islamic',
+    'en-u-ca-islamic',
+  ];
+
+  for (const locale of candidates) {
+    try {
+      const numericFormatter = new Intl.DateTimeFormat(locale, {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+      });
+      const calendar = numericFormatter.resolvedOptions().calendar;
+      if (!calendar.toLowerCase().includes('islamic')) continue;
+      const parts = numericFormatter.formatToParts(date);
+      const day = parsePartNumber(parts, 'day', 1);
+      const monthIndex = parsePartNumber(parts, 'month', 1) - 1;
+      const year = parsePartNumber(parts, 'year', 1);
+      const month = ISLAMIC_MONTH_NAMES[monthIndex] ?? 'Muharram';
+      return { day, month, year };
+    } catch {
+      // try next locale
+    }
+  }
+
+  // Hard fallback (should rarely happen)
+  return { day: 1, month: 'Muharram', year: 1 };
 }
 
 function toLocalDateString(date: Date): string {
