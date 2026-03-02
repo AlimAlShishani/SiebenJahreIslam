@@ -4,6 +4,16 @@ import { Type, Star, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
+const DEBUG_REMOUNT =
+  typeof window !== 'undefined' &&
+  (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
+    window.sessionStorage.getItem('debugRemount') === '1');
+
+const logDebug = (...args: unknown[]) => {
+  if (!DEBUG_REMOUNT) return;
+  console.log('[debug-remount][Learn]', ...args);
+};
+
 interface LearningLevel {
   id: number;
   level_number: number;
@@ -55,8 +65,18 @@ export default function Learn() {
   const [loading, setLoading] = useState(() => !cachedForUser);
 
   useEffect(() => {
+    logDebug('mounted');
+    return () => logDebug('unmounted');
+  }, []);
+
+  useEffect(() => {
+    logDebug('loading changed', loading);
+  }, [loading]);
+
+  useEffect(() => {
     const fetch = async () => {
       const hasCache = learnPageCache?.userId === (user?.id ?? null);
+      logDebug('fetch start', { userId: user?.id ?? null, hasCache });
       if (!hasCache) setLoading(true);
       const [levelsRes, itemsRes, progressRes] = await Promise.all([
         supabase.from('learning_levels').select('id, level_number, title, description').order('level_number'),
@@ -98,6 +118,10 @@ export default function Learn() {
         // ignore sessionStorage errors
       }
       setLoading(false);
+      logDebug('fetch end', {
+        userId: user?.id ?? null,
+        levelsCount: (levelsRes.data || []).length,
+      });
     };
     fetch();
   }, [user?.id]);

@@ -2,6 +2,16 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+const DEBUG_REMOUNT =
+  typeof window !== 'undefined' &&
+  (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
+    window.sessionStorage.getItem('debugRemount') === '1');
+
+const logDebug = (...args: unknown[]) => {
+  if (!DEBUG_REMOUNT) return;
+  console.log('[debug-remount][Auth]', ...args);
+};
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -18,7 +28,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    logDebug('provider mounted');
     supabase.auth.getSession().then(({ data: { session } }) => {
+      logDebug('getSession resolved', {
+        hasSession: !!session,
+        userId: session?.user?.id ?? null,
+        expiresAt: session?.expires_at ?? null,
+      });
       const nextUser = session?.user ?? null;
       const nextId = nextUser?.id ?? null;
       if (lastUserIdRef.current !== nextId) {
@@ -29,7 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      logDebug('onAuthStateChange', {
+        event,
+        hasSession: !!session,
+        userId: session?.user?.id ?? null,
+        expiresAt: session?.expires_at ?? null,
+      });
       const nextUser = session?.user ?? null;
       const nextId = nextUser?.id ?? null;
       if (lastUserIdRef.current !== nextId) {
@@ -40,7 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      logDebug('provider unmounted');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

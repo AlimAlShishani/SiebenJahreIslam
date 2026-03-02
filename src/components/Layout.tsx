@@ -4,6 +4,16 @@ import { BookOpen, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
+const DEBUG_REMOUNT =
+  typeof window !== 'undefined' &&
+  (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
+    window.sessionStorage.getItem('debugRemount') === '1');
+
+const logDebug = (...args: unknown[]) => {
+  if (!DEBUG_REMOUNT) return;
+  console.log('[debug-remount][Layout]', ...args);
+};
+
 export const Layout = () => {
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -12,6 +22,37 @@ export const Layout = () => {
   const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const isActive = (path: string) => location.pathname === path;
+
+  useEffect(() => {
+    logDebug('mounted', { path: location.pathname });
+    return () => logDebug('unmounted', { path: location.pathname });
+  }, []);
+
+  useEffect(() => {
+    if (!DEBUG_REMOUNT) return;
+    window.sessionStorage.setItem('debugRemount', '1');
+    const onVisibility = () => logDebug('visibilitychange', document.visibilityState);
+    const onFocus = () => logDebug('window focus');
+    const onBlur = () => logDebug('window blur');
+    const onPageShow = () => logDebug('pageshow');
+    const onPageHide = () => logDebug('pagehide');
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, []);
+
+  useEffect(() => {
+    logDebug('route change', { path: location.pathname });
+  }, [location.pathname]);
 
   useEffect(() => {
     const startKeepAliveAudio = () => {

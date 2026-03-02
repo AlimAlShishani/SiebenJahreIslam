@@ -4,6 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
+const DEBUG_REMOUNT =
+  typeof window !== 'undefined' &&
+  (new URLSearchParams(window.location.search).get('debugRemount') === '1' ||
+    window.sessionStorage.getItem('debugRemount') === '1');
+
+const logDebug = (...args: unknown[]) => {
+  if (!DEBUG_REMOUNT) return;
+  console.log('[debug-remount][Quran]', ...args);
+};
+
 const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
 type VoteValue = typeof VOTE_OPTIONS[number];
 const VOTE_ORDER: VoteValue[] = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'];
@@ -94,6 +104,15 @@ export default function Quran() {
   const [arabic3SelectedUserId, setArabic3SelectedUserId] = useState<string>('');
   const [arabic3InDistributeUserId, setArabic3InDistributeUserId] = useState<string | null>(null);
 
+  useEffect(() => {
+    logDebug('mounted');
+    return () => logDebug('unmounted');
+  }, []);
+
+  useEffect(() => {
+    logDebug('loading changed', loading);
+  }, [loading]);
+
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
     if (Array.isArray(value)) {
@@ -159,6 +178,10 @@ export default function Quran() {
   const loadedKeyRef = useRef<string | null>(quranPageCache?.loadedKey ?? null);
   const firstLoadDoneRef = useRef<boolean>(!!quranPageCache);
 
+  useEffect(() => {
+    logDebug('selectedRamadanDay changed', selectedRamadanDay);
+  }, [selectedRamadanDay]);
+
   useLayoutEffect(() => {
     if (quranPageCache?.scrollY) {
       window.scrollTo(0, quranPageCache.scrollY);
@@ -196,12 +219,19 @@ export default function Quran() {
 
   useEffect(() => {
     const showLoading = !firstLoadDoneRef.current;
+    logDebug('effect trigger fetchData', {
+      userId: user?.id ?? null,
+      selectedRamadanDay,
+      showLoading,
+      firstLoadDone: firstLoadDoneRef.current,
+    });
     fetchData({ showLoading });
   }, [user?.id, selectedRamadanDay]);
 
   const fetchData = async (opts?: { silent?: boolean; showLoading?: boolean }) => {
     const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
     const shouldShowLoading = !!opts?.showLoading && !opts?.silent;
+    logDebug('fetchData start', { key, shouldShowLoading, opts });
     if (shouldShowLoading) setLoading(true);
     try {
       // 1. Lese-Gruppe: nur Nutzer aus reading_group_members
@@ -272,11 +302,17 @@ export default function Quran() {
 
     } catch (error) {
       console.error('Error fetching Quran data:', error);
+      logDebug('fetchData error', error);
     } finally {
       if (shouldShowLoading) setLoading(false);
       loadedKeyRef.current = key;
       firstLoadDoneRef.current = true;
       if (quranPageCache) quranPageCache.loadedKey = key;
+      logDebug('fetchData end', {
+        key,
+        assignmentsCount: assignments.length,
+        usersCount: users.length,
+      });
     }
   };
 
