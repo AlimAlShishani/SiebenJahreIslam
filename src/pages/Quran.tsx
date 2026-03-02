@@ -61,6 +61,7 @@ type QuranPageCache = {
   activityLogs: ReadingActivityLog[];
   loadedKey: string | null;
   scrollY: number;
+  cachedAtDate?: string;
 };
 
 const QURAN_CACHE_KEY = 'quran_page_cache_v1';
@@ -98,6 +99,7 @@ const readQuranPageCache = (): QuranPageCache | null => {
 let quranPageCache: QuranPageCache | null = typeof window !== 'undefined' ? readQuranPageCache() : null;
 
 export default function Quran() {
+  const todayLocalDate = toLocalDateString(new Date());
   const { user } = useAuth();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<DailyAssignment[]>(() => quranPageCache?.assignments ?? []);
@@ -213,7 +215,8 @@ export default function Quran() {
 
   const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => {
     const cached = quranPageCache?.selectedRamadanDay;
-    if (cached && Number.isFinite(cached)) return cached;
+    const isCacheFromToday = quranPageCache?.cachedAtDate === todayLocalDate;
+    if (isCacheFromToday && cached && Number.isFinite(cached)) return cached;
     return islamicMonthInfo.currentDay;
   });
 
@@ -262,13 +265,14 @@ export default function Quran() {
       activityLogs,
       loadedKey: loadedKeyRef.current,
       scrollY: window.scrollY,
+      cachedAtDate: todayLocalDate,
     };
     try {
       window.sessionStorage.setItem(QURAN_CACHE_KEY, JSON.stringify(quranPageCache));
     } catch {
       // ignore sessionStorage errors
     }
-  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay, activityLogs]);
+  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay, activityLogs, todayLocalDate]);
 
   useEffect(() => {
     const showLoading = !firstLoadDoneRef.current;
