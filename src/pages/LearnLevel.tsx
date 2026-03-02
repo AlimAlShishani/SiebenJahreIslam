@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { normalizeArabicForDisplay } from '../utils/arabicText';
 import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy, BookOpen, HelpCircle, Film } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { playSuccessSound, playErrorSound } from '../utils/audio';
@@ -554,7 +555,7 @@ export default function LearnLevel() {
             {levelNum === 7 ? (
               <h1 className="text-5xl md:text-6xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 leading-tight" dir="ltr">{currentItem.transliteration}</h1>
             ) : (
-              <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
+              <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl">{normalizeArabicForDisplay(currentItem.content)}</h1>
             )}
             
             <div className="flex flex-wrap gap-3 justify-center mb-6">
@@ -617,7 +618,7 @@ export default function LearnLevel() {
                     disabled={selectedOptionId !== null}
                     className={btnClass}
                   >
-                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined}>{option.text}</span>
+                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined}>{normalizeArabicForDisplay(option.text)}</span>
                     
                     {option.audio_url && (
                       <div 
