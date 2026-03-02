@@ -1,5 +1,5 @@
 const API_BASE = 'https://api.alquran.cloud/v1';
-const CACHE_PREFIX = 'quran_api_cache_v1:';
+const CACHE_PREFIX = 'quran_api_cache_v2:';
 const DEFAULT_TRANSLATION_EDITION = 'de.aburida';
 const FALLBACK_TRANSLATION_EDITIONS = ['de.bubenheim', 'de.khoury', 'en.sahih', 'tr.diyanet'];
 const SUPPORTED_TRANSLATION_LANGUAGES = new Set(['de', 'en', 'tr', 'fr', 'ur', 'id', 'es', 'ru', 'it', 'nl']);
