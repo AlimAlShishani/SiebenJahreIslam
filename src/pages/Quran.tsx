@@ -213,7 +213,12 @@ export default function Quran() {
     };
   }, []);
 
-  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => islamicMonthInfo.currentDay);
+  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => {
+    const cached = quranPageCache?.selectedRamadanDay;
+    const isCacheFromToday = quranPageCache?.cachedAtDate === todayLocalDate;
+    if (isCacheFromToday && cached && Number.isFinite(cached)) return cached;
+    return islamicMonthInfo.currentDay;
+  });
 
   useEffect(() => {
     if (selectedRamadanDay < 1 || selectedRamadanDay > islamicMonthInfo.monthLength) {
