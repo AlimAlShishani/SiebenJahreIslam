@@ -18,24 +18,40 @@
   }
 }
 
-@font-face {
-  font-family: 'UthmanicHafs';
-  src: url('/fonts/UthmanicHafs.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
+/* Stabiler Arabisch/Quran-Stack; auf iOS zuerst Geeza Pro gegen verschobene Tashkeel. */
+:root {
+  --quran-font-stack: "Geeza Pro", "Noto Naskh Arabic", "Amiri", "Times New Roman", serif;
 }
 
-/* Alle arabischen / RTL-Texte im Projekt (und zukünftig) nutzen Uthmanic Hafs */
 [dir="rtl"],
 [lang="ar"] {
-  font-family: 'UthmanicHafs', serif;
+  font-family: var(--quran-font-stack);
+  font-kerning: normal;
+  font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
+  text-rendering: optimizeLegibility;
 }
 
 .font-quran {
-  font-family: 'UthmanicHafs', serif;
+  font-family: var(--quran-font-stack);
   line-height: 2;
+  font-kerning: normal;
+  font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
+  text-rendering: optimizeLegibility;
 }
 
 .font-arabic {
-  font-family: 'UthmanicHafs', serif;
+  font-family: var(--quran-font-stack);
+  font-kerning: normal;
+  font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .font-quran,
+  .font-arabic,
+  [dir="rtl"],
+  [lang="ar"] {
+    -webkit-font-smoothing: antialiased;
+    line-height: 2.08;
+    letter-spacing: 0;
+  }
 }

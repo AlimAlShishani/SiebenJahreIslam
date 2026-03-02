@@ -19,6 +19,7 @@ import {
   type SurahMeta,
   type TranslationEdition,
 } from '../lib/quranApi';
+import { triggerPushForActivity } from '../lib/pushNotifications';
 
 interface AssignmentForReader {
   id: string;
@@ -647,14 +648,23 @@ export default function QuranReader() {
         const logDate = assignment.date || assignmentDate || null;
         const logJuz = assignment.juz_number ?? selectedJuz;
         if (logDate) {
-          const { error: logError } = await supabase.from('reading_activity_logs').insert({
+          const logPayload = {
             date: logDate,
             juz_number: logJuz,
             activity_type: 'audio_added',
             actor_user_id: user.id,
             assignment_user_id: assignment.user_id,
-          });
+          } as const;
+          const { error: logError } = await supabase.from('reading_activity_logs').insert(logPayload);
           if (logError) console.error('Error writing activity log:', logError);
+          else {
+            void triggerPushForActivity({
+              date: logPayload.date,
+              juz_number: logPayload.juz_number,
+              activity_type: logPayload.activity_type,
+              actor_user_id: logPayload.actor_user_id,
+            });
+          }
         }
       }
     }

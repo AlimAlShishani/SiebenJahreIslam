@@ -41,6 +41,7 @@ Damit die App funktioniert, braucht Vercel deine Supabase-Schlüssel.
 2.  Füge diese Variablen hinzu (Werte aus deiner `.env` Datei kopieren):
     *   `VITE_SUPABASE_URL`
     *   `VITE_SUPABASE_ANON_KEY`
+    *   `VITE_VAPID_PUBLIC_KEY` (für echte Push-Benachrichtigungen)
 3.  Klicke auf **"Deploy"**.
 
 Du erhältst einen Link (z.B. `https://ramadan-app.vercel.app`).
@@ -55,3 +56,15 @@ Damit der Login auf der neuen Seite geht:
 5.  Speichern.
 
 **Fertig!** Jetzt kannst du den Link teilen.
+
+## Echte Push-Benachrichtigungen aktivieren
+1. In Supabase SQL Editor die neuen Migrationen ausführen:
+   - `sql/31_reading_activity_logs_add_plan_updated_type.sql`
+   - `sql/32_push_subscriptions.sql`
+2. VAPID Key-Paar erzeugen (einmalig), Public Key in Vercel als `VITE_VAPID_PUBLIC_KEY` setzen.
+3. Supabase Edge Function deployen:
+   - `supabase functions deploy send-push-notification`
+4. Edge Function Env Vars setzen:
+   - `VAPID_PUBLIC_KEY`
+   - `VAPID_PRIVATE_KEY`
+   - `VAPID_SUBJECT` (z.B. `mailto:you@example.com`)

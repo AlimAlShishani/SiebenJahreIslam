@@ -3,15 +3,21 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { ensurePushSubscription } from '../lib/pushNotifications';
 
 export const Layout = () => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const keepAliveCtxRef = useRef<AudioContext | null>(null);
   const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void ensurePushSubscription(user.id);
+  }, [user?.id]);
 
   useEffect(() => {
     const startKeepAliveAudio = () => {

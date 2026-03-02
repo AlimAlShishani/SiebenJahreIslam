@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { triggerPushForActivity } from '../lib/pushNotifications';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2 } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
@@ -207,8 +208,13 @@ export default function Quran() {
   const formatActivityTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   const getActorName = (log: ReadingActivityLog) => log.profiles?.full_name || log.profiles?.email || 'Unbekannt';
-  const formatActivityMessage = (log: ReadingActivityLog) =>
-    `JUZ ${log.juz_number} | ${getActorName(log)} hat ein Audio hochgeladen`;
+  const formatActivityMessage = (log: ReadingActivityLog) => {
+    const actor = getActorName(log);
+    if (log.activity_type === 'plan_updated') {
+      return `JUZ ${log.juz_number} | ${actor} hat den Plan neu verteilt`;
+    }
+    return `JUZ ${log.juz_number} | ${actor} hat ein Audio hochgeladen`;
+  };
 
   const getEarliestVote = (votes: VoteValue[]): VoteValue | null => {
     if (votes.length === 0) return null;
@@ -396,7 +402,6 @@ export default function Quran() {
         const { data: activityData } = await supabase
           .from('reading_activity_logs')
           .select('id, date, juz_number, activity_type, actor_user_id, assignment_user_id, created_at, profiles!reading_activity_logs_actor_user_id_fkey(full_name, email)')
-          .eq('activity_type', 'audio_added')
           .order('created_at', { ascending: false })
           .limit(200);
         const normalizedActivity: ReadingActivityLog[] = (activityData || []).map((x: any) => ({
@@ -455,8 +460,6 @@ export default function Quran() {
             assignment_user_id: string | null;
             created_at: string;
           };
-          if (row.activity_type !== 'audio_added') return;
-          if (row.actor_user_id === user.id) return;
           const actor = users.find((u) => u.id === row.actor_user_id);
           const log: ReadingActivityLog = {
             ...row,
@@ -467,11 +470,13 @@ export default function Quran() {
           setActivityLogs((prev) => [log, ...prev.filter((x) => x.id !== log.id)].slice(0, 200));
 
           const actorName = actor?.full_name || actor?.email || 'Jemand';
-          const message = `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
+          const message = row.activity_type === 'plan_updated'
+            ? `JUZ ${row.juz_number} | ${actorName} hat den Plan neu verteilt`
+            : `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
           setActivityToast({ id: row.id, message, juzNumber: row.juz_number });
 
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            new Notification('Neue Audio-Aktivität', { body: message });
+            new Notification('Neue Aktivität', { body: message });
           }
         }
       )
@@ -663,6 +668,25 @@ export default function Quran() {
         .insert(newAssignments);
 
       if (error) throw error;
+      if (user?.id) {
+        const logPayload = {
+          date: selectedDateStr,
+          juz_number: selectedRamadanDay,
+          activity_type: 'plan_updated',
+          actor_user_id: user.id,
+          assignment_user_id: null,
+        } as const;
+        const { error: logError } = await supabase.from('reading_activity_logs').insert(logPayload);
+        if (logError) console.error('Error writing plan activity log:', logError);
+        else {
+          void triggerPushForActivity({
+            date: logPayload.date,
+            juz_number: logPayload.juz_number,
+            activity_type: logPayload.activity_type,
+            actor_user_id: logPayload.actor_user_id,
+          });
+        }
+      }
       await fetchData();
     } catch (error) {
       console.error('Error generating assignments:', error);
@@ -769,6 +793,25 @@ export default function Quran() {
     if (newAssignments.length > 0) {
       const { error } = await supabase.from('daily_reading_status').insert(newAssignments);
       if (error) throw error;
+    }
+    if (user?.id) {
+      const logPayload = {
+        date: selectedDateStr,
+        juz_number: selectedRamadanDay,
+        activity_type: 'plan_updated',
+        actor_user_id: user.id,
+        assignment_user_id: null,
+      } as const;
+      const { error: logError } = await supabase.from('reading_activity_logs').insert(logPayload);
+      if (logError) console.error('Error writing plan activity log:', logError);
+      else {
+        void triggerPushForActivity({
+          date: logPayload.date,
+          juz_number: logPayload.juz_number,
+          activity_type: logPayload.activity_type,
+          actor_user_id: logPayload.actor_user_id,
+        });
+      }
     }
   };
 
@@ -969,17 +1012,24 @@ export default function Quran() {
       if (error) throw error;
       setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: null } : x)));
       if (user?.id) {
+        const logPayload = {
+          date: selectedDateStr,
+          juz_number: a?.juz_number ?? selectedRamadanDay,
+          activity_type: 'audio_added',
+          actor_user_id: user.id,
+          assignment_user_id: assignmentUserId,
+        } as const;
         const { error: logError } = await supabase
           .from('reading_activity_logs')
-          .insert({
-            date: selectedDateStr,
-            juz_number: a?.juz_number ?? selectedRamadanDay,
-            activity_type: 'audio_added',
-            actor_user_id: user.id,
-            assignment_user_id: assignmentUserId,
-          });
+          .insert(logPayload);
         if (logError) console.error('Error writing activity log:', logError);
         else {
+          void triggerPushForActivity({
+            date: logPayload.date,
+            juz_number: logPayload.juz_number,
+            activity_type: logPayload.activity_type,
+            actor_user_id: logPayload.actor_user_id,
+          });
           setActivityLogs((prev) => [
             {
               id: `tmp-${Date.now()}`,
