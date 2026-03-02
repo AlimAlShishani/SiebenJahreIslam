@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2 } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
 const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
@@ -424,6 +424,18 @@ export default function Quran() {
     window.setTimeout(() => {
       assignmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 120);
+  };
+
+  const deleteActivityLogEntry = async (logId: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm('Diesen Activity-Log-Eintrag löschen?')) return;
+    try {
+      const { error } = await supabase.from('reading_activity_logs').delete().eq('id', logId);
+      if (error) throw error;
+      setActivityLogs((prev) => prev.filter((x) => x.id !== logId));
+    } catch (e) {
+      console.error('Error deleting activity log entry:', e);
+    }
   };
 
   useEffect(() => {
@@ -1151,16 +1163,27 @@ export default function Quran() {
             ) : (
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {activityLogs.map((log) => (
-                  <button
-                    key={log.id}
-                    type="button"
-                    onClick={() => jumpToActivityDay(log.juz_number)}
-                    className="block w-full text-left text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded px-1.5 py-1 transition-colors"
-                    title={`Zu Juz ${log.juz_number} springen`}
-                  >
-                    {formatActivityMessage(log)}
-                    <span className="text-gray-400 dark:text-gray-500"> ({formatActivityTime(log.created_at)})</span>
-                  </button>
+                  <div key={log.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => jumpToActivityDay(log.juz_number)}
+                      className="block flex-1 text-left text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded px-1.5 py-1 transition-colors"
+                      title={`Zu Juz ${log.juz_number} springen`}
+                    >
+                      {formatActivityMessage(log)}
+                      <span className="text-gray-400 dark:text-gray-500"> ({formatActivityTime(log.created_at)})</span>
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => deleteActivityLogEntry(log.id)}
+                        className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                        title="Log-Eintrag löschen"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
