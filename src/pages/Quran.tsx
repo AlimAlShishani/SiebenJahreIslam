@@ -11,7 +11,7 @@ const isDebugRemount = () =>
 
 const logDebug = (...args: unknown[]) => {
   if (!isDebugRemount()) return;
-  console.log('[debug-remount][Quran]', ...args);
+  console.warn('[debug-remount][Quran]', ...args);
 };
 
 const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;

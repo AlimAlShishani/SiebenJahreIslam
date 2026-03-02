@@ -11,7 +11,7 @@ const isDebugRemount = () =>
 
 const logDebug = (...args: unknown[]) => {
   if (!isDebugRemount()) return;
-  console.log('[debug-remount][Layout]', ...args);
+  console.warn('[debug-remount][Layout]', ...args);
 };
 
 export const Layout = () => {

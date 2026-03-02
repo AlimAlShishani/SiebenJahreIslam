@@ -9,7 +9,7 @@ const isDebugRemount = () =>
 
 const logDebug = (...args: unknown[]) => {
   if (!isDebugRemount()) return;
-  console.log('[debug-remount][Auth]', ...args);
+  console.warn('[debug-remount][Auth]', ...args);
 };
 
 interface AuthContextType {

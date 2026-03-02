@@ -11,7 +11,7 @@ const isDebugRemount = () =>
 
 const logDebug = (...args: unknown[]) => {
   if (!isDebugRemount()) return;
-  console.log('[debug-remount][Learn]', ...args);
+  console.warn('[debug-remount][Learn]', ...args);
 };
 
 interface LearningLevel {
