@@ -20,7 +20,7 @@
 
 /* Stabiler Arabisch/Quran-Stack; auf iOS zuerst Geeza Pro gegen verschobene Tashkeel. */
 :root {
-  --quran-font-stack: "Geeza Pro", "Noto Naskh Arabic", "Amiri", "Times New Roman", serif;
+  --quran-font-stack: "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
 }
 
 [dir="rtl"],
@@ -33,7 +33,7 @@
 
 .font-quran {
   font-family: var(--quran-font-stack);
-  line-height: 2;
+  line-height: 1.95;
   font-kerning: normal;
   font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
   text-rendering: optimizeLegibility;
@@ -51,7 +51,7 @@
   [dir="rtl"],
   [lang="ar"] {
     -webkit-font-smoothing: antialiased;
-    line-height: 2.08;
+    line-height: 1.95;
     letter-spacing: 0;
   }
 }
