@@ -1,23 +1,56 @@
-import { useEffect, useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { BookOpen, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import Quran from '../pages/Quran';
-import Learn from '../pages/Learn';
-import Profile from '../pages/Profile';
 
 export const Layout = () => {
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
-  const path = location.pathname;
-  const isQuranPath = path === '/';
-  const isLearnPath = path === '/learn';
-  const isProfilePath = path === '/profile';
-  const isTabRootPath = isQuranPath || isLearnPath || isProfilePath;
+  const keepAliveCtxRef = useRef<AudioContext | null>(null);
+  const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const isActive = (path: string) => location.pathname === path;
+
+  useEffect(() => {
+    const startKeepAliveAudio = () => {
+      if (keepAliveCtxRef.current) return;
+      try {
+        const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * 0.05)), ctx.sampleRate);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(ctx.destination);
+        source.start(0);
+        keepAliveCtxRef.current = ctx;
+        keepAliveSourceRef.current = source;
+      } catch {
+        // ignore
+      }
+    };
+
+    const resumeAudioOnVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        keepAliveCtxRef.current?.resume();
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('pointerdown', startKeepAliveAudio, { once: true });
+    window.addEventListener('keydown', startKeepAliveAudio, { once: true });
+    document.addEventListener('visibilitychange', resumeAudioOnVisible);
+    return () => {
+      window.removeEventListener('pointerdown', startKeepAliveAudio);
+      window.removeEventListener('keydown', startKeepAliveAudio);
+      document.removeEventListener('visibilitychange', resumeAudioOnVisible);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const key = `scroll:${location.pathname}`;
@@ -58,16 +91,7 @@ export const Layout = () => {
       </header>
 
       <main className="flex-grow container mx-auto px-4 py-6">
-        <div className={isQuranPath ? 'block' : 'hidden'} aria-hidden={!isQuranPath}>
-          <Quran />
-        </div>
-        <div className={isLearnPath ? 'block' : 'hidden'} aria-hidden={!isLearnPath}>
-          <Learn />
-        </div>
-        <div className={isProfilePath ? 'block' : 'hidden'} aria-hidden={!isProfilePath}>
-          <Profile />
-        </div>
-        {!isTabRootPath && <Outlet />}
+        <Outlet />
       </main>
 
       <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 w-full md:relative md:border-t-0 md:bg-transparent md:mb-6 dark:md:bg-transparent">
