@@ -44,6 +44,12 @@ interface ReadingActivityLog {
   profiles?: { full_name: string | null; email: string } | null;
 }
 
+interface ActivityToast {
+  id: string;
+  message: string;
+  juzNumber: number;
+}
+
 type QuranPageCache = {
   selectedRamadanDay: number;
   assignments: DailyAssignment[];
@@ -58,6 +64,19 @@ type QuranPageCache = {
 };
 
 const QURAN_CACHE_KEY = 'quran_page_cache_v1';
+
+function getIslamicDateParts(date: Date): { day: number; month: string; year: number } {
+  const formatter = new Intl.DateTimeFormat('en-TN-u-ca-islamic', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const parts = formatter.formatToParts(date);
+  const day = Number(parts.find((p) => p.type === 'day')?.value ?? '1');
+  const month = parts.find((p) => p.type === 'month')?.value ?? 'Muharram';
+  const year = Number(parts.find((p) => p.type === 'year')?.value ?? '1');
+  return { day, month, year };
+}
 
 const readQuranPageCache = (): QuranPageCache | null => {
   try {
@@ -91,6 +110,7 @@ export default function Quran() {
   // Voting (nur wenn in Gruppe)
   const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>(() => quranPageCache?.votesForDay ?? []);
   const [activityLogs, setActivityLogs] = useState<ReadingActivityLog[]>(() => quranPageCache?.activityLogs ?? []);
+  const [activityToast, setActivityToast] = useState<ActivityToast | null>(null);
   const [savingVote, setSavingVote] = useState(false);
   const [showAbgebenAssignModal, setShowAbgebenAssignModal] = useState(false);
   const [abgebenAssignData, setAbgebenAssignData] = useState<{
@@ -131,6 +151,9 @@ export default function Quran() {
   const formatVoteLabel = (vote: VoteValue) => (vote === '0' || vote === '1' ? `${vote} Uhr` : vote);
   const formatActivityTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const getActorName = (log: ReadingActivityLog) => log.profiles?.full_name || log.profiles?.email || 'Unbekannt';
+  const formatActivityMessage = (log: ReadingActivityLog) =>
+    `JUZ ${log.juz_number} | ${getActorName(log)} hat ein Audio hochgeladen`;
 
   const getEarliestVote = (votes: VoteValue[]): VoteValue | null => {
     if (votes.length === 0) return null;
@@ -151,30 +174,58 @@ export default function Quran() {
     'bg-lime-500',
   ];
 
-  // Helper: Get Ramadan Day (1-30) based on current date. Ramadan starts Feb 18, 2026.
-  const getRamadanDay = () => {
+  const islamicMonthInfo = useMemo(() => {
     const today = new Date();
-    const ramadanStart = new Date('2026-02-18');
-    const diffTime = Math.abs(today.getTime() - ramadanStart.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (today < ramadanStart) return 1;
-    if (diffDays > 30) return 30;
-    return diffDays;
-  };
+    const todayParts = getIslamicDateParts(today);
 
-  // Convert Ramadan day (1-30) to date string YYYY-MM-DD
-  const getDateForRamadanDay = (day: number) => {
-    const start = new Date('2026-02-18');
-    const d = new Date(start);
-    d.setDate(start.getDate() + (day - 1));
+    const monthStartDate = new Date(today);
+    while (getIslamicDateParts(monthStartDate).day !== 1) {
+      monthStartDate.setDate(monthStartDate.getDate() - 1);
+    }
+
+    const monthName = todayParts.month;
+    const monthYear = todayParts.year;
+    const probe = new Date(monthStartDate);
+    let monthLength = 0;
+    while (true) {
+      const p = getIslamicDateParts(probe);
+      if (p.month !== monthName || p.year !== monthYear) break;
+      monthLength += 1;
+      probe.setDate(probe.getDate() + 1);
+      if (monthLength > 31) break;
+    }
+
+    return {
+      monthName,
+      monthYear,
+      monthStartDate,
+      monthLength: Math.max(29, Math.min(30, monthLength || 30)),
+      currentDay: todayParts.day,
+    };
+  }, []);
+
+  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => {
+    const cached = quranPageCache?.selectedRamadanDay;
+    if (cached && Number.isFinite(cached)) return cached;
+    return islamicMonthInfo.currentDay;
+  });
+
+  useEffect(() => {
+    if (selectedRamadanDay < 1 || selectedRamadanDay > islamicMonthInfo.monthLength) {
+      setSelectedRamadanDay(Math.min(islamicMonthInfo.monthLength, Math.max(1, selectedRamadanDay)));
+    }
+  }, [selectedRamadanDay, islamicMonthInfo.monthLength]);
+
+  const selectedDateStr = useMemo(() => {
+    const d = new Date(islamicMonthInfo.monthStartDate);
+    d.setDate(islamicMonthInfo.monthStartDate.getDate() + (selectedRamadanDay - 1));
     return d.toISOString().split('T')[0];
-  };
+  }, [islamicMonthInfo.monthStartDate, selectedRamadanDay]);
 
-  const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => quranPageCache?.selectedRamadanDay ?? getRamadanDay());
-  const selectedDateStr = getDateForRamadanDay(selectedRamadanDay);
-  const isToday = selectedRamadanDay === getRamadanDay();
+  const isToday = selectedRamadanDay === islamicMonthInfo.currentDay;
   const loadedKeyRef = useRef<string | null>(quranPageCache?.loadedKey ?? null);
   const firstLoadDoneRef = useRef<boolean>(!!quranPageCache);
+  const assignmentsSectionRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     if (quranPageCache?.scrollY) {
@@ -288,9 +339,9 @@ export default function Quran() {
         const { data: activityData } = await supabase
           .from('reading_activity_logs')
           .select('id, date, juz_number, activity_type, actor_user_id, assignment_user_id, created_at, profiles!reading_activity_logs_actor_user_id_fkey(full_name, email)')
-          .eq('date', selectedDateStr)
+          .eq('activity_type', 'audio_added')
           .order('created_at', { ascending: false })
-          .limit(50);
+          .limit(200);
         const normalizedActivity: ReadingActivityLog[] = (activityData || []).map((x: any) => ({
           ...x,
           profiles: Array.isArray(x.profiles) ? x.profiles[0] : x.profiles
@@ -310,6 +361,70 @@ export default function Quran() {
       if (quranPageCache) quranPageCache.loadedKey = key;
     }
   };
+
+  const jumpToActivityDay = (juzNumber: number) => {
+    setSelectedRamadanDay(juzNumber);
+    window.setTimeout(() => {
+      assignmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
+  useEffect(() => {
+    if (!isInGroup || !user?.id) return;
+    const channel = supabase
+      .channel(`reading-activity-live-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'reading_activity_logs' },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            date: string;
+            juz_number: number;
+            activity_type: string;
+            actor_user_id: string;
+            assignment_user_id: string | null;
+            created_at: string;
+          };
+          if (row.activity_type !== 'audio_added') return;
+          if (row.actor_user_id === user.id) return;
+          const actor = users.find((u) => u.id === row.actor_user_id);
+          const log: ReadingActivityLog = {
+            ...row,
+            profiles: actor
+              ? { full_name: actor.full_name ?? null, email: actor.email ?? '' }
+              : null,
+          };
+          setActivityLogs((prev) => [log, ...prev.filter((x) => x.id !== log.id)].slice(0, 200));
+
+          const actorName = actor?.full_name || actor?.email || 'Jemand';
+          const message = `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
+          setActivityToast({ id: row.id, message, juzNumber: row.juz_number });
+
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification('Neue Audio-Aktivität', { body: message });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isInGroup, user?.id, users]);
+
+  useEffect(() => {
+    if (!isInGroup || typeof Notification === 'undefined') return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => undefined);
+    }
+  }, [isInGroup]);
+
+  useEffect(() => {
+    if (!activityToast) return;
+    const t = window.setTimeout(() => setActivityToast(null), 7000);
+    return () => window.clearTimeout(t);
+  }, [activityToast]);
 
   const getJuzPageInfo = (juz: number) => {
     if (juz === 1) {
@@ -359,7 +474,7 @@ export default function Quran() {
     if (
       assignments.length > 0 &&
       !window.confirm(
-        `Es existiert bereits ein Plan für Tag ${selectedRamadanDay}. Neu verteilen? Der alte Fortschritt geht verloren.`
+        `Es existiert bereits ein Plan für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}. Neu verteilen? Der alte Fortschritt geht verloren.`
       )
     )
       return;
@@ -892,14 +1007,14 @@ export default function Quran() {
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-3 mb-2 opacity-90">
             <Calendar size={20} />
-            <span className="font-medium">Ramadan Tag</span>
+            <span className="font-medium">{islamicMonthInfo.monthName} Tag</span>
             <select
               value={selectedRamadanDay}
               onChange={(e) => setSelectedRamadanDay(Number(e.target.value))}
               className="bg-white dark:bg-gray-700 text-emerald-800 dark:text-emerald-200 font-bold border-2 border-white dark:border-gray-600 rounded-lg px-4 py-2 min-w-[4rem] shadow-md focus:ring-2 focus:ring-emerald-300 focus:outline-none cursor-pointer appearance-auto"
               title="Tag auswählen"
             >
-              {[...Array(30)].map((_, i) => (
+              {[...Array(islamicMonthInfo.monthLength)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>
                   {i + 1}
                 </option>
@@ -911,7 +1026,7 @@ export default function Quran() {
           <p className="text-emerald-100 max-w-md">
             {isToday
               ? 'Lese heute deinen Teil, um gemeinsam mit der Gruppe den Qur\'an zu khatmen.'
-              : `Aufteilung und Fortschritt für Ramadan Tag ${selectedRamadanDay}.`}
+              : `Aufteilung und Fortschritt für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}.`}
           </p>
         </div>
         <BookOpen className="absolute right-[-20px] bottom-[-40px] opacity-10" size={200} />
@@ -953,18 +1068,23 @@ export default function Quran() {
           <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
               <History size={16} className="text-emerald-600 dark:text-emerald-400" />
-              Activity Log
+              Activity Log (global)
             </h4>
             {activityLogs.length === 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">Noch keine Aktivitäten für diesen Tag.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Noch keine Aktivitäten.</p>
             ) : (
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {activityLogs.map((log) => (
-                  <p key={log.id} className="text-xs text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">{log.profiles?.full_name || log.profiles?.email || 'Unbekannt'}</span>
-                    {' '}hat für Juz {log.juz_number} eine Audio hinzugefügt
+                  <button
+                    key={log.id}
+                    type="button"
+                    onClick={() => jumpToActivityDay(log.juz_number)}
+                    className="block w-full text-left text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded px-1.5 py-1 transition-colors"
+                    title={`Zu Juz ${log.juz_number} springen`}
+                  >
+                    {formatActivityMessage(log)}
                     <span className="text-gray-400 dark:text-gray-500"> ({formatActivityTime(log.created_at)})</span>
-                  </p>
+                  </button>
                 ))}
               </div>
             )}
@@ -976,7 +1096,7 @@ export default function Quran() {
       {isInGroup && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-3">
-            Wann kannst du lesen? (Tag {selectedRamadanDay})
+            Wann kannst du lesen? ({islamicMonthInfo.monthName} Tag {selectedRamadanDay})
           </h3>
           <div className="flex flex-wrap gap-2 mb-3">
             {VOTE_OPTIONS.map((opt) => (
@@ -1021,10 +1141,10 @@ export default function Quran() {
       )}
 
       {/* Assignments List – für alle: Gruppe oder nur eigene Aufteilung */}
-      <div className="space-y-4 min-w-0 max-w-full">
+      <div ref={assignmentsSectionRef} className="space-y-4 min-w-0 max-w-full">
         <div className="flex flex-wrap justify-between items-center gap-2">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 min-w-0">
-            {isToday ? 'Heutige Aufteilung' : `Aufteilung für Tag ${selectedRamadanDay}`}
+            {isToday ? 'Heutige Aufteilung' : `Aufteilung für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}`}
           </h3>
           {isAdmin && isInGroup && (
             <div className="flex flex-wrap items-center gap-2">
@@ -1052,8 +1172,8 @@ export default function Quran() {
           <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-600">
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               {isInGroup
-                ? (isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für Ramadan Tag ${selectedRamadanDay}.`)
-                : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (Tag ${selectedRamadanDay}).`)}
+                ? (isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}.`)
+                : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}).`)}
             </p>
             {isAdmin && isInGroup && (
               <div className="flex flex-wrap gap-2 justify-center">
@@ -1189,7 +1309,7 @@ export default function Quran() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                Wer wie viele Seiten? (Juz {selectedRamadanDay})
+                Wer wie viele Seiten? (Juz {selectedRamadanDay} - {islamicMonthInfo.monthName})
               </h3>
               <button
                 type="button"
@@ -1484,6 +1604,22 @@ export default function Quran() {
             </div>
           </div>
         </div>
+      )}
+
+      {activityToast && (
+        <button
+          type="button"
+          onClick={() => {
+            jumpToActivityDay(activityToast.juzNumber);
+            setActivityToast(null);
+          }}
+          className="fixed bottom-24 md:bottom-6 right-3 md:right-6 z-50 max-w-[92vw] md:max-w-md rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/90 px-3 py-2 text-left shadow-lg"
+        >
+          <p className="text-xs md:text-sm font-medium text-emerald-800 dark:text-emerald-100">
+            {activityToast.message}
+          </p>
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">Tippen zum Öffnen</p>
+        </button>
       )}
     </div>
   );

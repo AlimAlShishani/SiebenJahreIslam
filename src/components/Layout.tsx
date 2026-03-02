@@ -96,7 +96,7 @@ export const Layout = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors">
       <header className="bg-emerald-600 dark:bg-emerald-800 text-white shadow-md">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold font-serif">Ramadan App</h1>
+          <h1 className="text-2xl font-bold font-serif">Nuruna</h1>
           <div className="flex items-center gap-1">
             <button
               onClick={toggleTheme}

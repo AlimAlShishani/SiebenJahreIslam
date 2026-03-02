@@ -86,7 +86,11 @@ function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean): Reac
     if (PAUSE_MARKS.has(ch)) {
       if (!hidePauseMarks) {
         rendered.push(
-          <span key={`pause-${idx}`} className="text-rose-600 dark:text-rose-400">
+          <span
+            key={`pause-${idx}`}
+            className="text-rose-600 dark:text-rose-400"
+            style={{ color: '#dc2626' }}
+          >
             {ch}
           </span>
         );
