@@ -1095,7 +1095,7 @@ export default function QuranReader() {
                                   tabIndex={0}
                                   onClick={() => { setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); }}
                                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); } }}
-                                  className={`cursor-pointer ${isSelected ? 'bg-emerald-100/50 dark:bg-emerald-900/20 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
+                                  className={`cursor-pointer ${isSelected ? 'bg-emerald-200/80 dark:bg-emerald-700/40 ring-1 ring-emerald-500/50 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
                                   aria-label={`Vers ${verse.ayahNumber}`}
                                 >
                                   <span>{mode === 'arabic' ? renderArabicWithPauseMarks(text, hidePauseMarks) : text}</span>
@@ -1165,7 +1165,7 @@ export default function QuranReader() {
                         <article
                           className={`border-b border-gray-100 dark:border-gray-700 pb-3 rounded-lg px-2 transition-colors cursor-pointer flex gap-2 ${
                             selectedVerseKey === verse.key
-                              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                              ? 'bg-emerald-200/70 dark:bg-emerald-700/35 border-emerald-400 dark:border-emerald-500'
                               : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
                           }`}
                           onClick={() => {
@@ -1203,7 +1203,7 @@ export default function QuranReader() {
                       key={verse.key}
                       className={`border-b border-gray-100 dark:border-gray-700 pb-3 rounded-lg px-2 transition-colors cursor-pointer ${
                         selectedVerseKey === verse.key
-                          ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                          ? 'bg-emerald-200/70 dark:bg-emerald-700/35 border-emerald-400 dark:border-emerald-500'
                           : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
                       }`}
                       onClick={() => {
