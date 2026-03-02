@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2 } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
 const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
@@ -32,6 +32,17 @@ interface DailyAssignment {
   };
 }
 
+interface ReadingActivityLog {
+  id: string;
+  date: string;
+  juz_number: number;
+  activity_type: string;
+  actor_user_id: string;
+  assignment_user_id: string | null;
+  created_at: string;
+  profiles?: { full_name: string | null; email: string } | null;
+}
+
 type QuranPageCache = {
   selectedRamadanDay: number;
   assignments: DailyAssignment[];
@@ -40,6 +51,7 @@ type QuranPageCache = {
   isInGroup: boolean;
   groupMemberIds: string[];
   votesForDay: DailyReadingVote[];
+  activityLogs: ReadingActivityLog[];
   loadedKey: string | null;
   scrollY: number;
 };
@@ -76,6 +88,7 @@ export default function Quran() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // Voting (nur wenn in Gruppe)
   const [votesForDay, setVotesForDay] = useState<DailyReadingVote[]>(() => quranPageCache?.votesForDay ?? []);
+  const [activityLogs, setActivityLogs] = useState<ReadingActivityLog[]>(() => quranPageCache?.activityLogs ?? []);
   const [savingVote, setSavingVote] = useState(false);
   const [showAbgebenAssignModal, setShowAbgebenAssignModal] = useState(false);
   const [abgebenAssignData, setAbgebenAssignData] = useState<{
@@ -114,6 +127,8 @@ export default function Quran() {
   };
 
   const formatVoteLabel = (vote: VoteValue) => (vote === '0' || vote === '1' ? `${vote} Uhr` : vote);
+  const formatActivityTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
   const getEarliestVote = (votes: VoteValue[]): VoteValue | null => {
     if (votes.length === 0) return null;
@@ -184,6 +199,7 @@ export default function Quran() {
       isInGroup,
       groupMemberIds,
       votesForDay,
+      activityLogs,
       loadedKey: loadedKeyRef.current,
       scrollY: window.scrollY,
     };
@@ -192,7 +208,7 @@ export default function Quran() {
     } catch {
       // ignore sessionStorage errors
     }
-  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay]);
+  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay, activityLogs]);
 
   useEffect(() => {
     const showLoading = !firstLoadDoneRef.current;
@@ -266,8 +282,21 @@ export default function Quran() {
           profiles: Array.isArray(v.profiles) ? v.profiles[0] : v.profiles
         }));
         setVotesForDay(normalizedVotes);
+
+        const { data: activityData } = await supabase
+          .from('reading_activity_logs')
+          .select('id, date, juz_number, activity_type, actor_user_id, assignment_user_id, created_at, profiles!reading_activity_logs_actor_user_id_fkey(full_name, email)')
+          .eq('date', selectedDateStr)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        const normalizedActivity: ReadingActivityLog[] = (activityData || []).map((x: any) => ({
+          ...x,
+          profiles: Array.isArray(x.profiles) ? x.profiles[0] : x.profiles
+        }));
+        setActivityLogs(normalizedActivity);
       } else {
         setVotesForDay([]);
+        setActivityLogs([]);
       }
 
     } catch (error) {
@@ -753,6 +782,38 @@ export default function Quran() {
         .eq('id', assignmentId);
       if (error) throw error;
       setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: null } : x)));
+      if (user?.id) {
+        const { error: logError } = await supabase
+          .from('reading_activity_logs')
+          .insert({
+            date: selectedDateStr,
+            juz_number: a?.juz_number ?? selectedRamadanDay,
+            activity_type: 'audio_added',
+            actor_user_id: user.id,
+            assignment_user_id: assignmentUserId,
+          });
+        if (logError) console.error('Error writing activity log:', logError);
+        else {
+          setActivityLogs((prev) => [
+            {
+              id: `tmp-${Date.now()}`,
+              date: selectedDateStr,
+              juz_number: a?.juz_number ?? selectedRamadanDay,
+              activity_type: 'audio_added',
+              actor_user_id: user.id,
+              assignment_user_id: assignmentUserId,
+              created_at: new Date().toISOString(),
+              profiles: users.find((u) => u.id === user.id)
+                ? {
+                    full_name: users.find((u) => u.id === user.id)?.full_name ?? null,
+                    email: users.find((u) => u.id === user.id)?.email ?? '',
+                  }
+                : null,
+            },
+            ...prev,
+          ].slice(0, 50));
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -886,6 +947,27 @@ export default function Quran() {
             ))
           )}
         </div>
+        {isInGroup && (
+          <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
+              <History size={16} className="text-emerald-600 dark:text-emerald-400" />
+              Activity Log
+            </h4>
+            {activityLogs.length === 0 ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">Noch keine Aktivitäten für diesen Tag.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {activityLogs.map((log) => (
+                  <p key={log.id} className="text-xs text-gray-600 dark:text-gray-300">
+                    <span className="font-medium">{log.profiles?.full_name || log.profiles?.email || 'Unbekannt'}</span>
+                    {' '}hat für Juz {log.juz_number} eine Audio hinzugefügt
+                    <span className="text-gray-400 dark:text-gray-500"> ({formatActivityTime(log.created_at)})</span>
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Zeit-Voting (nur wenn in Gruppe) */}
