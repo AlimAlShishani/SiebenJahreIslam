@@ -78,6 +78,13 @@ function getIslamicDateParts(date: Date): { day: number; month: string; year: nu
   return { day, month, year };
 }
 
+function toLocalDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const readQuranPageCache = (): QuranPageCache | null => {
   try {
     const raw = window.sessionStorage.getItem(QURAN_CACHE_KEY);
@@ -219,7 +226,7 @@ export default function Quran() {
   const selectedDateStr = useMemo(() => {
     const d = new Date(islamicMonthInfo.monthStartDate);
     d.setDate(islamicMonthInfo.monthStartDate.getDate() + (selectedRamadanDay - 1));
-    return d.toISOString().split('T')[0];
+    return toLocalDateString(d);
   }, [islamicMonthInfo.monthStartDate, selectedRamadanDay]);
 
   const isToday = selectedRamadanDay === islamicMonthInfo.currentDay;
