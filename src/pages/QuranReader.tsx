@@ -51,13 +51,38 @@ const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
 
 const PAUSE_MARKS = new Set([
   '\u06D6', '\u06D7', '\u06D8', '\u06D9', '\u06DA', '\u06DB', '\u06DC',
-  '\u06DD', '\u06DE', '\u06E2', '\u06E3',
 ]);
+const SMALL_HIGH_MEEM = '\u06E2';
+const SMALL_LOW_MEEM = '\u06ED';
+
+function isConditionalMeemMark(ch: string): boolean {
+  return ch === SMALL_HIGH_MEEM || ch === SMALL_LOW_MEEM;
+}
+
+function nextRelevantArabicLetter(text: string, fromIndex: number): string | null {
+  for (let i = fromIndex + 1; i < text.length; i++) {
+    const ch = text[i];
+    const cp = ch.codePointAt(0) ?? 0;
+    if (ch.trim() === '') continue;
+    if (isArabicCombiningMark(ch)) continue;
+    if (PAUSE_MARKS.has(ch)) continue;
+    if (isConditionalMeemMark(ch)) continue;
+    if ((cp >= 0x0621 && cp <= 0x063A) || (cp >= 0x0641 && cp <= 0x064A)) return ch;
+  }
+  return null;
+}
 
 function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean): ReactNode[] {
   const rendered: ReactNode[] = [];
   let idx = 0;
   for (const ch of text) {
+    if (isConditionalMeemMark(ch)) {
+      // Dieses Tajweed-Meem nur bei nächstem Buchstaben "ب" anzeigen (Iqlab).
+      const next = nextRelevantArabicLetter(text, idx);
+      if (next === 'ب') rendered.push(ch);
+      idx += 1;
+      continue;
+    }
     if (PAUSE_MARKS.has(ch)) {
       if (!hidePauseMarks) {
         rendered.push(
