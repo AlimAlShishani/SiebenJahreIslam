@@ -12,6 +12,7 @@ export interface ReadingAudioCellProps {
   onSaved: (url: string) => void;
   onDeleted?: (url: string) => void | Promise<void>;
   showUploadControls?: boolean;
+  showPlayers?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -139,6 +140,7 @@ export function ReadingAudioCell({
   onSaved,
   onDeleted,
   showUploadControls = true,
+  showPlayers = true,
 }: ReadingAudioCellProps) {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -327,15 +329,16 @@ export function ReadingAudioCell({
 
   return (
     <div className="mt-2 flex flex-col gap-3">
-      {audioUrls.map((url) => (
-        <SingleAudioPlayer
-          key={url}
-          url={url}
-          canDelete={canEdit}
-          onDelete={() => deleteOneAudio(url)}
-          deleting={deletingUrl === url}
-        />
-      ))}
+      {showPlayers &&
+        audioUrls.map((url) => (
+          <SingleAudioPlayer
+            key={url}
+            url={url}
+            canDelete={canEdit}
+            onDelete={() => deleteOneAudio(url)}
+            deleting={deletingUrl === url}
+          />
+        ))}
       {canEdit && showUploadControls && (
         <>
           {recording ? (

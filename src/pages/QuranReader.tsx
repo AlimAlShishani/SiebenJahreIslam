@@ -316,7 +316,7 @@ export default function QuranReader() {
         tag === 'textarea' ||
         tag === 'select' ||
         tag === 'button';
-      if (isEditable || loadingPage || loadingJump || !pageData?.verses?.length) return;
+      if (isEditable || loadingPage || loadingJump || pendingVerseSelection || !pageData?.verses?.length) return;
 
       const verses = pageData.verses;
       const selectedIndex = selectedVerseKey ? verses.findIndex((v) => v.key === selectedVerseKey) : -1;
@@ -455,7 +455,7 @@ export default function QuranReader() {
   };
 
   return (
-    <div className="space-y-4 pb-24 md:pb-0">
+    <div className="space-y-4 pb-44 md:pb-0">
       <div className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -633,7 +633,7 @@ export default function QuranReader() {
       </div>
 
       {/* Mobile fixed top controls */}
-      <div className="md:hidden fixed top-[72px] left-0 right-0 z-30 px-2">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 px-2 pt-1">
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg p-2 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="inline-flex rounded-md bg-gray-100 dark:bg-gray-800 p-1">
@@ -669,7 +669,7 @@ export default function QuranReader() {
             )}
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1">
+          <div className="grid grid-cols-3 gap-1">
             <select
               value={selectedJuz}
               onChange={(e) => {
@@ -677,11 +677,11 @@ export default function QuranReader() {
                 setSelectedJuz(next);
                 void jumpToJuz(next);
               }}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-1.5 py-1 text-[11px] text-gray-900 dark:text-gray-100"
             >
               {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
                 <option key={j} value={j}>
-                  J{j}
+                  Juz {j}
                 </option>
               ))}
             </select>
@@ -693,11 +693,11 @@ export default function QuranReader() {
                 setSelectedAyah(1);
                 void jumpToSurahAyah(surah, 1);
               }}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-1.5 py-1 text-[11px] text-gray-900 dark:text-gray-100"
             >
               {surahs.map((s) => (
                 <option key={s.number} value={s.number}>
-                  S{s.number}
+                  Surah {s.number}
                 </option>
               ))}
             </select>
@@ -708,22 +708,14 @@ export default function QuranReader() {
                 setSelectedAyah(ayah);
                 void jumpToSurahAyah(selectedSurah, ayah);
               }}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-1.5 py-1 text-[11px] text-gray-900 dark:text-gray-100"
             >
               {Array.from({ length: ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
                 <option key={ayah} value={ayah}>
-                  A{ayah}
+                  Ayah {ayah}
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={() => setMobileSettingsOpen((v) => !v)}
-              className="rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-2 text-gray-700 dark:text-gray-200"
-              aria-label="Einstellungen"
-            >
-              <Settings size={14} />
-            </button>
           </div>
 
           <div className="flex items-center justify-center gap-1">
@@ -762,6 +754,14 @@ export default function QuranReader() {
                     <ArrowRight size={12} /> Zurück
                   </span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileSettingsOpen((v) => !v)}
+                  className="rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-1.5 text-gray-700 dark:text-gray-200"
+                  aria-label="Einstellungen"
+                >
+                  <Settings size={13} />
+                </button>
               </>
             ) : (
               <>
@@ -798,6 +798,14 @@ export default function QuranReader() {
                     Weiter <ArrowRight size={12} />
                   </span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileSettingsOpen((v) => !v)}
+                  className="rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-1.5 text-gray-700 dark:text-gray-200"
+                  aria-label="Einstellungen"
+                >
+                  <Settings size={13} />
+                </button>
               </>
             )}
           </div>
@@ -808,7 +816,7 @@ export default function QuranReader() {
       {mobileSettingsOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/30" onClick={() => setMobileSettingsOpen(false)}>
           <div
-            className="absolute top-[72px] right-2 left-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 max-h-[60vh] overflow-y-auto"
+            className="absolute top-[140px] right-2 left-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-3 max-h-[60vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">Reader Einstellungen</h3>
@@ -817,7 +825,7 @@ export default function QuranReader() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-[190px] md:pt-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-[176px] md:pt-0">
         <aside className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-fit lg:sticky lg:top-4">
           <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Reader Einstellungen</h3>
           <div className="hidden md:block">{settingsControls}</div>
@@ -911,21 +919,24 @@ export default function QuranReader() {
       </div>
 
       {/* Mobile fixed audio drawer */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 px-2 pb-2">
+      <div className="md:hidden fixed bottom-[80px] left-0 right-0 z-20 px-2">
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setMobileAudioOpen((v) => !v)}
-            className="w-full px-3 py-2 flex items-center justify-between text-sm font-medium text-gray-800 dark:text-gray-100"
-          >
-            <span className="inline-flex items-center gap-2">
-              <Mic size={15} className="text-emerald-600 dark:text-emerald-400" />
-              Aufnahme
-            </span>
-            {mobileAudioOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </button>
-          {mobileAudioOpen && (
-            <div className="px-3 pb-3 border-t border-gray-200 dark:border-gray-700 max-h-[45vh] overflow-y-auto">
+          <div className="px-3 py-2">
+            <div className="flex items-center justify-between text-sm font-medium text-gray-800 dark:text-gray-100">
+              <span className="inline-flex items-center gap-2">
+                <Mic size={15} className="text-emerald-600 dark:text-emerald-400" />
+                Aufnahme
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobileAudioOpen((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-xs"
+              >
+                Audios
+                {mobileAudioOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </button>
+            </div>
+            <div className="mt-1.5">
               {loadingAssignment ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400 pt-2">Assignment wird geladen...</p>
               ) : hasAssignmentContext && assignment ? (
@@ -936,6 +947,7 @@ export default function QuranReader() {
                   onSaved={appendAssignmentAudio}
                   onDeleted={removeAssignmentAudio}
                   showUploadControls
+                  showPlayers={mobileAudioOpen}
                 />
               ) : (
                 <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1 pt-2">
@@ -946,7 +958,7 @@ export default function QuranReader() {
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
