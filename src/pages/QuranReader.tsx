@@ -30,6 +30,8 @@ const ARABIC_SUKOON = '\u0652';
 const QURANIC_SUKOON = '\u06E1';
 const SMALL_HIGH_ROUNDED_ZERO = '\u06DF';
 const MADD_LETTERS = new Set(['ا', 'و', 'ي', 'ى']);
+const FONT_SIZE_STORAGE_KEY = 'quran-reader-font-size';
+const DEFAULT_FONT_SIZE = 36;
 
 function isArabicCombiningMark(ch: string): boolean {
   const cp = ch.codePointAt(0) ?? 0;
@@ -96,7 +98,12 @@ export default function QuranReader() {
   const [script, setScript] = useState('quran-uthmani');
   const [translationEdition, setTranslationEdition] = useState(getDefaultTranslationEdition());
   const [translationOptions, setTranslationOptions] = useState<TranslationEdition[]>([]);
-  const [fontSize, setFontSize] = useState(36);
+  const [fontSize, setFontSize] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_FONT_SIZE;
+    const raw = Number(window.localStorage.getItem(FONT_SIZE_STORAGE_KEY));
+    if (!Number.isFinite(raw)) return DEFAULT_FONT_SIZE;
+    return Math.max(18, Math.min(56, Math.round(raw)));
+  });
   const [pageInput, setPageInput] = useState(() => String(Math.max(1, Math.min(604, assignmentStartPage || 1))));
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [mobileAudioOpen, setMobileAudioOpen] = useState(false);
@@ -303,6 +310,11 @@ export default function QuranReader() {
   useEffect(() => {
     setPageInput(String(currentPage));
   }, [currentPage]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(fontSize));
+  }, [fontSize]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -697,7 +709,7 @@ export default function QuranReader() {
             >
               {surahs.map((s) => (
                 <option key={s.number} value={s.number}>
-                  Surah {s.number}
+                  {s.number}. {s.englishName}
                 </option>
               ))}
             </select>

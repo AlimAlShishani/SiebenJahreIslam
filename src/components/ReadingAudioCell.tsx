@@ -346,23 +346,27 @@ export function ReadingAudioCell({
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Aufnahme läuft – Tab offen lassen, dann bleibt die Aufnahme erhalten.
               </p>
-              <button type="button" onClick={toggleRecordingPause} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 w-fit">
-                {recordingPaused ? <><Play size={14} /> Fortsetzen</> : <><Pause size={14} /> Pause</>}
-              </button>
-              <button type="button" onClick={sendRecording} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 w-fit">
-                <Send size={14} /> Senden
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button type="button" onClick={toggleRecordingPause} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
+                  {recordingPaused ? <><Play size={14} /> Fortsetzen</> : <><Pause size={14} /> Pause</>}
+                </button>
+                <button type="button" onClick={sendRecording} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
+                  <Send size={14} /> Senden
+                </button>
+              </div>
             </>
           ) : (
-            <button type="button" onClick={startRecording} disabled={uploading} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
-              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
-              Aufnehmen
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button type="button" onClick={startRecording} disabled={uploading} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
+                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
+                Aufnehmen
+              </button>
+              <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
+                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Hochladen
+              </button>
+            </div>
           )}
-          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 w-fit">
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            Hochladen
-          </button>
           <input ref={inputRef} type="file" accept="audio/*" multiple className="hidden" onChange={onFileSelect} />
         </>
       )}
