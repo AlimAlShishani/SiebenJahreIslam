@@ -744,13 +744,14 @@ export default function QuranReader() {
       surah: selectedSurah,
       ayah: selectedAyah,
       verseKey: selectedVerseKey,
+      juz: selectedJuz,
     };
     try {
       window.localStorage.setItem(lastLocationKey, JSON.stringify(payload));
     } catch {
       // ignore
     }
-  }, [lastLocationKey, currentPage, selectedSurah, selectedAyah, selectedVerseKey]);
+  }, [lastLocationKey, currentPage, selectedSurah, selectedAyah, selectedVerseKey, selectedJuz]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
