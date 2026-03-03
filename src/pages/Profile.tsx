@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getSurahList, type SurahMeta } from '../lib/quranApi';
 import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -24,6 +25,7 @@ export default function Profile() {
   const [savedVerses, setSavedVerses] = useState<SavedVerse[]>([]);
   const [openVerseId, setOpenVerseId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [surahs, setSurahs] = useState<SurahMeta[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -56,6 +58,18 @@ export default function Profile() {
     } catch {
       setSavedVerses([]);
     }
+  }, []);
+
+  useEffect(() => {
+    const loadSurahs = async () => {
+      try {
+        const list = await getSurahList();
+        setSurahs(list);
+      } catch {
+        setSurahs([]);
+      }
+    };
+    void loadSurahs();
   }, []);
 
   const fetchProfile = async () => {
@@ -170,6 +184,10 @@ export default function Profile() {
                 {savedVerses.map((v) => {
                   const isOpen = openVerseId === v.id;
                   const isCopied = copiedId === v.id;
+                  const surahMeta = surahs.find((s) => s.number === v.surahNumber);
+                  const surahLabel = surahMeta?.englishName
+                    ? `Surah ${surahMeta.englishName}`
+                    : `Surah ${v.surahNumber}`;
                   return (
                     <div
                       key={v.id}
@@ -182,7 +200,7 @@ export default function Profile() {
                       >
                         <div className="flex flex-col items-start">
                           <span className="font-semibold">
-                            Sure {v.surahNumber}, Vers {v.ayahNumber}
+                            {surahLabel}, Vers {v.ayahNumber}
                           </span>
                           <span className="text-[10px] text-gray-500 dark:text-gray-400">
                             Seite {v.pageNumber} • {new Date(v.savedAt).toLocaleDateString()}
