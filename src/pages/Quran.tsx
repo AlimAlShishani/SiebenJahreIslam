@@ -133,6 +133,17 @@ function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Ab 2 Uhr zählt ein neuer Tag (Lesen bis 1 Uhr gehört noch zum Vortag). */
+function getEffectiveToday(): Date {
+  const now = new Date();
+  if (now.getHours() < 2) {
+    const prev = new Date(now);
+    prev.setDate(prev.getDate() - 1);
+    return prev;
+  }
+  return now;
+}
+
 const readQuranPageCache = (): QuranPageCache | null => {
   try {
     const raw = window.sessionStorage.getItem(QURAN_CACHE_KEY);
@@ -146,7 +157,8 @@ const readQuranPageCache = (): QuranPageCache | null => {
 let quranPageCache: QuranPageCache | null = typeof window !== 'undefined' ? readQuranPageCache() : null;
 
 export default function Quran() {
-  const todayLocalDate = toLocalDateString(new Date());
+  const effectiveToday = getEffectiveToday();
+  const todayLocalDate = toLocalDateString(effectiveToday);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<DailyAssignment[]>(() => quranPageCache?.assignments ?? []);
@@ -236,7 +248,7 @@ export default function Quran() {
   ];
 
   const islamicMonthInfo = useMemo(() => {
-    const today = new Date();
+    const today = new Date(todayLocalDate + 'T12:00:00');
     const todayParts = getIslamicDateParts(today);
 
     const monthStartDate = new Date(today);
@@ -263,7 +275,7 @@ export default function Quran() {
       monthLength: Math.max(29, Math.min(30, monthLength || 30)),
       currentDay: todayParts.day,
     };
-  }, []);
+  }, [todayLocalDate]);
 
   const [selectedRamadanDay, setSelectedRamadanDay] = useState(() => {
     const cached = quranPageCache?.selectedRamadanDay;
