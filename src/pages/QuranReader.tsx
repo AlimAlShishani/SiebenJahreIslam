@@ -1211,7 +1211,7 @@ export default function QuranReader() {
                                   {' '}
                                   <span
                                     className={mode === 'arabic'
-                                      ? `inline-flex align-middle justify-center items-center min-w-[2.5em] w-14 h-14 rounded-full border-2 border-emerald-500/70 dark:border-emerald-400/60 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 text-3xl font-semibold mx-1.5 ${isSelected ? 'ring-2 ring-emerald-400 dark:ring-emerald-500' : ''}`
+                                      ? `font-verse-num inline align-middle text-emerald-700 dark:text-emerald-300 text-3xl font-semibold mx-1.5 ${isSelected ? 'underline underline-offset-2' : ''}`
                                       : `text-emerald-600 dark:text-emerald-400 font-medium ${isSelected ? 'underline' : ''}`}
                                   >
                                     {num}

@@ -61,6 +61,12 @@
   font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
 }
 
+/* Versnummern im Reader immer in Uthmanic Hafs (z. B. bei Scheherazade-Text). */
+.font-verse-num {
+  font-family: "UthmanicHafs", serif;
+  font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
+}
+
 @supports (-webkit-touch-callout: none) {
   .font-quran,
   .font-arabic,
