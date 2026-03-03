@@ -13,6 +13,8 @@ export interface ReadingAudioCellProps {
   onDeleted?: (url: string) => void | Promise<void>;
   showUploadControls?: boolean;
   showPlayers?: boolean;
+  /** Kompaktere Darstellung (z. B. Sidebar Desktop) */
+  compact?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -45,7 +47,8 @@ function SingleAudioPlayer({
   canDelete,
   onDelete,
   deleting,
-}: { url: string; canDelete: boolean; onDelete: () => void; deleting?: boolean }) {
+  compact = false,
+}: { url: string; canDelete: boolean; onDelete: () => void; deleting?: boolean; compact?: boolean }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -102,31 +105,36 @@ function SingleAudioPlayer({
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const playSize = compact ? 14 : 18;
+  const seekSize = compact ? 12 : 16;
+  const boxClass = compact ? 'gap-1 p-1.5 rounded-md' : 'gap-1.5 p-2 rounded-lg';
+  const btnClass = compact ? 'w-7 h-7 rounded-md' : 'w-9 h-9 rounded-full';
+  const seekBtnClass = compact ? 'w-6 h-6 rounded' : 'w-8 h-8 rounded-lg';
 
   return (
-    <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+    <div className={`flex flex-col ${boxClass} bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700`}>
       <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
-      <div className="flex items-center gap-2 flex-wrap">
-        <button type="button" onClick={togglePlay} className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0" title={isPlaying ? 'Pause' : 'Abspielen'}>
-          {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button type="button" onClick={togglePlay} className={`flex items-center justify-center ${btnClass} bg-emerald-600 hover:bg-emerald-700 text-white shrink-0`} title={isPlaying ? 'Pause' : 'Abspielen'}>
+          {isPlaying ? <Pause size={playSize} /> : <Play size={playSize} className="ml-0.5" />}
         </button>
-        <button type="button" onClick={() => seek(-10)} className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0" title="-10 s">
-          <SkipBack size={16} />
+        <button type="button" onClick={() => seek(-10)} className={`flex items-center justify-center ${seekBtnClass} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0`} title="-10 s">
+          <SkipBack size={seekSize} />
         </button>
-        <button type="button" onClick={() => seek(10)} className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0" title="+10 s">
-          <SkipForward size={16} />
+        <button type="button" onClick={() => seek(10)} className={`flex items-center justify-center ${seekBtnClass} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0`} title="+10 s">
+          <SkipForward size={seekSize} />
         </button>
-        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[4.5rem]">
+        <span className={`tabular-nums shrink-0 text-gray-500 dark:text-gray-400 ${compact ? 'text-[10px] min-w-[3.5rem]' : 'text-xs min-w-[4.5rem]'}`}>
           {formatTime(currentTime)} / {formatDuration(duration)}
         </span>
         {canDelete && (
-          <button type="button" onClick={onDelete} disabled={deleting} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-medium hover:bg-rose-200 dark:hover:bg-rose-900/60 disabled:opacity-50 ml-auto">
-            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          <button type="button" onClick={onDelete} disabled={deleting} className={`flex items-center gap-1 rounded bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-medium hover:bg-rose-200 dark:hover:bg-rose-900/60 disabled:opacity-50 ml-auto ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-sm'}`}>
+            {deleting ? <Loader2 size={compact ? 10 : 14} className="animate-spin" /> : <Trash2 size={compact ? 10 : 14} />}
             Löschen
           </button>
         )}
       </div>
-      <div role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} className="h-2 w-full max-w-xs rounded-full bg-gray-200 dark:bg-gray-700 cursor-pointer overflow-hidden" onClick={onProgressClick}>
+      <div role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} className={`w-full rounded-full bg-gray-200 dark:bg-gray-700 cursor-pointer overflow-hidden ${compact ? 'h-1.5 max-w-[10rem]' : 'h-2 max-w-xs'}`} onClick={onProgressClick}>
         <div className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-150" style={{ width: `${progress}%` }} />
       </div>
     </div>
@@ -141,6 +149,7 @@ export function ReadingAudioCell({
   onDeleted,
   showUploadControls = true,
   showPlayers = true,
+  compact = false,
 }: ReadingAudioCellProps) {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -327,8 +336,14 @@ export function ReadingAudioCell({
     }
   };
 
+  const gapClass = compact ? 'gap-1.5' : 'gap-3';
+  const btnClass = compact
+    ? 'min-w-0 px-2 py-1 rounded-md text-xs'
+    : 'min-w-[8.5rem] px-2.5 py-1.5 rounded-lg text-sm';
+  const iconSize = compact ? 12 : 14;
+
   return (
-    <div className="mt-2 flex flex-col gap-3">
+    <div className={compact ? 'mt-1 flex flex-col gap-1.5' : 'mt-2 flex flex-col gap-3'}>
       {showPlayers &&
         audioUrls.map((url) => (
           <SingleAudioPlayer
@@ -337,32 +352,35 @@ export function ReadingAudioCell({
             canDelete={canEdit}
             onDelete={() => deleteOneAudio(url)}
             deleting={deletingUrl === url}
+            compact={compact}
           />
         ))}
       {canEdit && showUploadControls && (
         <>
           {recording ? (
             <>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Aufnahme läuft – Tab offen lassen, dann bleibt die Aufnahme erhalten.
-              </p>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button type="button" onClick={toggleRecordingPause} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
-                  {recordingPaused ? <><Play size={14} /> Fortsetzen</> : <><Pause size={14} /> Pause</>}
+              {!compact && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Aufnahme läuft – Tab offen lassen, dann bleibt die Aufnahme erhalten.
+                </p>
+              )}
+              <div className={`flex items-center gap-2 flex-wrap ${gapClass}`}>
+                <button type="button" onClick={toggleRecordingPause} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 ${btnClass}`}>
+                  {recordingPaused ? <><Play size={iconSize} /> Fortsetzen</> : <><Pause size={iconSize} /> Pause</>}
                 </button>
-                <button type="button" onClick={sendRecording} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-                  <Send size={14} /> Senden
+                <button type="button" onClick={sendRecording} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 text-white font-medium hover:bg-emerald-700 ${btnClass}`}>
+                  <Send size={iconSize} /> Senden
                 </button>
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <button type="button" onClick={startRecording} disabled={uploading} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
-                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
+            <div className={`flex items-center gap-2 flex-wrap ${gapClass}`}>
+              <button type="button" onClick={startRecording} disabled={uploading} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 ${btnClass}`}>
+                {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <Mic size={iconSize} />}
                 Aufnehmen
               </button>
-              <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="flex-1 min-w-[8.5rem] inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
-                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 ${btnClass}`}>
+                {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <Upload size={iconSize} />}
                 Hochladen
               </button>
             </div>

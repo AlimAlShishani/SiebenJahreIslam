@@ -118,11 +118,11 @@ export const Layout = () => {
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-6">
+      <main className="flex-grow container mx-auto px-4 py-6 pb-24">
         <Outlet />
       </main>
 
-      <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 w-full md:relative md:border-t-0 md:bg-transparent md:mb-6 dark:md:bg-transparent">
+      <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 left-0 right-0 z-50 w-full">
         <div className="container mx-auto px-4">
           <ul className="flex justify-around md:justify-center md:gap-8 py-3">
             <li>

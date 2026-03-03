@@ -921,8 +921,8 @@ export default function QuranReader() {
         </div>
       </div>
 
-      {/* Mobile fixed top controls */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 px-2 pt-1">
+      {/* Mobile: sticky oben – unter Nuruna-Leiste, klebt am Bildschirmrand sobald Nuruna weggescrollt ist */}
+      <div className="md:hidden sticky top-0 z-30 px-2 pt-1 pb-2 bg-gray-50 dark:bg-gray-900">
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg p-2 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="inline-flex rounded-md bg-gray-100 dark:bg-gray-800 p-1">
@@ -1114,10 +1114,38 @@ export default function QuranReader() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-[176px] md:pt-0">
-        <aside className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-fit lg:sticky lg:top-4">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Reader Einstellungen</h3>
-          <div className="hidden md:block">{settingsControls}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0">
+        <aside className="hidden md:block space-y-4 h-fit lg:sticky lg:top-4">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Reader Einstellungen</h3>
+            <div className="hidden md:block">{settingsControls}</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Mic size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-100">Aufnahme</h3>
+            </div>
+            {loadingAssignment ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">Laden...</p>
+            ) : hasAssignmentContext && assignment ? (
+              <ReadingAudioCell
+                assignmentId={assignment.id}
+                audioUrls={normalizeAudioUrls(assignment)}
+                canEdit={canEditAudio}
+                onSaved={appendAssignmentAudio}
+                onDeleted={removeAssignmentAudio}
+                showUploadControls
+                compact
+              />
+            ) : (
+              <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <p>Öffne den Reader über deinen Part in Hatim.</p>
+                <Link to="/hatim" className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline">
+                  <BookOpen size={12} /> Zu Hatim
+                </Link>
+              </div>
+            )}
+          </div>
         </aside>
 
         <section className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[24rem]">
@@ -1356,32 +1384,6 @@ export default function QuranReader() {
             </div>
           )}
         </section>
-      </div>
-
-      <div className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center gap-2 mb-2">
-          <Mic size={16} className="text-emerald-600 dark:text-emerald-400" />
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Aufnahme</h3>
-        </div>
-        {loadingAssignment ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Assignment wird geladen...</p>
-        ) : hasAssignmentContext && assignment ? (
-          <ReadingAudioCell
-            assignmentId={assignment.id}
-            audioUrls={normalizeAudioUrls(assignment)}
-            canEdit={canEditAudio}
-            onSaved={appendAssignmentAudio}
-            onDeleted={removeAssignmentAudio}
-            showUploadControls
-          />
-        ) : (
-          <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-            <p>Keine aktive Assignment-Session. Öffne den Reader über deinen heutigen Part in Hatim, um aufzunehmen.</p>
-            <Link to="/hatim" className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline">
-              <BookOpen size={14} /> Zu Hatim
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* Mobile fixed audio drawer */}
