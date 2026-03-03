@@ -321,6 +321,9 @@ export default function QuranReader() {
     const fallback = Math.max(1, Math.min(604, assignmentStartPage || 1));
     if (typeof window === 'undefined') return String(fallback);
     if (assignmentId) return String(fallback);
+    // Wenn explizit surah/ayah in der URL stehen (z. B. aus dem Profil),
+    // vertrauen wir auf startPage und ignorieren gespeicherte Position.
+    if (initialSurahParam && initialAyahParam) return String(fallback);
     const raw = window.localStorage.getItem(lastLocationKey);
     if (!raw) return String(fallback);
     try {
@@ -384,6 +387,9 @@ export default function QuranReader() {
     const fallback = Math.max(1, Math.min(604, assignmentStartPage || 1));
     if (typeof window === 'undefined') return fallback;
     if (assignmentId) return fallback;
+    // Wenn explizit surah/ayah in der URL stehen (z. B. aus dem Profil),
+    // vertrauen wir auf startPage und ignorieren gespeicherte Position.
+    if (initialSurahParam && initialAyahParam) return fallback;
     const raw = window.localStorage.getItem(lastLocationKey);
     if (!raw) return fallback;
     try {
