@@ -23,6 +23,7 @@ import { triggerPushForActivity } from '../lib/pushNotifications';
 
 interface AssignmentForReader {
   id: string;
+  group_id?: string;
   date?: string;
   juz_number?: number;
   user_id: string;
@@ -457,7 +458,7 @@ export default function QuranReader() {
       setLoadingAssignment(true);
       const { data, error } = await supabase
         .from('daily_reading_status')
-        .select('id, date, juz_number, user_id, start_page, end_page, audio_url, audio_urls')
+        .select('id, group_id, date, juz_number, user_id, start_page, end_page, audio_url, audio_urls')
         .eq('id', assignmentId)
         .single();
       if (error || !data) {
@@ -679,8 +680,9 @@ export default function QuranReader() {
       if (user?.id) {
         const logDate = assignment.date || assignmentDate || null;
         const logJuz = assignment.juz_number ?? selectedJuz;
-        if (logDate) {
+        if (logDate && assignment.group_id) {
           const logPayload = {
+            group_id: assignment.group_id,
             date: logDate,
             juz_number: logJuz,
             activity_type: 'audio_added',
@@ -691,6 +693,7 @@ export default function QuranReader() {
           if (logError) console.error('Error writing activity log:', logError);
           else {
             void triggerPushForActivity({
+              group_id: assignment.group_id,
               date: logPayload.date,
               juz_number: logPayload.juz_number,
               activity_type: logPayload.activity_type,
@@ -716,10 +719,11 @@ export default function QuranReader() {
     if (!error) {
       const logDate = assignment.date || assignmentDate || null;
       const logJuz = assignment.juz_number ?? selectedJuz;
-      if (logDate) {
+      if (logDate && assignment.group_id) {
         const { data: latestLog } = await supabase
           .from('reading_activity_logs')
           .select('id')
+          .eq('group_id', assignment.group_id)
           .eq('date', logDate)
           .eq('juz_number', logJuz)
           .eq('assignment_user_id', assignment.user_id)

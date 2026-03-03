@@ -4,6 +4,7 @@ import webpush from 'npm:web-push@3.6.7';
 type ActivityType = 'audio_added' | 'plan_updated';
 
 interface PushPayload {
+  group_id?: string;
   date: string;
   juz_number: number;
   activity_type: ActivityType;
@@ -72,12 +73,21 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: groupMembers, error: groupError } = await admin
-      .from('reading_group_members')
-      .select('user_id');
-    if (groupError) throw groupError;
-
-    const memberIds = Array.from(new Set((groupMembers || []).map((m: { user_id: string }) => m.user_id)));
+    let memberIds: string[];
+    if (payload.group_id) {
+      const { data: groupMembers, error: groupError } = await admin
+        .from('reading_group_members')
+        .select('user_id')
+        .eq('group_id', payload.group_id);
+      if (groupError) throw groupError;
+      memberIds = Array.from(new Set((groupMembers || []).map((m: { user_id: string }) => m.user_id)));
+    } else {
+      const { data: groupMembers, error: groupError } = await admin
+        .from('reading_group_members')
+        .select('user_id');
+      if (groupError) throw groupError;
+      memberIds = Array.from(new Set((groupMembers || []).map((m: { user_id: string }) => m.user_id)));
+    }
     if (!memberIds.includes(payload.actor_user_id) || memberIds.length === 0) {
       return new Response(JSON.stringify({ sent: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

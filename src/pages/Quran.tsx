@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2 } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
 const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
@@ -58,6 +58,7 @@ type QuranPageCache = {
   isAdmin: boolean;
   isInGroup: boolean;
   groupMemberIds: string[];
+  currentGroupId: string | null;
   votesForDay: DailyReadingVote[];
   activityLogs: ReadingActivityLog[];
   loadedKey: string | null;
@@ -167,11 +168,13 @@ export default function Quran() {
   const [isAdmin, setIsAdmin] = useState(() => quranPageCache?.isAdmin ?? false);
   const [isInGroup, setIsInGroup] = useState(() => quranPageCache?.isInGroup ?? false);
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>(() => quranPageCache?.groupMemberIds ?? []);
+  const [currentGroupId, setCurrentGroupId] = useState<string | null>(() => quranPageCache?.currentGroupId ?? null);
+  const [currentGroup, setCurrentGroup] = useState<{ id: string; name: string | null; owner_id: string } | null>(null);
+  const [isGroupOwner, setIsGroupOwner] = useState(false);
   const [loading, setLoading] = useState(() => !quranPageCache);
   const [generating, setGenerating] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [showManageGroupModal, setShowManageGroupModal] = useState(false);
-  const [allProfilesForManage, setAllProfilesForManage] = useState<any[]>([]);
   const [managingGroup, setManagingGroup] = useState(false);
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -196,6 +199,18 @@ export default function Quran() {
   } | null>(null);
   const [arabic3SelectedUserId, setArabic3SelectedUserId] = useState<string>('');
   const [arabic3InDistributeUserId, setArabic3InDistributeUserId] = useState<string | null>(null);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [createGroupName, setCreateGroupName] = useState('');
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [showMailboxModal, setShowMailboxModal] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState<{ id: string; group_id: string; group_name: string | null; invited_by: string; inviter_name: string | null; inviter_email: string }[]>([]);
+  const [loadingMailbox, setLoadingMailbox] = useState(false);
+  const [respondingToInvite, setRespondingToInvite] = useState<string | null>(null);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const [groupSearchResults, setGroupSearchResults] = useState<{ id: string; email: string; full_name: string | null }[]>([]);
+  const [searchingGroup, setSearchingGroup] = useState(false);
+  const [pendingInviteUserIds, setPendingInviteUserIds] = useState<Set<string>>(new Set());
+  const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
@@ -325,6 +340,7 @@ export default function Quran() {
       isAdmin,
       isInGroup,
       groupMemberIds,
+      currentGroupId,
       votesForDay,
       activityLogs,
       loadedKey: loadedKeyRef.current,
@@ -336,7 +352,7 @@ export default function Quran() {
     } catch {
       // ignore sessionStorage errors
     }
-  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, votesForDay, activityLogs, todayLocalDate]);
+  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, currentGroupId, votesForDay, activityLogs, todayLocalDate]);
 
   useEffect(() => {
     const showLoading = !firstLoadDoneRef.current;
@@ -348,34 +364,55 @@ export default function Quran() {
     const shouldShowLoading = !!opts?.showLoading && !opts?.silent;
     if (shouldShowLoading) setLoading(true);
     try {
-      // 1. Lese-Gruppe: nur Nutzer aus reading_group_members
-      const { data: memberRows } = await supabase
+      // 1. Meine Gruppe: reading_group_members wo user_id = ich
+      const { data: myMembership } = await supabase
         .from('reading_group_members')
-        .select('user_id');
-      const groupIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
-      setGroupMemberIds(groupIds);
-      const userInGroup = !!user?.id && groupIds.includes(user.id);
+        .select('group_id')
+        .eq('user_id', user?.id ?? '')
+        .maybeSingle();
+      const gid = myMembership?.group_id ?? null;
+      setCurrentGroupId(gid);
+      const userInGroup = !!gid && !!user?.id;
       setIsInGroup(userInGroup);
-      if (groupIds.length > 0) {
+
+      if (!gid) {
+        setGroupMemberIds([]);
+        setUsers([]);
+        setCurrentGroup(null);
+        setIsGroupOwner(false);
+      } else {
+        const { data: groupRow } = await supabase
+          .from('reading_groups')
+          .select('id, name, owner_id')
+          .eq('id', gid)
+          .single();
+        setCurrentGroup(groupRow ?? null);
+        setIsGroupOwner(!!(groupRow && user?.id && groupRow.owner_id === user.id));
+
+        const { data: memberRows } = await supabase
+          .from('reading_group_members')
+          .select('user_id')
+          .eq('group_id', gid);
+        const memberIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+        setGroupMemberIds(memberIds);
+
         const { data: usersData } = await supabase
           .from('profiles')
           .select('id, email, full_name, role')
-          .in('id', groupIds);
+          .in('id', memberIds);
         const { data: settingsData } = await supabase
           .from('reading_group_member_settings')
           .select('user_id, reader_language')
-          .in('user_id', groupIds);
+          .eq('group_id', gid)
+          .in('user_id', memberIds);
         const settingsMap = new Map((settingsData || []).map((s: { user_id: string; reader_language: string | null }) => [s.user_id, s.reader_language]));
         const usersWithLang = (usersData || []).map((u: { id: string; email: string; full_name: string | null; role: string }) => ({
           ...u,
           reader_language: settingsMap.get(u.id) ?? null
         }));
         setUsers(usersWithLang);
-      } else {
-        setUsers([]);
       }
 
-      // Admin erkennen (eigener Profil-Eintrag)
       const { data: meProfile } = await supabase
         .from('profiles')
         .select('role')
@@ -383,26 +420,27 @@ export default function Quran() {
         .single();
       setIsAdmin(meProfile?.role === 'admin');
 
-      // 2. Fetch Assignments for selected day
-      const { data: assignmentsData, error } = await supabase
-        .from('daily_reading_status')
-        .select(`
-          *,
-          profiles (full_name, email)
-        `)
-        .eq('date', selectedDateStr);
+      // 2. Assignments für selected day (und meine Gruppe)
+      if (gid) {
+        const { data: assignmentsData, error } = await supabase
+          .from('daily_reading_status')
+          .select(`*, profiles (full_name, email)`)
+          .eq('group_id', gid)
+          .eq('date', selectedDateStr);
+        if (error) throw error;
+        setAssignments((assignmentsData || []).map((a: any) => ({
+          ...a,
+          audio_urls: Array.isArray(a.audio_urls) && a.audio_urls.length > 0 ? a.audio_urls : (a.audio_url ? [a.audio_url] : [])
+        })));
+      } else {
+        setAssignments([]);
+      }
 
-      if (error) throw error;
-      setAssignments((assignmentsData || []).map((a: any) => ({
-        ...a,
-        audio_urls: Array.isArray(a.audio_urls) && a.audio_urls.length > 0 ? a.audio_urls : (a.audio_url ? [a.audio_url] : [])
-      })));
-
-      // 3. Votes für diesen Tag (nur wenn in Gruppe) – userInGroup nutzen, nicht State (State ist beim ersten Laden noch falsch)
-      if (userInGroup) {
+      if (userInGroup && gid) {
         const { data: votesData } = await supabase
           .from('daily_reading_votes')
           .select('id, date, user_id, vote, profiles(full_name, email)')
+          .eq('group_id', gid)
           .eq('date', selectedDateStr);
         const normalizedVotes: DailyReadingVote[] = (votesData || []).map((v: any) => ({
           ...v,
@@ -414,6 +452,7 @@ export default function Quran() {
         const { data: activityData } = await supabase
           .from('reading_activity_logs')
           .select('id, date, juz_number, activity_type, actor_user_id, assignment_user_id, created_at, profiles!reading_activity_logs_actor_user_id_fkey(full_name, email)')
+          .eq('group_id', gid)
           .order('created_at', { ascending: false })
           .limit(200);
         const normalizedActivity: ReadingActivityLog[] = (activityData || []).map((x: any) => ({
@@ -456,7 +495,7 @@ export default function Quran() {
   };
 
   useEffect(() => {
-    if (!isInGroup || !user?.id) return;
+    if (!isInGroup || !user?.id || !currentGroupId) return;
     const channel = supabase
       .channel(`reading-activity-live-${user.id}`)
       .on(
@@ -465,6 +504,7 @@ export default function Quran() {
         (payload) => {
           const row = payload.new as {
             id: string;
+            group_id?: string;
             date: string;
             juz_number: number;
             activity_type: string;
@@ -472,6 +512,7 @@ export default function Quran() {
             assignment_user_id: string | null;
             created_at: string;
           };
+          if (row.group_id && row.group_id !== currentGroupId) return;
           const actor = users.find((u) => u.id === row.actor_user_id);
           const log: ReadingActivityLog = {
             ...row,
@@ -497,7 +538,7 @@ export default function Quran() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isInGroup, user?.id, users]);
+  }, [isInGroup, user?.id, users, currentGroupId]);
 
   useEffect(() => {
     if (!isInGroup || typeof Notification === 'undefined') return;
@@ -555,7 +596,7 @@ export default function Quran() {
   };
 
   const openDistributeModal = () => {
-    if (!isAdmin) return;
+    if (!isGroupOwner) return;
     if (users.length === 0) return;
     if (
       assignments.length > 0 &&
@@ -575,32 +616,184 @@ export default function Quran() {
     setShowDistributeModal(true);
   };
 
-  const openManageGroupModal = async () => {
-    if (!isAdmin) return;
-    setManagingGroup(true);
-    setShowManageGroupModal(true);
+  const createGroup = async () => {
+    if (!user?.id) return;
+    setCreatingGroup(true);
     try {
-      const { data } = await supabase.from('profiles').select('id, email, full_name');
-      setAllProfilesForManage(data || []);
+      const { data: group, error: groupError } = await supabase
+        .from('reading_groups')
+        .insert({ name: createGroupName.trim() || null, owner_id: user.id })
+        .select('id')
+        .single();
+      if (groupError || !group) throw groupError ?? new Error('Gruppe konnte nicht erstellt werden');
+      await supabase.from('reading_group_members').insert({ group_id: group.id, user_id: user.id });
+      setCreateGroupName('');
+      setShowCreateGroupModal(false);
+      await fetchData();
     } catch (e) {
       console.error(e);
+      alert('Fehler beim Erstellen der Gruppe.');
     } finally {
-      setManagingGroup(false);
+      setCreatingGroup(false);
     }
   };
 
-  const addToGroup = async (userId: string) => {
+  const openMailbox = async () => {
+    setShowMailboxModal(true);
+    setLoadingMailbox(true);
     try {
-      await supabase.from('reading_group_members').insert({ user_id: userId });
+      const { data, error } = await supabase
+        .from('reading_group_invitations')
+        .select(`
+          id,
+          group_id,
+          invited_by,
+          reading_groups(name),
+          profiles!reading_group_invitations_invited_by_fkey(full_name, email)
+        `)
+        .eq('invitee_user_id', user?.id ?? '')
+        .eq('status', 'pending');
+      if (error) throw error;
+      const list = (data || []).map((row: any) => ({
+        id: row.id,
+        group_id: row.group_id,
+        group_name: row.reading_groups?.name ?? null,
+        invited_by: row.invited_by,
+        inviter_name: row.profiles?.full_name ?? null,
+        inviter_email: row.profiles?.email ?? '',
+      }));
+      setPendingInvitations(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMailbox(false);
+    }
+  };
+
+  const acceptInvitation = async (invitationId: string, groupId: string) => {
+    setRespondingToInvite(invitationId);
+    try {
+      await supabase.from('reading_group_members').insert({ group_id: groupId, user_id: user?.id });
+      await supabase.from('reading_group_invitations').update({ status: 'accepted' }).eq('id', invitationId);
+      setPendingInvitations((prev) => prev.filter((i) => i.id !== invitationId));
+      setShowMailboxModal(false);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRespondingToInvite(null);
+    }
+  };
+
+  const declineInvitation = async (invitationId: string) => {
+    setRespondingToInvite(invitationId);
+    try {
+      await supabase.from('reading_group_invitations').update({ status: 'declined' }).eq('id', invitationId);
+      setPendingInvitations((prev) => prev.filter((i) => i.id !== invitationId));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRespondingToInvite(null);
+    }
+  };
+
+  const leaveGroup = async () => {
+    if (!currentGroupId || !user?.id) return;
+    if (!window.confirm('Gruppe wirklich verlassen? Du verlierst den Zugriff auf den gemeinsamen Plan.')) return;
+    try {
+      const isOwner = currentGroup?.owner_id === user.id;
+      const otherMembers = users.filter((u) => u.id !== user.id);
+      if (isOwner && otherMembers.length > 0) {
+        const newOwnerId = otherMembers[0].id;
+        await supabase.from('reading_groups').update({ owner_id: newOwnerId }).eq('id', currentGroupId).eq('owner_id', user.id);
+      } else if (isOwner && otherMembers.length === 0) {
+        await supabase.from('reading_groups').delete().eq('id', currentGroupId);
+      }
+      await supabase.from('reading_group_members').delete().eq('group_id', currentGroupId).eq('user_id', user.id);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      alert('Fehler beim Verlassen der Gruppe.');
+    }
+  };
+
+  const transferOwnership = async (newOwnerId: string) => {
+    if (!currentGroupId || !isGroupOwner || currentGroup?.owner_id === newOwnerId) return;
+    if (!window.confirm(`${users.find((u) => u.id === newOwnerId)?.full_name || users.find((u) => u.id === newOwnerId)?.email || 'Diesem Nutzer'} die Gruppenleitung übertragen?`)) return;
+    try {
+      await supabase.from('reading_groups').update({ owner_id: newOwnerId }).eq('id', currentGroupId).eq('owner_id', user?.id);
       await fetchData();
     } catch (e) {
       console.error(e);
     }
   };
 
-  const removeFromGroup = async (userId: string) => {
+  const openManageGroupModal = async () => {
+    if (!isGroupOwner || !currentGroupId) return;
+    setManagingGroup(true);
+    setShowManageGroupModal(true);
+    setGroupSearchQuery('');
+    setGroupSearchResults([]);
     try {
-      await supabase.from('reading_group_members').delete().eq('user_id', userId);
+      const { data: invs } = await supabase
+        .from('reading_group_invitations')
+        .select('invitee_user_id')
+        .eq('group_id', currentGroupId)
+        .eq('status', 'pending');
+      setPendingInviteUserIds(new Set((invs ?? []).map((i: { invitee_user_id: string }) => i.invitee_user_id)));
+    } catch {
+      setPendingInviteUserIds(new Set());
+    } finally {
+      setManagingGroup(false);
+    }
+  };
+
+  const searchUsersForGroup = async () => {
+    const q = groupSearchQuery.trim();
+    if (!q || !currentGroupId) return;
+    setSearchingGroup(true);
+    try {
+      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+      let query = supabase.from('profiles').select('id, email, full_name');
+      if (uuidLike) {
+        query = query.eq('id', q);
+      } else {
+        const term = `%${q}%`;
+        query = query.or(`email.ilike.${term},full_name.ilike.${term}`);
+      }
+      const { data, error } = await query.limit(20);
+      if (error) throw error;
+      setGroupSearchResults(data ?? []);
+    } catch (e) {
+      console.error(e);
+      setGroupSearchResults([]);
+    } finally {
+      setSearchingGroup(false);
+    }
+  };
+
+  const inviteToGroup = async (userId: string) => {
+    if (!currentGroupId || !user?.id) return;
+    setInvitingUserId(userId);
+    try {
+      await supabase.from('reading_group_invitations').insert({
+        group_id: currentGroupId,
+        invited_by: user.id,
+        invitee_user_id: userId,
+        status: 'pending',
+      });
+      setPendingInviteUserIds((prev) => new Set([...prev, userId]));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setInvitingUserId(null);
+    }
+  };
+
+  const removeFromGroup = async (userId: string) => {
+    if (!currentGroupId) return;
+    try {
+      await supabase.from('reading_group_members').delete().eq('group_id', currentGroupId).eq('user_id', userId);
       await fetchData();
     } catch (e) {
       console.error(e);
@@ -608,13 +801,14 @@ export default function Quran() {
   };
 
   const setReaderLanguage = async (userId: string, value: 'ar' | 'de' | null) => {
+    if (!currentGroupId) return;
     try {
       if (value === null) {
-        await supabase.from('reading_group_member_settings').delete().eq('user_id', userId);
+        await supabase.from('reading_group_member_settings').delete().eq('group_id', currentGroupId).eq('user_id', userId);
       } else {
         await supabase.from('reading_group_member_settings').upsert(
-          { user_id: userId, reader_language: value, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' }
+          { group_id: currentGroupId, user_id: userId, reader_language: value, updated_at: new Date().toISOString() },
+          { onConflict: 'group_id,user_id' }
         );
       }
       await fetchData();
@@ -635,9 +829,11 @@ export default function Quran() {
     setGenerating(true);
     setShowDistributeModal(false);
     try {
+      if (!currentGroupId) return;
       const { data: existing } = await supabase
         .from('daily_reading_status')
         .select('user_id, audio_url, audio_urls')
+        .eq('group_id', currentGroupId)
         .eq('date', selectedDateStr);
       const audioUrlsByUser = new Map<string, string[]>();
       for (const row of existing ?? []) {
@@ -650,12 +846,13 @@ export default function Quran() {
       await supabase
         .from('daily_reading_status')
         .delete()
+        .eq('group_id', currentGroupId)
         .eq('date', selectedDateStr);
 
       const juzNumber = selectedRamadanDay;
       const { start: juzStartPage } = getJuzPageInfo(juzNumber);
       let currentPage = juzStartPage;
-      const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_urls?: string[] }[] = [];
+      const newAssignments: { group_id: string; date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_urls?: string[] }[] = [];
 
       for (let i = 0; i < distributionUsers.length; i++) {
         const count = pagesPerUser[i] ?? 0;
@@ -664,6 +861,7 @@ export default function Quran() {
         const end = currentPage + count - 1;
         const userId = distributionUsers[i].id;
         newAssignments.push({
+          group_id: currentGroupId,
           date: selectedDateStr,
           juz_number: juzNumber,
           user_id: userId,
@@ -680,8 +878,9 @@ export default function Quran() {
         .insert(newAssignments);
 
       if (error) throw error;
-      if (user?.id) {
+      if (user?.id && currentGroupId) {
         const logPayload = {
+          group_id: currentGroupId,
           date: selectedDateStr,
           juz_number: selectedRamadanDay,
           activity_type: 'plan_updated',
@@ -692,6 +891,7 @@ export default function Quran() {
         if (logError) console.error('Error writing plan activity log:', logError);
         else {
           void triggerPushForActivity({
+            group_id: currentGroupId,
             date: logPayload.date,
             juz_number: logPayload.juz_number,
             activity_type: logPayload.activity_type,
@@ -709,12 +909,14 @@ export default function Quran() {
   };
 
   const openPlanFromVotesOrModal = async () => {
-    if (!isAdmin || !isInGroup || !user) return;
+    if (!isGroupOwner || !isInGroup || !user) return;
     setGenerating(true);
     try {
+      if (!currentGroupId) return;
       const { data: votesData } = await supabase
         .from('daily_reading_votes')
         .select('user_id, vote')
+        .eq('group_id', currentGroupId)
         .eq('date', selectedDateStr);
       const votesByUser = new Map<string, VoteValue[]>();
       for (const row of (votesData || []) as { user_id: string; vote: VoteValue[] | VoteValue }[]) {
@@ -768,9 +970,11 @@ export default function Quran() {
     orderedUsers: { id: string; full_name: string | null; email: string; reader_language?: string | null }[],
     pagesPerUser: number[]
   ) => {
+    if (!currentGroupId) return;
     const { data: existing } = await supabase
       .from('daily_reading_status')
       .select('user_id, audio_url, audio_urls')
+      .eq('group_id', currentGroupId)
       .eq('date', selectedDateStr);
     const audioUrlsByUser = new Map<string, string[]>();
     for (const row of existing ?? []) {
@@ -780,11 +984,11 @@ export default function Quran() {
       if (urls.length > 0) audioUrlsByUser.set(row.user_id, urls);
     }
 
-    await supabase.from('daily_reading_status').delete().eq('date', selectedDateStr);
+    await supabase.from('daily_reading_status').delete().eq('group_id', currentGroupId).eq('date', selectedDateStr);
     const juzNumber = selectedRamadanDay;
     const { start: juzStartPage } = getJuzPageInfo(juzNumber);
     let currentPage = juzStartPage;
-    const newAssignments: { date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_urls?: string[] }[] = [];
+    const newAssignments: { group_id: string; date: string; juz_number: number; user_id: string; start_page: number; end_page: number; is_completed: boolean; audio_urls?: string[] }[] = [];
     for (let i = 0; i < orderedUsers.length; i++) {
       const count = pagesPerUser[i] ?? 0;
       if (count <= 0) continue;
@@ -792,6 +996,7 @@ export default function Quran() {
       const end = currentPage + count - 1;
       const userId = orderedUsers[i].id;
       newAssignments.push({
+        group_id: currentGroupId,
         date: selectedDateStr,
         juz_number: juzNumber,
         user_id: userId,
@@ -806,8 +1011,9 @@ export default function Quran() {
       const { error } = await supabase.from('daily_reading_status').insert(newAssignments);
       if (error) throw error;
     }
-    if (user?.id) {
+    if (user?.id && currentGroupId) {
       const logPayload = {
+        group_id: currentGroupId,
         date: selectedDateStr,
         juz_number: selectedRamadanDay,
         activity_type: 'plan_updated',
@@ -818,6 +1024,7 @@ export default function Quran() {
       if (logError) console.error('Error writing plan activity log:', logError);
       else {
         void triggerPushForActivity({
+          group_id: currentGroupId,
           date: logPayload.date,
           juz_number: logPayload.juz_number,
           activity_type: logPayload.activity_type,
@@ -959,23 +1166,25 @@ export default function Quran() {
         nextVotes = Array.from(current).sort((a, b) => VOTE_ORDER.indexOf(a) - VOTE_ORDER.indexOf(b));
       }
 
+      if (!currentGroupId) return;
       if (nextVotes.length === 0) {
         const { error } = await supabase
           .from('daily_reading_votes')
           .delete()
+          .eq('group_id', currentGroupId)
           .eq('date', selectedDateStr)
           .eq('user_id', user.id);
         if (error) throw error;
       } else {
         let error = (await supabase.from('daily_reading_votes').upsert(
-          { date: selectedDateStr, user_id: user.id, vote: nextVotes, updated_at: new Date().toISOString() },
-          { onConflict: 'date,user_id' }
+          { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: nextVotes, updated_at: new Date().toISOString() },
+          { onConflict: 'group_id,date,user_id' }
         )).error;
         if (error) {
           const single = nextVotes[0];
           error = (await supabase.from('daily_reading_votes').upsert(
-            { date: selectedDateStr, user_id: user.id, vote: single, updated_at: new Date().toISOString() },
-            { onConflict: 'date,user_id' }
+            { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: single, updated_at: new Date().toISOString() },
+            { onConflict: 'group_id,date,user_id' }
           )).error;
         }
         if (error) throw error;
@@ -1012,7 +1221,7 @@ export default function Quran() {
   };
 
   const appendAssignmentAudio = async (assignmentId: string, assignmentUserId: string, newUrl: string) => {
-    if (!isAdmin && assignmentUserId !== user?.id) return;
+    if (!isGroupOwner && assignmentUserId !== user?.id) return;
     const a = assignments.find((x) => x.id === assignmentId);
     const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
     const next = [...current, newUrl];
@@ -1023,8 +1232,9 @@ export default function Quran() {
         .eq('id', assignmentId);
       if (error) throw error;
       setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: null } : x)));
-      if (user?.id) {
+      if (user?.id && currentGroupId) {
         const logPayload = {
+          group_id: currentGroupId,
           date: selectedDateStr,
           juz_number: a?.juz_number ?? selectedRamadanDay,
           activity_type: 'audio_added',
@@ -1037,6 +1247,7 @@ export default function Quran() {
         if (logError) console.error('Error writing activity log:', logError);
         else {
           void triggerPushForActivity({
+            group_id: currentGroupId,
             date: logPayload.date,
             juz_number: logPayload.juz_number,
             activity_type: logPayload.activity_type,
@@ -1085,7 +1296,7 @@ export default function Quran() {
   const normalizeUrlForCompare = (url: string) => (url || '').trim().replace(/#.*$/, '').replace(/\?.*$/, '');
 
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
-    if (!isAdmin && assignmentUserId !== user?.id) return;
+    if (!isGroupOwner && assignmentUserId !== user?.id) return;
     const pathToRemove = getAudioPathFromUrl(urlToRemove);
     const urlNorm = normalizeUrlForCompare(urlToRemove);
     try {
@@ -1115,6 +1326,7 @@ export default function Quran() {
       const { data: latestLog } = await supabase
         .from('reading_activity_logs')
         .select('id')
+        .eq('group_id', currentGroupId)
         .eq('date', selectedDateStr)
         .eq('juz_number', selectedRamadanDay)
         .eq('assignment_user_id', assignmentUserId)
@@ -1188,7 +1400,7 @@ export default function Quran() {
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> Aktive Gruppe
           </h3>
-          {isAdmin && isInGroup && (
+          {isGroupOwner && isInGroup && (
             <button
               type="button"
               onClick={openManageGroupModal}
@@ -1200,9 +1412,25 @@ export default function Quran() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!isInGroup ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Du bist nicht in der Lese-Gruppe. Kontaktiere einen Admin, um hinzugefügt zu werden.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Du bist in keiner Lese-Gruppe.</p>
+              <button
+                type="button"
+                onClick={() => setShowCreateGroupModal(true)}
+                className="text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 px-3 py-1.5 rounded-lg"
+              >
+                Gruppe erstellen
+              </button>
+              <button
+                type="button"
+                onClick={openMailbox}
+                className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-500 dark:border-emerald-400"
+              >
+                <Mail size={14} className="inline mr-1" /> Anfragen
+              </button>
+            </div>
           ) : users.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Noch niemand in der Lese-Gruppe. {isAdmin && 'Nutze „Gruppe verwalten“, um dich und andere hinzuzufügen.'}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Noch niemand in der Lese-Gruppe. {isGroupOwner && 'Nutze „Gruppe verwalten“, um andere einzuladen.'}</p>
           ) : (
             users.map((u) => (
               <div key={u.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600">
@@ -1214,6 +1442,20 @@ export default function Quran() {
             ))
           )}
         </div>
+        {isInGroup && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={leaveGroup}
+              className="text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium flex items-center gap-1"
+            >
+              <LogOut size={14} /> Gruppe verlassen
+            </button>
+            <button type="button" onClick={openMailbox} className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1">
+              <Mail size={14} /> Anfragen
+            </button>
+          </div>
+        )}
         {isInGroup && (
           <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
@@ -1235,7 +1477,7 @@ export default function Quran() {
                       {formatActivityMessage(log)}
                       <span className="text-gray-400 dark:text-gray-500"> ({formatActivityTime(log.created_at)})</span>
                     </button>
-                    {isAdmin && (
+                    {isGroupOwner && (
                       <button
                         type="button"
                         onClick={() => deleteActivityLogEntry(log.id)}
@@ -1307,7 +1549,7 @@ export default function Quran() {
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 min-w-0">
             {isToday ? 'Heutige Aufteilung' : `Aufteilung für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}`}
           </h3>
-          {isAdmin && isInGroup && (
+          {isGroupOwner && isInGroup && (
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={openPlanFromVotesOrModal}
@@ -1336,7 +1578,7 @@ export default function Quran() {
                 ? (isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}.`)
                 : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}).`)}
             </p>
-            {isAdmin && isInGroup && (
+            {isGroupOwner && isInGroup && (
               <div className="flex flex-wrap gap-2 justify-center">
                 <button
                   onClick={openPlanFromVotesOrModal}
@@ -1360,7 +1602,7 @@ export default function Quran() {
             <div className="grid gap-4 min-w-0 max-w-full">
               {sortedAssignments.map((assignment, index) => {
                 const isMe = assignment.user_id === user?.id;
-                const canToggle = isMe || isAdmin;
+                const canToggle = isMe || isGroupOwner;
                 const pageCount = assignment.end_page - assignment.start_page + 1;
                 const colorClass = SEGMENT_COLORS[index % SEGMENT_COLORS.length];
                 
@@ -1419,7 +1661,7 @@ export default function Quran() {
                             <ReadingAudioCell
                               assignmentId={assignment.id}
                               audioUrls={assignment.audio_urls ?? (assignment.audio_url ? [assignment.audio_url] : [])}
-                              canEdit={isMe || isAdmin}
+                              canEdit={isMe || isGroupOwner}
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}
                               onDeleted={(url) => removeAssignmentAudioUrl(assignment.id, assignment.user_id, url)}
                               showUploadControls={false}
@@ -1465,7 +1707,7 @@ export default function Quran() {
       </div>
 
       {/* Modal: Seitenanzahl pro Person beim Neuverteilen */}
-      {isAdmin && isInGroup && showDistributeModal && (
+      {isGroupOwner && isInGroup && showDistributeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
@@ -1570,7 +1812,7 @@ export default function Quran() {
       )}
 
       {/* Modal: Wer bekommt die Seiten von „abgeben“-Votern? */}
-      {isAdmin && showAbgebenAssignModal && abgebenAssignData && (
+      {isGroupOwner && showAbgebenAssignModal && abgebenAssignData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
@@ -1629,7 +1871,7 @@ export default function Quran() {
       )}
 
       {/* Modal: Welcher Arabisch-Leser bekommt 3 Seiten? (Plan aus Votes) */}
-      {isAdmin && showArabic3Modal && arabic3ModalData && (() => {
+      {isGroupOwner && showArabic3Modal && arabic3ModalData && (() => {
         const arUsers = arabic3ModalData.orderedUsers.filter((u) => u.reader_language === 'ar');
         if (arUsers.length === 0) return null;
         return (
@@ -1684,8 +1926,63 @@ export default function Quran() {
         );
       })()}
 
-      {/* Modal: Lese-Gruppe verwalten (nur Admin, nur wenn selbst in der Gruppe) */}
-      {isAdmin && isInGroup && showManageGroupModal && (
+      {/* Modal: Gruppe erstellen */}
+      {showCreateGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Gruppe erstellen</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Erstelle eine Lese-Gruppe und lade später andere per E-Mail oder Name ein.</p>
+            <input
+              type="text"
+              value={createGroupName}
+              onChange={(e) => setCreateGroupName(e.target.value)}
+              placeholder="Gruppenname (optional)"
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 mb-4 text-gray-800 dark:text-gray-200"
+            />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setShowCreateGroupModal(false); setCreateGroupName(''); }} className="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">Abbrechen</button>
+              <button type="button" onClick={createGroup} disabled={creatingGroup} className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-50">{creatingGroup ? <Loader2 className="animate-spin inline" size={18} /> : 'Erstellen'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Mailbox (Anfragen) */}
+      {showMailboxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><Mail size={20} /> Anfragen</h3>
+              <button type="button" onClick={() => setShowMailboxModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} /></button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              {loadingMailbox ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>
+              ) : pendingInvitations.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Keine offenen Einladungen.</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingInvitations.map((inv) => (
+                    <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700">
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-gray-200">{inv.group_name || 'Lese-Gruppe'}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{inv.inviter_name || inv.inviter_email} lädt dich ein.</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button type="button" onClick={() => declineInvitation(inv.id)} disabled={respondingToInvite === inv.id} className="text-sm text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50">Ablehnen</button>
+                        <button type="button" onClick={() => acceptInvitation(inv.id, inv.group_id)} disabled={respondingToInvite === inv.id} className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50">{respondingToInvite === inv.id ? <Loader2 size={14} className="animate-spin inline" /> : 'Annehmen'}</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Lese-Gruppe verwalten (nur Owner) */}
+      {isGroupOwner && isInGroup && showManageGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
@@ -1701,67 +1998,87 @@ export default function Quran() {
               </button>
             </div>
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-              Nur Nutzer in der Lese-Gruppe erscheinen bei „Aktive Gruppe“ und können in den Plan.
+              Suche nach E-Mail oder Name und lade Nutzer ein. Mitglieder können Lese-Sprache festlegen oder du überträgst die Gruppenleitung.
             </p>
-            <div className="p-6 overflow-y-auto space-y-2">
-              {managingGroup ? (
-                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>
-              ) : (
-                allProfilesForManage.map((p) => {
-                  const inGroup = users.some((u) => u.id === p.id);
-                  const member = users.find((u) => u.id === p.id);
-                  const readerLang = (member as { reader_language?: string | null })?.reader_language ?? null;
-                  return (
-                    <div
-                      key={p.id}
-                      className="flex flex-wrap items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700"
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-sm font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
-                          {(p.full_name || p.email || '?')[0].toUpperCase()}
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Nutzer suchen (E-Mail oder Name)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={groupSearchQuery}
+                    onChange={(e) => setGroupSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchUsersForGroup()}
+                    placeholder="E-Mail oder Name eingeben"
+                    className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
+                  />
+                  <button type="button" onClick={searchUsersForGroup} disabled={searchingGroup} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium disabled:opacity-50">
+                    {searchingGroup ? <Loader2 size={16} className="animate-spin" /> : 'Suchen'}
+                  </button>
+                </div>
+                {groupSearchResults.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {groupSearchResults.map((p) => {
+                      const inGroup = users.some((u) => u.id === p.id);
+                      const alreadyInvited = pendingInviteUserIds.has(p.id);
+                      const isSelf = p.id === user?.id;
+                      const canInvite = !inGroup && !alreadyInvited && !isSelf;
+                      return (
+                        <div key={p.id} className="flex items-center justify-between gap-2 py-2 px-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                          <span className="text-sm text-gray-800 dark:text-gray-200 truncate">{p.full_name || p.email}</span>
+                          {inGroup && <span className="text-xs text-emerald-600 dark:text-emerald-400">In Gruppe</span>}
+                          {alreadyInvited && <span className="text-xs text-amber-600 dark:text-amber-400">Eingeladen</span>}
+                          {canInvite && (
+                            <button type="button" onClick={() => inviteToGroup(p.id)} disabled={invitingUserId === p.id} className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 flex items-center gap-1">
+                              {invitingUserId === p.id ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} Einladen
+                            </button>
+                          )}
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">Mitglieder</h4>
+                {users.map((p) => {
+                  const member = users.find((u) => u.id === p.id) as { reader_language?: string | null } | undefined;
+                  const readerLang = member?.reader_language ?? null;
+                  const isOwner = currentGroup?.owner_id === p.id;
+                  return (
+                    <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 mb-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span className="text-gray-800 dark:text-gray-200 truncate">{p.full_name || p.email}</span>
-                        {inGroup && (
-                          <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full shrink-0">
-                            In Gruppe
-                          </span>
-                        )}
+                        {isOwner && <span className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">Owner</span>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {inGroup && (
-                          <select
-                            value={readerLang ?? ''}
-                            onChange={(e) => setReaderLanguage(p.id, (e.target.value || null) as 'ar' | 'de' | null)}
-                            className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                            title="Lese-Sprache für Seitenverteilung"
-                          >
-                            <option value="">Nicht festgelegt</option>
-                            <option value="ar">Arabisch (2 S.)</option>
-                            <option value="de">Deutsch (3 S.)</option>
-                          </select>
+                        <select
+                          value={readerLang ?? ''}
+                          onChange={(e) => setReaderLanguage(p.id, (e.target.value || null) as 'ar' | 'de' | null)}
+                          className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          title="Lese-Sprache"
+                        >
+                          <option value="">—</option>
+                          <option value="ar">Arabisch (2 S.)</option>
+                          <option value="de">Deutsch (3 S.)</option>
+                        </select>
+                        {isGroupOwner && p.id !== user?.id && (
+                          <button type="button" onClick={() => transferOwnership(p.id)} className="text-xs text-amber-600 dark:text-amber-400 hover:underline">Owner übertragen</button>
                         )}
-                        {inGroup ? (
-                          <button
-                            type="button"
-                            onClick={() => removeFromGroup(p.id)}
-                            className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium"
-                          >
-                            <UserMinus size={16} /> Entfernen
+                        {p.id === user?.id ? (
+                          <button type="button" onClick={leaveGroup} className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:underline">
+                            <LogOut size={14} /> Gruppe verlassen
                           </button>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => addToGroup(p.id)}
-                            className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium"
-                          >
-                            <UserPlus size={16} /> Hinzufügen
+                          <button type="button" onClick={() => removeFromGroup(p.id)} className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:underline">
+                            <UserMinus size={14} /> Entfernen
                           </button>
                         )}
                       </div>
                     </div>
                   );
-                })
-              )}
+                })}
+              </div>
             </div>
           </div>
         </div>

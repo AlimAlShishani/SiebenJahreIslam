@@ -60,6 +60,7 @@ export const ensurePushSubscription = async (userId: string) => {
 };
 
 export const triggerPushForActivity = async (payload: {
+  group_id?: string;
   date: string;
   juz_number: number;
   activity_type: 'audio_added' | 'plan_updated';
