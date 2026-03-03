@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BookOpen, Loader2, Mic, Settings } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, BookOpen, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
@@ -299,6 +299,7 @@ export default function QuranReader() {
   const [mobileRecording, setMobileRecording] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const selectedVerseRef = useRef<HTMLSpanElement | null>(null);
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
   const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
@@ -574,6 +575,16 @@ export default function QuranReader() {
     const idx = selectedVerseKey ? visible.findIndex((v) => v.key === selectedVerseKey) : -1;
     if (idx >= 0) setVerseIndexInPage(idx);
   }, [viewLayout, pageData?.pageNumber, selectedVerseKey]);
+
+  useEffect(() => {
+    if (viewLayout !== 'flow' || !selectedVerseKey) return;
+    const el = selectedVerseRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [viewLayout, selectedVerseKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1384,6 +1395,7 @@ export default function QuranReader() {
                               return (
                                 <span
                                   key={verse.key}
+                                  ref={isSelected ? selectedVerseRef : undefined}
                                   role="button"
                                   tabIndex={0}
                                   onClick={() => { setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); }}
@@ -1646,7 +1658,26 @@ export default function QuranReader() {
                 onToggleMobileAudio={() => setMobileAudioOpen((v) => !v)}
                 onRecordingChange={(active) => setMobileRecording(active)}
               />
-            ) : null}
+            ) : (
+              <div className="h-full flex flex-col items-center justify-end pb-2 gap-2 opacity-50">
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-full inline-flex items-center justify-center bg-gray-800 text-gray-500 cursor-not-allowed"
+                  aria-label="Aufnahmen anzeigen (deaktiviert)"
+                  disabled
+                >
+                  <ArrowUp size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="w-12 h-12 rounded-full inline-flex items-center justify-center bg-gray-700 text-gray-500 cursor-not-allowed"
+                  aria-label="Aufnahme starten (deaktiviert)"
+                  disabled
+                >
+                  <Mic size={20} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
