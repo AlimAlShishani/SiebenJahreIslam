@@ -1,6 +1,6 @@
-import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronUp, Loader2, Mic, Settings } from 'lucide-react';
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, BookOpen, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
@@ -240,6 +240,7 @@ function normalizeAudioUrls(assignment: AssignmentForReader | null): string[] {
 export default function QuranReader() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const assignmentId = searchParams.get('assignmentId');
   const assignmentDate = searchParams.get('date');
@@ -294,6 +295,10 @@ export default function QuranReader() {
   const [assignment, setAssignment] = useState<AssignmentForReader | null>(null);
   const [loadingAssignment, setLoadingAssignment] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedJuzRange, setSelectedJuzRange] = useState<{ start: number; end: number }>({ start: 1, end: 604 });
+  const [mobileRecording, setMobileRecording] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
   const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
@@ -496,6 +501,25 @@ export default function QuranReader() {
       cancelled = true;
     };
   }, [currentPage, translationEdition, quranTextType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveJuzRange = async () => {
+      try {
+        const start = await getJuzStartPage(selectedJuz);
+        const nextStart = selectedJuz < 30 ? await getJuzStartPage(selectedJuz + 1) : 605;
+        if (cancelled) return;
+        const end = Math.max(start, Math.min(604, nextStart - 1));
+        setSelectedJuzRange({ start, end });
+      } catch {
+        if (!cancelled) setSelectedJuzRange({ start: 1, end: 604 });
+      }
+    };
+    void resolveJuzRange();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedJuz]);
 
   useEffect(() => {
     const visibleVerses = pageData?.verses.filter((v) => v.ayahNumber !== 0) ?? [];
@@ -823,14 +847,130 @@ export default function QuranReader() {
     }
   };
 
+  const visibleVerses = useMemo(
+    () => pageData?.verses.filter((v) => v.ayahNumber !== 0) ?? [],
+    [pageData]
+  );
+  const totalVersesInPage = visibleVerses.length;
+  const selectedVerseIndex = selectedVerseKey
+    ? visibleVerses.findIndex((v) => v.key === selectedVerseKey)
+    : -1;
+  const activeVerseIndex = Math.min(
+    Math.max(0, selectedVerseIndex >= 0 ? selectedVerseIndex : verseIndexInPage),
+    Math.max(0, totalVersesInPage - 1)
+  );
+  const pageLabelArabic = toArabicIndicDigits(currentPage);
+
+  const juzProgressPct = useMemo(() => {
+    // Fortschritt immer relativ zum gesamten Juz, nicht nur zum eigenen Assignment
+    const startPage = selectedJuzRange.start;
+    const endPage = selectedJuzRange.end;
+    if (!Number.isFinite(currentPage) || !Number.isFinite(startPage) || !Number.isFinite(endPage) || startPage > endPage) {
+      return 0;
+    }
+
+    // Seitenbereich auf gültigen Juz-/Assignment-Bereich clampen
+    const clampedPage = Math.min(Math.max(currentPage, startPage), endPage);
+    const totalPages = endPage - startPage + 1;
+    const pageIndex = clampedPage - startPage; // 0-basiert
+
+    // Vers-Fortschritt innerhalb der aktuellen Seite (0–1)
+    const verseFraction =
+      totalVersesInPage > 0 ? (activeVerseIndex + 1) / totalVersesInPage : 0;
+
+    // Gesamtfortschritt = (aktuelle Seite + Versanteil) relativ zu Gesamtseiten
+    const overall = (pageIndex + verseFraction) / totalPages;
+    return Math.max(0, Math.min(100, overall * 100));
+  }, [
+    assignmentEndPage,
+    assignmentStartPage,
+    currentPage,
+    hasAssignmentContext,
+    selectedJuzRange.end,
+    selectedJuzRange.start,
+    activeVerseIndex,
+    totalVersesInPage,
+  ]);
+
+  const goToPreviousVerse = () => {
+    if (!visibleVerses.length) return;
+    if (activeVerseIndex <= 0) {
+      if (currentPage > 1) {
+        setPendingVerseSelection('last');
+        setCurrentPage((p) => Math.max(1, p - 1));
+      }
+      return;
+    }
+    const prevIdx = activeVerseIndex - 1;
+    const verse = visibleVerses[prevIdx];
+    setVerseIndexInPage(prevIdx);
+    if (verse) {
+      setSelectedVerseKey(verse.key);
+      setSelectedSurah(verse.surahNumber);
+      setSelectedAyah(verse.ayahNumber);
+    }
+  };
+
+  const goToNextVerse = () => {
+    if (!visibleVerses.length) return;
+    if (activeVerseIndex >= visibleVerses.length - 1) {
+      if (currentPage < 604) {
+        setPendingVerseSelection('first');
+        setCurrentPage((p) => Math.min(604, p + 1));
+      }
+      return;
+    }
+    const nextIdx = activeVerseIndex + 1;
+    const verse = visibleVerses[nextIdx];
+    setVerseIndexInPage(nextIdx);
+    if (verse) {
+      setSelectedVerseKey(verse.key);
+      setSelectedSurah(verse.surahNumber);
+      setSelectedAyah(verse.ayahNumber);
+    }
+  };
+
+  const goToPrevPageByMode = () => {
+    if (mode === 'arabic') setCurrentPage((prev) => Math.max(1, prev - 1));
+    else setCurrentPage((prev) => Math.min(604, prev + 1));
+  };
+
+  const goToNextPageByMode = () => {
+    if (mode === 'arabic') setCurrentPage((prev) => Math.min(604, prev + 1));
+    else setCurrentPage((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (typeof window !== 'undefined' && !window.matchMedia('(max-width: 767px)').matches) return;
+    const t = e.touches[0];
+    touchStartXRef.current = t.clientX;
+    touchStartYRef.current = t.clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (typeof window !== 'undefined' && !window.matchMedia('(max-width: 767px)').matches) return;
+    if (loadingPage || loadingJump) return;
+    const startX = touchStartXRef.current;
+    const startY = touchStartYRef.current;
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    if (startX == null || startY == null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    // Nur horizontale Swipes mit genügend Abstand
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    // Links-Swipe: in Arabisch = Seite zurück, in Deutsch = Seite nach vorn
+    // Rechts-Swipe: umgekehrt – das kapselt goToPrevPageByMode/goToNextPageByMode bereits korrekt.
+    if (dx < 0) {
+      goToPrevPageByMode();
+    } else {
+      goToNextPageByMode();
+    }
+  };
+
   return (
-    <div
-      className={`pb-44 md:pb-0 ${
-        viewLayout === 'verse'
-          ? 'max-md:h-full max-md:overflow-hidden max-md:flex max-md:flex-col max-md:min-h-0 max-md:space-y-0 max-md:pb-0'
-          : 'space-y-4'
-      }`}
-    >
+    <div className="relative md:space-y-4 max-md:h-[100dvh] max-md:overflow-hidden max-md:bg-gray-50 dark:max-md:bg-gray-900">
       <div className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="text-sm text-gray-600 dark:text-gray-300">
@@ -967,193 +1107,101 @@ export default function QuranReader() {
         </div>
       </div>
 
-      {/* Mobile: oben fixiert – bleibt beim Scrollen am oberen Rand sichtbar */}
-      <div
-        className={`md:hidden sticky top-0 z-30 bg-gray-50 dark:bg-gray-900 shrink-0 ${
-          viewLayout === 'verse' ? 'px-1.5 pt-0 pb-1' : 'px-2 pt-0 pb-2'
-        }`}
-      >
-        <div
-          className={`bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg space-y-2 ${
-            viewLayout === 'verse' ? 'p-1.5 space-y-1.5' : 'p-2 space-y-2'
-          }`}
-        >
-          {/* 1. Zeile: Juz, Surah, Ayah + Versbereich/Freier Modus */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-3 pt-2 pb-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="grid grid-cols-3 gap-1 flex-1 min-w-0">
-            <select
-              value={selectedJuz}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setSelectedJuz(next);
-                void jumpToJuz(next);
-              }}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-1.5 py-1 text-[11px] text-gray-900 dark:text-gray-100"
+            <button
+              type="button"
+              onClick={() => navigate('/hatim')}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
+              aria-label="Zurück"
             >
-              {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
-                <option key={j} value={j}>
-                  Juz {j}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedSurah}
-              onChange={(e) => {
-                const surah = Number(e.target.value);
-                setSelectedSurah(surah);
-                setSelectedAyah(1);
-                void jumpToSurahAyah(surah, 1);
-              }}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-1.5 py-1 text-[11px] text-gray-900 dark:text-gray-100"
+              <ArrowLeft size={16} />
+            </button>
+            <label className="min-w-[7.5rem] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-center">
+              <select
+                value={selectedJuz}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setSelectedJuz(next);
+                  void jumpToJuz(next);
+                }}
+                className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 text-center"
+              >
+                {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
+                  <option key={j} value={j}>
+                    Juz {j}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">{juzProgressPct.toFixed(1)}%</p>
+            </label>
+            <button
+              type="button"
+              onClick={() => setMobileSettingsOpen((v) => !v)}
+              className="h-8 w-8 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
+              aria-label="Einstellungen"
             >
-              {surahs.map((s) => (
-                <option key={s.number} value={s.number}>
-                  {s.number}. {s.englishName}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedAyah}
-              onChange={(e) => {
-                const ayah = Number(e.target.value);
-                setSelectedAyah(ayah);
-                void jumpToSurahAyah(selectedSurah, ayah);
-              }}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-1.5 py-1 text-[11px] text-gray-900 dark:text-gray-100"
-            >
-              {Array.from({ length: ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
-                <option key={ayah} value={ayah}>
-                  Ayah {ayah}
-                </option>
-              ))}
-            </select>
+              <Settings size={15} />
+            </button>
+          </div>
+
+          <div className="mt-2">
+            <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-300"
+                style={{ width: `${juzProgressPct}%` }}
+              />
             </div>
-            {hasAssignmentContext ? (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
-                {assignmentStartPage}-{assignmentEndPage}
-              </span>
-            ) : (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">Freier Modus</span>
-            )}
           </div>
 
-          {/* 2. Zeile: Seiten-Navigation */}
-          <div className="flex items-center justify-center gap-1">
-            {mode === 'arabic' ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((prev) => Math.min(604, prev + 1))}
-                  className="px-2.5 py-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium disabled:opacity-50"
-                  disabled={currentPage >= 604 || loadingJump}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Weiter <ArrowLeft size={12} />
-                  </span>
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={604}
-                  value={pageInput}
-                  onChange={(e) => setPageInput(e.target.value)}
-                  onBlur={submitPageInput}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') submitPageInput();
-                  }}
-                  className="w-20 text-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-900 dark:text-gray-100"
-                  aria-label="Seite"
-                />
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  className="px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium disabled:opacity-50"
-                  disabled={currentPage <= 1 || loadingJump}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <ArrowRight size={12} /> Zurück
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileSettingsOpen((v) => !v)}
-                  className="rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-1.5 text-gray-700 dark:text-gray-200"
-                  aria-label="Einstellungen"
-                >
-                  <Settings size={13} />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  className="px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium disabled:opacity-50"
-                  disabled={currentPage <= 1 || loadingJump}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <ArrowLeft size={12} /> Zurück
-                  </span>
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={604}
-                  value={pageInput}
-                  onChange={(e) => setPageInput(e.target.value)}
-                  onBlur={submitPageInput}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') submitPageInput();
-                  }}
-                  className="w-20 text-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-900 dark:text-gray-100"
-                  aria-label="Seite"
-                />
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((prev) => Math.min(604, prev + 1))}
-                  className="px-2.5 py-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium disabled:opacity-50"
-                  disabled={currentPage >= 604 || loadingJump}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Weiter <ArrowRight size={12} />
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileSettingsOpen((v) => !v)}
-                  className="rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 p-1.5 text-gray-700 dark:text-gray-200"
-                  aria-label="Einstellungen"
-                >
-                  <Settings size={13} />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* 3. Zeile: Arabisch / Übersetzung (zwei große Buttons wie bild2) */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setMode('arabic')}
-              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
-                mode === 'arabic'
-                  ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500/50 dark:border-emerald-400/50 shadow-sm'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
-              }`}
-            >
-              Arabisch
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('translation')}
-              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
-                mode === 'translation'
-                  ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500/50 dark:border-emerald-400/50 shadow-sm'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
-              }`}
-            >
-              Übersetzung
-            </button>
+          <div className="mt-2">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 overflow-hidden">
+              <select
+                value={selectedSurah}
+                onChange={(e) => {
+                  const surah = Number(e.target.value);
+                  setSelectedSurah(surah);
+                  setSelectedAyah(1);
+                  void jumpToSurahAyah(surah, 1);
+                }}
+                className="h-8 bg-transparent px-2 text-xs text-gray-900 dark:text-gray-100 border-r border-gray-300 dark:border-gray-600"
+              >
+                {surahs.map((s) => (
+                  <option key={s.number} value={s.number}>
+                    {s.number}. {s.englishName}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={1}
+                max={604}
+                value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onBlur={submitPageInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitPageInput();
+                }}
+                className="h-8 min-w-[5.5rem] w-[5.5rem] px-2 text-center text-xs font-medium bg-transparent text-gray-900 dark:text-gray-100 border-r border-gray-300 dark:border-gray-600"
+                aria-label={`Seite ${currentPage} / ${pageLabelArabic}`}
+              />
+              <select
+                value={selectedAyah}
+                onChange={(e) => {
+                  const ayah = Number(e.target.value);
+                  setSelectedAyah(ayah);
+                  void jumpToSurahAyah(selectedSurah, ayah);
+                }}
+                className="h-8 bg-transparent px-2 text-xs text-gray-900 dark:text-gray-100 text-right"
+              >
+                {Array.from({ length: ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
+                  <option key={ayah} value={ayah}>
+                    Vers {ayah}/{ayahCountForSelectedSurah}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -1174,8 +1222,8 @@ export default function QuranReader() {
       <div
         className={`grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0 ${
           viewLayout === 'verse'
-            ? 'max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden max-md:items-stretch max-md:gap-1 max-md:pt-0'
-            : ''
+            ? 'max-md:absolute max-md:inset-x-0 max-md:top-[112px] max-md:bottom-[72px] max-md:px-2 max-md:overflow-y-auto max-md:items-stretch max-md:gap-1'
+            : 'max-md:absolute max-md:inset-x-0 max-md:top-[112px] max-md:bottom-[72px] max-md:px-2 max-md:overflow-y-auto max-md:gap-0'
         }`}
       >
         <aside className="hidden md:block space-y-4 h-fit lg:sticky lg:top-4">
@@ -1214,9 +1262,11 @@ export default function QuranReader() {
         <section
           className={`relative bg-white dark:bg-gray-800 p-4 sm:p-6 md:pr-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[24rem] ${
             viewLayout === 'verse'
-              ? 'max-md:h-[calc(100dvh-24rem)] max-md:min-h-0 max-md:overflow-hidden max-md:flex max-md:flex-col max-md:shrink-0 max-md:p-3'
-              : ''
+              ? 'max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden max-md:flex max-md:flex-col max-md:p-3'
+              : 'max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden max-md:flex max-md:flex-col max-md:p-3'
           }`}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Desktop: Lesezeichen nur im Fließtext; in Einzelvers-Ansicht ausgeblendet */}
           {viewLayout === 'flow' && (
@@ -1261,8 +1311,8 @@ export default function QuranReader() {
             <div className="py-10 text-center text-rose-600 dark:text-rose-400">{errorMessage}</div>
           )}
           {!loadingPage && !loadingJump && !errorMessage && pageData && (
-            <div className={`space-y-4 ${viewLayout === 'verse' ? 'max-md:flex max-md:flex-col max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden max-md:space-y-2' : ''}`}>
-              <div className={`text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2 ${viewLayout === 'verse' ? 'max-md:shrink-0 max-md:py-0' : ''}`}>
+            <div className={`space-y-4 max-md:flex max-md:flex-col max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden ${viewLayout === 'verse' ? 'max-md:space-y-2' : ''}`}>
+              <div className={`text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2 ${viewLayout === 'verse' ? 'max-md:shrink-0 max-md:py-0' : 'max-md:shrink-0'}`}>
                 <span>Seite {pageData.pageNumber}</span>
                 <span>•</span>
                 <span>Juz {pageData.juzNumber}</span>
@@ -1288,7 +1338,7 @@ export default function QuranReader() {
                   }
                 }
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-md:flex-1 max-md:min-h-0 max-md:overflow-y-auto max-md:pr-1">
                     {segments.map((seg, segIdx) => {
                       const surahMeta = surahs.find((s) => s.number === seg.surahNumber);
                       const surahName = surahMeta?.name ?? `سورة ${seg.surahNumber}`;
@@ -1449,7 +1499,7 @@ export default function QuranReader() {
                           </p>
                         </div>
                       </div>
-                      <div className="shrink-0 flex flex-wrap items-center justify-center gap-2 pt-4 pb-1 border-t border-gray-200 dark:border-gray-600 md:gap-4">
+                      <div className="hidden md:flex shrink-0 flex-wrap items-center justify-center gap-2 pt-4 pb-1 border-t border-gray-200 dark:border-gray-600 md:gap-4">
                         <button
                           type="button"
                           onClick={goPrev}
@@ -1506,46 +1556,97 @@ export default function QuranReader() {
         </section>
       </div>
 
-      {/* Mobile fixed audio drawer */}
-      <div className="md:hidden fixed bottom-[80px] left-0 right-0 z-20 px-2">
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
-          <div className="px-3 py-2">
-            <div className="flex items-center justify-between text-sm font-medium text-gray-800 dark:text-gray-100">
-              <span className="inline-flex items-center gap-2">
-                <Mic size={15} className="text-emerald-600 dark:text-emerald-400" />
-                Aufnahme
-              </span>
-              <button
-                type="button"
-                onClick={() => setMobileAudioOpen((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-xs"
-              >
-                Audios
-                {mobileAudioOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-              </button>
-            </div>
-            <div className="mt-1.5">
-              {loadingAssignment ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 pt-2">Assignment wird geladen...</p>
-              ) : hasAssignmentContext && assignment ? (
-                <ReadingAudioCell
-                  assignmentId={assignment.id}
-                  audioUrls={normalizeAudioUrls(assignment)}
-                  canEdit={canEditAudio}
-                  onSaved={appendAssignmentAudio}
-                  onDeleted={removeAssignmentAudio}
-                  showUploadControls
-                  showPlayers={mobileAudioOpen}
-                />
-              ) : (
-                <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1 pt-2">
-                  <p>Keine aktive Assignment-Session. Öffne den Reader über deinen heutigen Part in Hatim, um aufzunehmen.</p>
-                  <Link to="/hatim" className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline">
-                    <BookOpen size={14} /> Zu Hatim
-                  </Link>
-                </div>
-              )}
-            </div>
+      {mobileAudioOpen && hasAssignmentContext && assignment && (
+        <div className="md:hidden fixed bottom-[5.5rem] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">
+          <ReadingAudioCell
+            assignmentId={assignment.id}
+            audioUrls={normalizeAudioUrls(assignment)}
+            canEdit={canEditAudio}
+            onSaved={appendAssignmentAudio}
+            onDeleted={removeAssignmentAudio}
+            showUploadControls={false}
+            showPlayers
+            compact
+          />
+        </div>
+      )}
+
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex justify-start items-end">
+        {/* Linke Gruppe: Lesezeichen & Pfeile & Aufnahme */}
+        <div className="flex items-end pointer-events-auto w-full">
+          {/* Lesezeichen-Buttons */}
+          <div className="flex items-end w-1/2">
+            <button
+              type="button"
+              onClick={() => setMode('arabic')}
+              disabled={viewLayout === 'verse'}
+              className={`flex-1 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all ${
+                mode === 'arabic' && viewLayout !== 'verse'
+                  ? 'bg-gray-900 border-t border-x border-gray-500/60 text-gray-100 z-10'
+                  : 'bg-gray-800 text-gray-400 h-[3.25rem]'
+              } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              <span className="font-quran text-lg leading-none" dir="rtl">أ</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('translation')}
+              disabled={viewLayout === 'verse'}
+              className={`flex-1 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all ${
+                mode === 'translation' && viewLayout !== 'verse'
+                  ? 'bg-gray-900 border-t border-x border-gray-500/60 text-gray-100 z-10'
+                  : 'bg-gray-800 text-gray-400 h-[3.25rem]'
+              } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              <span className="font-bold text-base leading-none">A</span>
+            </button>
+          </div>
+
+          {/* Pfeil-Buttons (Grün) */}
+          <div className="flex items-center h-[4.25rem] bg-emerald-400 rounded-t-xl overflow-hidden shadow-lg">
+            <button
+              type="button"
+              onClick={goToPreviousVerse}
+              className="w-14 h-full flex items-center justify-center text-white hover:bg-emerald-500 active:bg-emerald-600"
+              aria-label={viewLayout === 'verse' ? 'Vorheriger Vers' : 'Vorherige Seite'}
+            >
+              <ArrowLeft size={24} strokeWidth={3} />
+            </button>
+            <div className="w-[2px] h-8 bg-white/40" />
+            <button
+              type="button"
+              onClick={goToNextVerse}
+              className="w-14 h-full flex items-center justify-center text-white hover:bg-emerald-500 active:bg-emerald-600"
+              aria-label={viewLayout === 'verse' ? 'Nächster Vers' : 'Nächste Seite'}
+            >
+              <ArrowRight size={24} strokeWidth={3} />
+            </button>
+          </div>
+
+          {/* Aufnahme rechts ohne Abstand zu Pfeilen – skaliert bei aktiver Aufnahme */}
+          <div
+            className={`w-16 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-500/60 rounded-tl-3xl flex flex-col items-center justify-end py-2 pointer-events-auto shadow-lg transition-all duration-200 ${
+              mobileRecording ? 'h-40' : 'h-24'
+            }`}
+          >
+            {loadingAssignment ? (
+              <div className="h-full w-full flex items-center justify-center text-[10px] text-gray-500">...</div>
+            ) : hasAssignmentContext && assignment ? (
+              <ReadingAudioCell
+                assignmentId={assignment.id}
+                audioUrls={normalizeAudioUrls(assignment)}
+                canEdit={canEditAudio}
+                onSaved={appendAssignmentAudio}
+                onDeleted={removeAssignmentAudio}
+                showUploadControls
+                showPlayers={false}
+                compact
+                mobileBar
+                mobileAudioOpen={mobileAudioOpen}
+                onToggleMobileAudio={() => setMobileAudioOpen((v) => !v)}
+                onRecordingChange={(active) => setMobileRecording(active)}
+              />
+            ) : null}
           </div>
         </div>
       </div>

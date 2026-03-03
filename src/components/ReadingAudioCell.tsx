@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward, Send } from 'lucide-react';
 
 const BUCKET = 'reading-audio';
 const AUDIO_BITS_PER_SECOND = 48000;
@@ -15,6 +15,14 @@ export interface ReadingAudioCellProps {
   showPlayers?: boolean;
   /** Kompaktere Darstellung (z. B. Sidebar Desktop) */
   compact?: boolean;
+  /** Mobile Reader Bottom-Bar Darstellung */
+  mobileBar?: boolean;
+  /** Aktueller Zustand des Audio-Panels (nur mobileBar) */
+  mobileAudioOpen?: boolean;
+  /** Öffnet/Schließt das Audio-Panel (nur mobileBar) */
+  onToggleMobileAudio?: () => void;
+  /** Callback für Mobile-Bar, wenn Aufnahme startet/endet */
+  onRecordingChange?: (active: boolean) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -150,6 +158,10 @@ export function ReadingAudioCell({
   showUploadControls = true,
   showPlayers = true,
   compact = false,
+  mobileBar = false,
+  mobileAudioOpen = false,
+  onToggleMobileAudio,
+  onRecordingChange,
 }: ReadingAudioCellProps) {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -158,6 +170,7 @@ export function ReadingAudioCell({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingPathRef = useRef<string>('');
+  const cancelRecordingRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
   const silentAudioContextRef = useRef<AudioContext | null>(null);
@@ -239,6 +252,7 @@ export function ReadingAudioCell({
 
   const startRecording = async () => {
     try {
+      cancelRecordingRef.current = false;
       recordingPathRef.current = `${assignmentId}_${Date.now()}.webm`;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const options: MediaRecorderOptions = { audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
@@ -250,6 +264,11 @@ export function ReadingAudioCell({
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        if (cancelRecordingRef.current) {
+          cancelRecordingRef.current = false;
+          chunksRef.current = [];
+          return;
+        }
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
         if (blob.size === 0) return;
         setUploading(true);
@@ -262,8 +281,13 @@ export function ReadingAudioCell({
           setUploading(false);
         }
       };
+      // Falls das Audio-Panel in der Mobile-Bar geöffnet ist, beim Start der Aufnahme zuklappen.
+      if (mobileBar && mobileAudioOpen && onToggleMobileAudio) {
+        onToggleMobileAudio();
+      }
       mr.start();
       setRecording(true);
+      if (onRecordingChange) onRecordingChange(true);
       setRecordingPaused(false);
       startSilentPlayback();
       await requestWakeLock();
@@ -290,7 +314,21 @@ export function ReadingAudioCell({
       setRecordingPaused(false);
       releaseWakeLock();
       stopSilentPlayback();
+      if (onRecordingChange) onRecordingChange(false);
     }
+  };
+
+  const cancelRecording = () => {
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== 'inactive') {
+      cancelRecordingRef.current = true;
+      mr.stop();
+    }
+    setRecording(false);
+    setRecordingPaused(false);
+    releaseWakeLock();
+    stopSilentPlayback();
+    if (onRecordingChange) onRecordingChange(false);
   };
 
   const onFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,7 +395,59 @@ export function ReadingAudioCell({
         ))}
       {canEdit && showUploadControls && (
         <>
-          {recording ? (
+          {mobileBar ? (
+            recording ? (
+              <div className="relative h-full flex flex-col items-center justify-end pb-2 gap-3 translate-x-[1px]">
+                {/* Pause / Abbrechen deutlich oberhalb des Senden-Buttons, ohne Überlappung */}
+                <div className="absolute -top-20 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-10">
+                  <button
+                    type="button"
+                    onClick={toggleRecordingPause}
+                    className="w-8 h-8 rounded-full inline-flex items-center justify-center bg-gray-700 text-gray-200 hover:bg-gray-600 shadow-md"
+                    aria-label={recordingPaused ? 'Fortsetzen' : 'Pause'}
+                  >
+                    {recordingPaused ? <Play size={12} /> : <Pause size={12} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelRecording}
+                    className="w-8 h-8 rounded-full inline-flex items-center justify-center bg-rose-900/80 text-rose-200 hover:bg-rose-900 shadow-md"
+                    aria-label="Aufnahme abbrechen"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={sendRecording}
+                  className="w-12 h-12 rounded-full inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all transform hover:scale-105"
+                  aria-label="Aufnahme senden"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="relative h-full flex flex-col items-center justify-end pb-2 gap-2 translate-x-[1px]">
+                <button
+                  type="button"
+                  onClick={onToggleMobileAudio}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  aria-label="Aufnahmen anzeigen"
+                >
+                  {mobileAudioOpen ? <ChevronDown size={24} /> : <ChevronUp size={24} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  disabled={uploading}
+                  className="w-12 h-12 rounded-full inline-flex items-center justify-center bg-gray-700 hover:bg-gray-600 text-gray-200 shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Aufnahme starten"
+                >
+                  {uploading ? <Loader2 size={20} className="animate-spin" /> : <Mic size={20} />}
+                </button>
+              </div>
+            )
+          ) : recording ? (
             <>
               {!compact && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">

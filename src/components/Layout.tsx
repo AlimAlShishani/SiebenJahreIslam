@@ -13,6 +13,7 @@ export const Layout = () => {
   const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const hideMobileChromeForReader = location.pathname.startsWith('/quran');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -100,7 +101,7 @@ export const Layout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors">
-      <header className="bg-emerald-600 dark:bg-emerald-800 text-white shadow-md">
+      <header className={`bg-emerald-600 dark:bg-emerald-800 text-white shadow-md ${hideMobileChromeForReader ? 'max-md:hidden' : ''}`}>
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold font-serif">Nuruna</h1>
           <div className="flex items-center gap-1">
@@ -118,11 +119,11 @@ export const Layout = () => {
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 pt-0 pb-24 md:py-6 md:pb-24">
+      <main className={`flex-grow container mx-auto px-4 md:py-6 ${hideMobileChromeForReader ? 'pt-0 pb-0 md:pb-24' : 'pt-0 pb-24 md:pb-24'}`}>
         <Outlet />
       </main>
 
-      <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 left-0 right-0 z-50 w-full">
+      <nav className={`bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 left-0 right-0 z-50 w-full ${hideMobileChromeForReader ? 'max-md:hidden' : ''}`}>
         <div className="container mx-auto px-4">
           <ul className="flex justify-around md:justify-center md:gap-8 py-3">
             <li>
