@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
 import { useAuth } from '../context/AuthContext';
@@ -162,6 +162,8 @@ export default function Quran() {
   const todayLocalDate = toLocalDateString(effectiveToday);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const openReader = searchParams.get('openReader') === '1';
   const [assignments, setAssignments] = useState<DailyAssignment[]>(() => quranPageCache?.assignments ?? []);
   const [users, setUsers] = useState<any[]>(() => quranPageCache?.users ?? []);
   const [distributionUsers, setDistributionUsers] = useState<any[]>([]);
@@ -362,6 +364,16 @@ export default function Quran() {
     const showLoading = !firstLoadDoneRef.current;
     fetchData({ showLoading });
   }, [user?.id, selectedRamadanDay]);
+
+  useEffect(() => {
+    if (!openReader || loading || !user?.id || !currentGroupId) return;
+    const myAssignment = assignments.find((a) => a.user_id === user.id);
+    if (!myAssignment) return;
+    navigate(
+      `/quran/read?assignmentId=${encodeURIComponent(myAssignment.id)}&startPage=${myAssignment.start_page}&endPage=${myAssignment.end_page}&date=${encodeURIComponent(selectedDateStr)}&slot=hatim`,
+      { replace: true }
+    );
+  }, [openReader, loading, user?.id, currentGroupId, assignments, selectedDateStr, navigate]);
 
   const fetchData = async (opts?: { silent?: boolean; showLoading?: boolean }) => {
     const key = `${user?.id ?? ''}-${selectedRamadanDay}`;
@@ -1709,7 +1721,7 @@ export default function Quran() {
                                 type="button"
                                 onClick={() =>
                                   navigate(
-                                    `/quran?assignmentId=${encodeURIComponent(assignment.id)}&startPage=${assignment.start_page}&endPage=${assignment.end_page}&date=${encodeURIComponent(selectedDateStr)}`
+                                    `/quran/read?assignmentId=${encodeURIComponent(assignment.id)}&startPage=${assignment.start_page}&endPage=${assignment.end_page}&date=${encodeURIComponent(selectedDateStr)}&slot=hatim`
                                   )
                                 }
                                 className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"

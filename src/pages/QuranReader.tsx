@@ -37,12 +37,15 @@ const ARABIC_SUKOON = '\u0652';
 const QURANIC_SUKOON = '\u06E1';
 const SMALL_HIGH_ROUNDED_ZERO = '\u06DF';
 const MADD_LETTERS = new Set(['ا', 'و', 'ي', 'ى']);
-const FONT_SIZE_STORAGE_KEY = 'quran-reader-font-size';
+const FONT_SIZE_FLOW_STORAGE_KEY = 'quran-reader-font-size-flow';
+const FONT_SIZE_VERSE_STORAGE_KEY = 'quran-reader-font-size-verse';
+const DEFAULT_FONT_SIZE_FLOW = 25;
+const DEFAULT_FONT_SIZE_VERSE = 30;
 const VIEW_LAYOUT_STORAGE_KEY = 'quran-reader-view-layout';
 const QURAN_TEXT_STORAGE_KEY = 'quran-reader-text-type';
 const HIDE_PAUSE_MARKS_STORAGE_KEY = 'quran-reader-hide-pause-marks';
 const ARABIC_FONT_STORAGE_KEY = 'quran-reader-arabic-font';
-const DEFAULT_FONT_SIZE = 36;
+const LAST_LOCATION_STORAGE_KEY_PREFIX = 'quran-reader-last-location';
 
 type ViewLayout = 'verse' | 'flow';
 type ArabicFontChoice = 'uthmanic' | 'scheherazade';
@@ -246,6 +249,8 @@ export default function QuranReader() {
   const assignmentDate = searchParams.get('date');
   const assignmentStartPage = Number(searchParams.get('startPage') || 1);
   const assignmentEndPage = Number(searchParams.get('endPage') || 604);
+  const slot = searchParams.get('slot') ?? (assignmentId ? 'hatim' : 'free');
+  const lastLocationKey = `${LAST_LOCATION_STORAGE_KEY_PREFIX}-${slot}`;
 
   const [mode, setMode] = useState<ReaderMode>('arabic');
   const [quranTextType, setQuranTextType] = useState<QuranTextEdition>(() => {
@@ -266,9 +271,13 @@ export default function QuranReader() {
   const [translationEdition, setTranslationEdition] = useState(getDefaultTranslationEdition());
   const [translationOptions, setTranslationOptions] = useState<TranslationEdition[]>([]);
   const [fontSize, setFontSize] = useState(() => {
-    if (typeof window === 'undefined') return DEFAULT_FONT_SIZE;
-    const raw = Number(window.localStorage.getItem(FONT_SIZE_STORAGE_KEY));
-    if (!Number.isFinite(raw)) return DEFAULT_FONT_SIZE;
+    if (typeof window === 'undefined') return DEFAULT_FONT_SIZE_FLOW;
+    const layout = window.localStorage.getItem(VIEW_LAYOUT_STORAGE_KEY) === 'verse' ? 'verse' : 'flow';
+    const key = layout === 'verse' ? FONT_SIZE_VERSE_STORAGE_KEY : FONT_SIZE_FLOW_STORAGE_KEY;
+    const defaultVal = layout === 'verse' ? DEFAULT_FONT_SIZE_VERSE : DEFAULT_FONT_SIZE_FLOW;
+    let raw = Number(window.localStorage.getItem(key));
+    if (!Number.isFinite(raw)) raw = Number(window.localStorage.getItem('quran-reader-font-size'));
+    if (!Number.isFinite(raw)) return defaultVal;
     return Math.max(18, Math.min(56, Math.round(raw)));
   });
   const [viewLayout, setViewLayout] = useState<ViewLayout>(() => {
@@ -278,16 +287,86 @@ export default function QuranReader() {
   });
   const [verseIndexInPage, setVerseIndexInPage] = useState(0);
   const [versePageTransition, setVersePageTransition] = useState<'idle' | 'changing'>('idle');
-  const [pageInput, setPageInput] = useState(() => String(Math.max(1, Math.min(604, assignmentStartPage || 1))));
+  const [pageInput, setPageInput] = useState(() => {
+    const fallback = Math.max(1, Math.min(604, assignmentStartPage || 1));
+    if (typeof window === 'undefined') return String(fallback);
+    if (assignmentId) return String(fallback);
+    const raw = window.localStorage.getItem(lastLocationKey);
+    if (!raw) return String(fallback);
+    try {
+      const parsed = JSON.parse(raw) as { page?: number };
+      const p = Number(parsed.page);
+      if (Number.isFinite(p)) {
+        const clamped = Math.max(1, Math.min(604, Math.round(p)));
+        return String(clamped);
+      }
+    } catch {
+      // ignore
+    }
+    return String(fallback);
+  });
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [mobileAudioOpen, setMobileAudioOpen] = useState(false);
   const [surahs, setSurahs] = useState<SurahMeta[]>([]);
   const [selectedJuz, setSelectedJuz] = useState(1);
-  const [selectedSurah, setSelectedSurah] = useState(1);
-  const [selectedAyah, setSelectedAyah] = useState(1);
-  const [selectedVerseKey, setSelectedVerseKey] = useState<string | null>(null);
+  const [selectedSurah, setSelectedSurah] = useState(() => {
+    if (typeof window === 'undefined' || assignmentId) return 1;
+    const raw = window.localStorage.getItem(lastLocationKey);
+    if (!raw) return 1;
+    try {
+      const parsed = JSON.parse(raw) as { surah?: number };
+      const s = Number(parsed.surah);
+      if (Number.isFinite(s) && s >= 1 && s <= 114) return Math.floor(s);
+    } catch {
+      // ignore
+    }
+    return 1;
+  });
+  const [selectedAyah, setSelectedAyah] = useState(() => {
+    if (typeof window === 'undefined' || assignmentId) return 1;
+    const raw = window.localStorage.getItem(lastLocationKey);
+    if (!raw) return 1;
+    try {
+      const parsed = JSON.parse(raw) as { ayah?: number };
+      const a = Number(parsed.ayah);
+      if (Number.isFinite(a) && a >= 1) return Math.floor(a);
+    } catch {
+      // ignore
+    }
+    return 1;
+  });
+  const [selectedVerseKey, setSelectedVerseKey] = useState<string | null>(() => {
+    if (typeof window === 'undefined' || assignmentId) return null;
+    const raw = window.localStorage.getItem(lastLocationKey);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as { verseKey?: string };
+      if (parsed.verseKey && typeof parsed.verseKey === 'string') {
+        return parsed.verseKey;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
   const [pendingVerseSelection, setPendingVerseSelection] = useState<'first' | 'last' | null>(null);
-  const [currentPage, setCurrentPage] = useState(() => Math.max(1, Math.min(604, assignmentStartPage || 1)));
+  const [currentPage, setCurrentPage] = useState(() => {
+    const fallback = Math.max(1, Math.min(604, assignmentStartPage || 1));
+    if (typeof window === 'undefined') return fallback;
+    if (assignmentId) return fallback;
+    const raw = window.localStorage.getItem(lastLocationKey);
+    if (!raw) return fallback;
+    try {
+      const parsed = JSON.parse(raw) as { page?: number };
+      const p = Number(parsed.page);
+      if (Number.isFinite(p)) {
+        return Math.max(1, Math.min(604, Math.round(p)));
+      }
+    } catch {
+      // ignore
+    }
+    return fallback;
+  });
   const [pageData, setPageData] = useState<QuranPageData | null>(null);
   const [loadingPage, setLoadingPage] = useState(true);
   const [loadingJump, setLoadingJump] = useState(false);
@@ -547,12 +626,22 @@ export default function QuranReader() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(fontSize));
-  }, [fontSize]);
+    const key = viewLayout === 'verse' ? FONT_SIZE_VERSE_STORAGE_KEY : FONT_SIZE_FLOW_STORAGE_KEY;
+    window.localStorage.setItem(key, String(fontSize));
+  }, [fontSize, viewLayout]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(VIEW_LAYOUT_STORAGE_KEY, viewLayout);
+  }, [viewLayout]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = viewLayout === 'verse' ? FONT_SIZE_VERSE_STORAGE_KEY : FONT_SIZE_FLOW_STORAGE_KEY;
+    const defaultVal = viewLayout === 'verse' ? DEFAULT_FONT_SIZE_VERSE : DEFAULT_FONT_SIZE_FLOW;
+    const raw = Number(window.localStorage.getItem(key));
+    const next = Number.isFinite(raw) ? Math.max(18, Math.min(56, Math.round(raw))) : defaultVal;
+    setFontSize((prev) => (prev !== next ? next : prev));
   }, [viewLayout]);
 
   useEffect(() => {
@@ -601,6 +690,21 @@ export default function QuranReader() {
     window.localStorage.setItem(ARABIC_FONT_STORAGE_KEY, arabicFont);
     document.documentElement.setAttribute('data-quran-font', arabicFont);
   }, [arabicFont]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const payload = {
+      page: currentPage,
+      surah: selectedSurah,
+      ayah: selectedAyah,
+      verseKey: selectedVerseKey,
+    };
+    try {
+      window.localStorage.setItem(lastLocationKey, JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
+  }, [lastLocationKey, currentPage, selectedSurah, selectedAyah, selectedVerseKey]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1123,7 +1227,7 @@ export default function QuranReader() {
           <div className="flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={() => navigate('/hatim')}
+              onClick={() => navigate(assignmentId ? '/hatim' : '/quran')}
               className="h-8 w-8 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
               aria-label="Zurück"
             >
@@ -1208,7 +1312,7 @@ export default function QuranReader() {
               >
                 {Array.from({ length: ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
                   <option key={ayah} value={ayah}>
-                    Vers {ayah}/{ayahCountForSelectedSurah}
+                    Vers {ayah}
                   </option>
                 ))}
               </select>
@@ -1505,7 +1609,7 @@ export default function QuranReader() {
                         <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
                           <p
                             className="leading-relaxed text-gray-800 dark:text-gray-200 text-center"
-                            style={{ fontSize: `${Math.max(16, Math.round(fontSize * 0.5))}px` }}
+                            style={{ fontSize: `${Math.max(14, fontSize - 5)}px` }}
                           >
                             {translationText || 'Für diesen Vers ist aktuell keine Übersetzung verfügbar.'}
                           </p>
@@ -1584,60 +1688,59 @@ export default function QuranReader() {
       )}
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex justify-start items-end">
-        {/* Linke Gruppe: Lesezeichen & Pfeile & Aufnahme */}
+        {/* Bottom-Bar: feste Breitenverhältnisse 1/4 + 1/4 + 1/6 + 1/6 + 1/6 */}
         <div className="flex items-end pointer-events-auto w-full">
-          {/* Lesezeichen-Buttons */}
-          <div className="flex items-end w-1/2">
-            <button
-              type="button"
-              onClick={() => setMode('arabic')}
-              disabled={viewLayout === 'verse'}
-              className={`flex-1 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all ${
-                mode === 'arabic' && viewLayout !== 'verse'
-                  ? 'bg-gray-900 border-t border-x border-gray-500/60 text-gray-100 z-10'
-                  : 'bg-gray-800 text-gray-400 h-[3.25rem]'
-              } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
-            >
-              <span className="font-quran text-lg leading-none" dir="rtl">أ</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('translation')}
-              disabled={viewLayout === 'verse'}
-              className={`flex-1 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all ${
-                mode === 'translation' && viewLayout !== 'verse'
-                  ? 'bg-gray-900 border-t border-x border-gray-500/60 text-gray-100 z-10'
-                  : 'bg-gray-800 text-gray-400 h-[3.25rem]'
-              } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
-            >
-              <span className="font-bold text-base leading-none">A</span>
-            </button>
-          </div>
-
-          {/* Pfeil-Buttons (Grün) */}
-          <div className="flex items-center h-[4.25rem] bg-emerald-400 rounded-t-xl overflow-hidden shadow-lg">
+          {/* Arabisch: 1/4 */}
+          <button
+            type="button"
+            onClick={() => setMode('arabic')}
+            disabled={viewLayout === 'verse'}
+            className={`w-1/4 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all border-t border-x border-gray-500/60 ${
+              mode === 'arabic' && viewLayout !== 'verse'
+                ? 'bg-gray-900 text-gray-100 z-10 -translate-y-1 shadow-lg'
+                : 'bg-gray-800 text-gray-400 h-[3.25rem] border-transparent'
+            } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            <span className="font-quran text-lg leading-none" dir="rtl">أ</span>
+          </button>
+          {/* Deutsch: 1/4 */}
+          <button
+            type="button"
+            onClick={() => setMode('translation')}
+            disabled={viewLayout === 'verse'}
+            className={`w-1/4 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all border-t border-x border-gray-500/60 ${
+              mode === 'translation' && viewLayout !== 'verse'
+                ? 'bg-gray-900 text-gray-100 z-10 -translate-y-1 shadow-lg'
+                : 'bg-gray-800 text-gray-400 h-[3.25rem] border-transparent'
+            } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            <span className="font-bold text-base leading-none">A</span>
+          </button>
+          {/* Pfeil links: 1/6 */}
+          <div className="w-1/6 flex items-stretch">
             <button
               type="button"
               onClick={goToPreviousVerse}
-              className="w-14 h-full flex items-center justify-center text-white hover:bg-emerald-500 active:bg-emerald-600"
+              className="w-full h-[4.25rem] flex items-center justify-center bg-emerald-400 text-white hover:bg-emerald-500 active:bg-emerald-600 rounded-tl-xl shadow-lg"
               aria-label={viewLayout === 'verse' ? 'Vorheriger Vers' : 'Vorherige Seite'}
             >
               <ArrowLeft size={24} strokeWidth={3} />
             </button>
-            <div className="w-[2px] h-8 bg-white/40" />
+          </div>
+          {/* Pfeil rechts: 1/6 */}
+          <div className="w-1/6 flex items-stretch">
             <button
               type="button"
               onClick={goToNextVerse}
-              className="w-14 h-full flex items-center justify-center text-white hover:bg-emerald-500 active:bg-emerald-600"
+              className="w-full h-[4.25rem] flex items-center justify-center bg-emerald-400 text-white hover:bg-emerald-500 active:bg-emerald-600 shadow-lg"
               aria-label={viewLayout === 'verse' ? 'Nächster Vers' : 'Nächste Seite'}
             >
               <ArrowRight size={24} strokeWidth={3} />
             </button>
           </div>
-
-          {/* Aufnahme rechts ohne Abstand zu Pfeilen – skaliert bei aktiver Aufnahme */}
+          {/* Aufnahme: 1/6 – skaliert bei aktiver Aufnahme */}
           <div
-            className={`w-16 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-500/60 rounded-tl-3xl flex flex-col items-center justify-end py-2 pointer-events-auto shadow-lg transition-all duration-200 ${
+            className={`w-1/6 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-500/60 rounded-tl-3xl flex flex-col items-center justify-end py-2 pointer-events-auto shadow-lg transition-all duration-200 ${
               mobileRecording ? 'h-40' : 'h-24'
             }`}
           >

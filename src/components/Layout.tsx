@@ -13,7 +13,7 @@ export const Layout = () => {
   const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
-  const hideMobileChromeForReader = location.pathname.startsWith('/quran');
+  const hideMobileChromeForReader = location.pathname.startsWith('/quran/read');
 
   useEffect(() => {
     if (!user?.id) return;
