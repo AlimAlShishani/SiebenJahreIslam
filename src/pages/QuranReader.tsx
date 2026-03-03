@@ -1211,8 +1211,9 @@ export default function QuranReader() {
                                   {' '}
                                   <span
                                     className={mode === 'arabic'
-                                      ? `font-verse-num inline align-middle text-emerald-700 dark:text-emerald-300 text-3xl font-semibold mx-1.5 ${isSelected ? 'underline underline-offset-2' : ''}`
+                                      ? `font-verse-num inline align-middle text-emerald-700 dark:text-emerald-300 font-semibold mx-1.5 ${isSelected ? 'underline underline-offset-2' : ''}`
                                       : `text-emerald-600 dark:text-emerald-400 font-medium ${isSelected ? 'underline' : ''}`}
+                                    style={mode === 'arabic' ? { fontSize: `${fontSize}px` } : undefined}
                                   >
                                     {num}
                                   </span>
