@@ -175,7 +175,7 @@ export default function Quran() {
   const [generating, setGenerating] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [showManageGroupModal, setShowManageGroupModal] = useState(false);
-  const [managingGroup, setManagingGroup] = useState(false);
+  const [, setManagingGroup] = useState(false);
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // Voting (nur wenn in Gruppe)
