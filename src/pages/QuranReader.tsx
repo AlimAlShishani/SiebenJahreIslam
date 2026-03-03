@@ -298,6 +298,7 @@ export default function QuranReader() {
       return [];
     }
   });
+  const [copiedVerseId, setCopiedVerseId] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_FONT_SIZE_FLOW;
     const layout = window.localStorage.getItem(VIEW_LAYOUT_STORAGE_KEY) === 'verse' ? 'verse' : 'flow';
@@ -1684,14 +1685,24 @@ export default function QuranReader() {
                                     // Fallback: nur bestmöglicher Versuch
                                     window.prompt('Text zum Kopieren:', textToCopy);
                                   }
+                                  setCopiedVerseId(currentVerseId);
+                                  if (typeof window !== 'undefined') {
+                                    window.setTimeout(() => {
+                                      setCopiedVerseId((prev) => (prev === currentVerseId ? null : prev));
+                                    }, 3000);
+                                  }
                                 } catch {
                                   // ignore
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-white/80 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                                copiedVerseId === currentVerseId
+                                  ? 'bg-emerald-600 border-emerald-700 text-white'
+                                  : 'bg-white/80 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
+                              }`}
                             >
                               <span className="text-sm leading-none">📋</span>
-                              <span>Kopieren</span>
+                              <span>{copiedVerseId === currentVerseId ? 'Kopiert' : 'Kopieren'}</span>
                             </button>
                           </div>
                         </div>

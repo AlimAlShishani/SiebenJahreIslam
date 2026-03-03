@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy, ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 type SavedVerse = {
   id: string;
@@ -16,11 +16,14 @@ type SavedVerse = {
 
 export default function Profile() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [savedVerses, setSavedVerses] = useState<SavedVerse[]>([]);
+  const [openVerseId, setOpenVerseId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -164,46 +167,92 @@ export default function Profile() {
               </p>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                {savedVerses.map((v) => (
-                  <div
-                    key={v.id}
-                    className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/70 p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                      <span>Sure {v.surahNumber}, Vers {v.ayahNumber}</span>
-                      <span className="font-mono">
-                        {new Date(v.savedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="font-quran text-lg leading-relaxed text-gray-900 dark:text-gray-100 text-center" dir="rtl">
-                      {v.arabic}
-                    </p>
-                    <p className="text-sm text-gray-800 dark:text-gray-200 text-center">
-                      {v.translation || <span className="text-gray-500 dark:text-gray-400 text-xs">Keine Übersetzung gespeichert.</span>}
-                    </p>
-                    <div className="flex justify-end gap-2 pt-1">
+                {savedVerses.map((v) => {
+                  const isOpen = openVerseId === v.id;
+                  const isCopied = copiedId === v.id;
+                  return (
+                    <div
+                      key={v.id}
+                      className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/70 p-3 space-y-2"
+                    >
                       <button
                         type="button"
-                        onClick={async () => {
-                          const textToCopy = `${v.arabic}\n\n${v.translation}`;
-                          try {
-                            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                              await navigator.clipboard.writeText(textToCopy);
-                            } else if (typeof window !== 'undefined') {
-                              window.prompt('Text zum Kopieren:', textToCopy);
-                            }
-                          } catch {
-                            // ignore
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium border bg-white/80 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                        onClick={() => setOpenVerseId(isOpen ? null : v.id)}
+                        className="w-full flex items-center justify-between text-[11px] text-gray-700 dark:text-gray-200"
                       >
-                        <Copy size={12} />
-                        <span>Kopieren</span>
+                        <div className="flex flex-col items-start">
+                          <span className="font-semibold">
+                            Sure {v.surahNumber}, Vers {v.ayahNumber}
+                          </span>
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            Seite {v.pageNumber} • {new Date(v.savedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <ChevronDown
+                          size={14}
+                          className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        />
                       </button>
+                      {isOpen && (
+                        <div className="pt-2 space-y-2">
+                          <p className="font-quran text-lg leading-relaxed text-gray-900 dark:text-gray-100 text-center" dir="rtl">
+                            {v.arabic}
+                          </p>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 text-center">
+                            {v.translation || (
+                              <span className="text-gray-500 dark:text-gray-400 text-xs">
+                                Keine Übersetzung gespeichert.
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigate(
+                                  `/quran/read?slot=saved&surah=${v.surahNumber}&ayah=${v.ayahNumber}`
+                                );
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium border bg-white/80 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                            >
+                              <BookOpen size={12} />
+                              <span>Im Reader öffnen</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const textToCopy = `${v.arabic}\n\n${v.translation}`;
+                                try {
+                                  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                                    await navigator.clipboard.writeText(textToCopy);
+                                  } else if (typeof window !== 'undefined') {
+                                    window.prompt('Text zum Kopieren:', textToCopy);
+                                  }
+                                  setCopiedId(v.id);
+                                  if (typeof window !== 'undefined') {
+                                    window.setTimeout(() => {
+                                      setCopiedId((prev) => (prev === v.id ? null : prev));
+                                    }, 3000);
+                                  }
+                                } catch {
+                                  // ignore
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium border ${
+                                isCopied
+                                  ? 'bg-emerald-600 border-emerald-700 text-white'
+                                  : 'bg-white/80 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
+                              }`}
+                            >
+                              <Copy size={12} />
+                              <span>{isCopied ? 'Kopiert' : 'Kopieren'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
