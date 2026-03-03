@@ -824,7 +824,13 @@ export default function QuranReader() {
   };
 
   return (
-    <div className="space-y-4 pb-44 md:pb-0">
+    <div
+      className={`pb-44 md:pb-0 ${
+        viewLayout === 'verse'
+          ? 'max-md:h-full max-md:overflow-hidden max-md:flex max-md:flex-col max-md:min-h-0 max-md:space-y-0 max-md:pb-0'
+          : 'space-y-4'
+      }`}
+    >
       <div className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="text-sm text-gray-600 dark:text-gray-300">
@@ -961,44 +967,20 @@ export default function QuranReader() {
         </div>
       </div>
 
-      {/* Mobile: sticky oben – unter Nuruna-Leiste, klebt am Bildschirmrand sobald Nuruna weggescrollt ist */}
-      <div className="md:hidden sticky top-0 z-30 px-2 pt-1 pb-2 bg-gray-50 dark:bg-gray-900">
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg p-2 space-y-2">
+      {/* Mobile: oben fixiert – bleibt beim Scrollen am oberen Rand sichtbar */}
+      <div
+        className={`md:hidden sticky top-0 z-30 bg-gray-50 dark:bg-gray-900 shrink-0 ${
+          viewLayout === 'verse' ? 'px-1.5 pt-0 pb-1' : 'px-2 pt-0 pb-2'
+        }`}
+      >
+        <div
+          className={`bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg space-y-2 ${
+            viewLayout === 'verse' ? 'p-1.5 space-y-1.5' : 'p-2 space-y-2'
+          }`}
+        >
+          {/* 1. Zeile: Juz, Surah, Ayah + Versbereich/Freier Modus */}
           <div className="flex items-center justify-between gap-2">
-            <div className="inline-flex rounded-md bg-gray-100 dark:bg-gray-800 p-1">
-              <button
-                type="button"
-                onClick={() => setMode('arabic')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  mode === 'arabic'
-                    ? 'bg-white dark:bg-gray-900 text-emerald-700 dark:text-emerald-300'
-                    : 'text-gray-600 dark:text-gray-300'
-                }`}
-              >
-                Arabisch
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('translation')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  mode === 'translation'
-                    ? 'bg-white dark:bg-gray-900 text-emerald-700 dark:text-emerald-300'
-                    : 'text-gray-600 dark:text-gray-300'
-                }`}
-              >
-                Übersetzung
-              </button>
-            </div>
-            {hasAssignmentContext ? (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                {assignmentStartPage}-{assignmentEndPage}
-              </span>
-            ) : (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">Freier Modus</span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1 flex-1 min-w-0">
             <select
               value={selectedJuz}
               onChange={(e) => {
@@ -1045,8 +1027,17 @@ export default function QuranReader() {
                 </option>
               ))}
             </select>
+            </div>
+            {hasAssignmentContext ? (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
+                {assignmentStartPage}-{assignmentEndPage}
+              </span>
+            ) : (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">Freier Modus</span>
+            )}
           </div>
 
+          {/* 2. Zeile: Seiten-Navigation */}
           <div className="flex items-center justify-center gap-1">
             {mode === 'arabic' ? (
               <>
@@ -1138,6 +1129,32 @@ export default function QuranReader() {
               </>
             )}
           </div>
+
+          {/* 3. Zeile: Arabisch / Übersetzung (zwei große Buttons wie bild2) */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMode('arabic')}
+              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+                mode === 'arabic'
+                  ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500/50 dark:border-emerald-400/50 shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              Arabisch
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('translation')}
+              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+                mode === 'translation'
+                  ? 'bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500/50 dark:border-emerald-400/50 shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              Übersetzung
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1154,7 +1171,13 @@ export default function QuranReader() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0">
+      <div
+        className={`grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0 ${
+          viewLayout === 'verse'
+            ? 'max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden max-md:items-stretch max-md:gap-1 max-md:pt-0'
+            : ''
+        }`}
+      >
         <aside className="hidden md:block space-y-4 h-fit lg:sticky lg:top-4">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Reader Einstellungen</h3>
@@ -1188,7 +1211,13 @@ export default function QuranReader() {
           </div>
         </aside>
 
-        <section className="relative bg-white dark:bg-gray-800 p-4 sm:p-6 md:pr-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[24rem]">
+        <section
+          className={`relative bg-white dark:bg-gray-800 p-4 sm:p-6 md:pr-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[24rem] ${
+            viewLayout === 'verse'
+              ? 'max-md:h-[calc(100dvh-24rem)] max-md:min-h-0 max-md:overflow-hidden max-md:flex max-md:flex-col max-md:shrink-0 max-md:p-3'
+              : ''
+          }`}
+        >
           {/* Desktop: Lesezeichen nur im Fließtext; in Einzelvers-Ansicht ausgeblendet */}
           {viewLayout === 'flow' && (
           <div className="hidden md:flex absolute top-6 right-0 translate-x-full flex-col gap-3 z-10">
@@ -1232,8 +1261,8 @@ export default function QuranReader() {
             <div className="py-10 text-center text-rose-600 dark:text-rose-400">{errorMessage}</div>
           )}
           {!loadingPage && !loadingJump && !errorMessage && pageData && (
-            <div className="space-y-4">
-              <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2">
+            <div className={`space-y-4 ${viewLayout === 'verse' ? 'max-md:flex max-md:flex-col max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden max-md:space-y-2' : ''}`}>
+              <div className={`text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2 ${viewLayout === 'verse' ? 'max-md:shrink-0 max-md:py-0' : ''}`}>
                 <span>Seite {pageData.pageNumber}</span>
                 <span>•</span>
                 <span>Juz {pageData.juzNumber}</span>
@@ -1391,14 +1420,14 @@ export default function QuranReader() {
 
                 return (
                   <div
-                    className={`relative flex h-[28rem] transition-all duration-300 ease-out ${
+                    className={`relative flex flex-1 min-h-0 md:h-[28rem] transition-all duration-300 ease-out ${
                       versePageTransition === 'changing'
                         ? 'opacity-0 translate-x-3'
                         : 'opacity-100 translate-x-0'
                     }`}
                   >
                     <div className="flex-1 min-w-0 pr-4 flex flex-col min-h-0">
-                      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 py-2">
+                      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0">
                         <div className="text-center">
                           <p
                             className="leading-loose font-quran text-gray-900 dark:text-gray-100"
@@ -1420,33 +1449,43 @@ export default function QuranReader() {
                           </p>
                         </div>
                       </div>
-                      <div className="shrink-0 flex items-center justify-center gap-4 pt-4 pb-1 border-t border-gray-200 dark:border-gray-600">
+                      <div className="shrink-0 flex flex-wrap items-center justify-center gap-2 pt-4 pb-1 border-t border-gray-200 dark:border-gray-600 md:gap-4">
                         <button
                           type="button"
                           onClick={goPrev}
                           disabled={atFirstVerse && currentPage <= 1}
-                          className={`px-4 py-2 rounded-lg font-medium shrink-0 ${
+                          title={atFirstVerse && currentPage > 1 ? 'Vorherige Seite' : 'Vorheriger Vers'}
+                          className={`px-2 py-1.5 text-xs rounded-lg font-medium min-w-0 md:px-4 md:py-2 md:text-base ${
                             atFirstVerse && currentPage > 1
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:pointer-events-none'
                           }`}
                         >
-                          {atFirstVerse && currentPage > 1 ? '← Vorherige Seite' : '← Vorheriger'}
+                          {atFirstVerse && currentPage > 1 ? (
+                            <><span className="md:hidden">← Seite</span><span className="hidden md:inline">← Vorherige Seite</span></>
+                          ) : (
+                            <><span className="md:hidden">←</span><span className="hidden md:inline">← Vorheriger</span></>
+                          )}
                         </button>
-                        <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 md:text-sm">
                           Vers {safeIndex + 1} von {totalVerses}
                         </span>
                         <button
                           type="button"
                           onClick={goNext}
                           disabled={atLastVerse && currentPage >= 604}
-                          className={`px-4 py-2 rounded-lg font-medium shrink-0 ${
+                          title={atLastVerse && currentPage < 604 ? 'Nächste Seite' : 'Nächster Vers'}
+                          className={`px-2 py-1.5 text-xs rounded-lg font-medium min-w-0 md:px-4 md:py-2 md:text-base ${
                             atLastVerse && currentPage < 604
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:pointer-events-none'
                           }`}
                         >
-                          {atLastVerse && currentPage < 604 ? 'Nächste Seite →' : 'Nächster →'}
+                          {atLastVerse && currentPage < 604 ? (
+                            <><span className="md:hidden">Seite →</span><span className="hidden md:inline">Nächste Seite →</span></>
+                          ) : (
+                            <><span className="md:hidden">→</span><span className="hidden md:inline">Nächster →</span></>
+                          )}
                         </button>
                       </div>
                     </div>

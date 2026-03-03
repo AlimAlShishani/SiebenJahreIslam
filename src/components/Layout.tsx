@@ -118,7 +118,7 @@ export const Layout = () => {
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-6 pb-24">
+      <main className="flex-grow container mx-auto px-4 pt-0 pb-24 md:py-6 md:pb-24">
         <Outlet />
       </main>
 
