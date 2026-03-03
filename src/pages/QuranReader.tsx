@@ -1672,7 +1672,7 @@ export default function QuranReader() {
       </div>
 
       {mobileAudioOpen && hasAssignmentContext && assignment && (
-        <div className="md:hidden fixed bottom-[5.5rem] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">
+        <div className="md:hidden fixed bottom-[6.75rem] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">
           <ReadingAudioCell
             assignmentId={assignment.id}
             audioUrls={normalizeAudioUrls(assignment)}
