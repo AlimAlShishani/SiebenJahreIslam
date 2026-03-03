@@ -210,7 +210,7 @@ export default function Profile() {
                               type="button"
                               onClick={() => {
                                 navigate(
-                                  `/quran/read?slot=saved&surah=${v.surahNumber}&ayah=${v.ayahNumber}`
+                                  `/quran/read?slot=saved&startPage=${v.pageNumber}&surah=${v.surahNumber}&ayah=${v.ayahNumber}`
                                 );
                               }}
                               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium border bg-white/80 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"

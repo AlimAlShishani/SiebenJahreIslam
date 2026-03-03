@@ -259,6 +259,8 @@ export default function QuranReader() {
   const assignmentDate = searchParams.get('date');
   const assignmentStartPage = Number(searchParams.get('startPage') || 1);
   const assignmentEndPage = Number(searchParams.get('endPage') || 604);
+  const initialSurahParam = Number(searchParams.get('surah') || 0);
+  const initialAyahParam = Number(searchParams.get('ayah') || 0);
   const slot = searchParams.get('slot') ?? (assignmentId ? 'hatim' : 'free');
   const lastLocationKey = `${LAST_LOCATION_STORAGE_KEY_PREFIX}-${slot}`;
 
@@ -636,7 +638,17 @@ export default function QuranReader() {
       return;
     }
     let verseToSelect = visibleVerses[0];
-    if (pendingVerseSelection === 'last') {
+    if (
+      initialSurahParam &&
+      initialAyahParam &&
+      !pendingVerseSelection &&
+      !selectedVerseKey
+    ) {
+      const target = visibleVerses.find(
+        (v) => v.surahNumber === initialSurahParam && v.ayahNumber === initialAyahParam
+      );
+      if (target) verseToSelect = target;
+    } else if (pendingVerseSelection === 'last') {
       verseToSelect = visibleVerses[visibleVerses.length - 1];
     } else if (pendingVerseSelection !== 'first') {
       const existing = selectedVerseKey ? visibleVerses.find((v) => v.key === selectedVerseKey) : null;
@@ -646,7 +658,7 @@ export default function QuranReader() {
     setSelectedSurah(verseToSelect.surahNumber);
     setSelectedAyah(verseToSelect.ayahNumber);
     if (pendingVerseSelection) setPendingVerseSelection(null);
-  }, [pageData, pendingVerseSelection, selectedVerseKey]);
+  }, [pageData, pendingVerseSelection, selectedVerseKey, initialSurahParam, initialAyahParam]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
