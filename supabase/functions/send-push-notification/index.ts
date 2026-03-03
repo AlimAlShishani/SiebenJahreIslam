@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
-type ActivityType = 'audio_added' | 'plan_updated';
+type ActivityType = 'audio_added' | 'plan_updated' | 'plan_cleared';
 
 interface PushPayload {
   group_id?: string;
@@ -26,6 +26,9 @@ const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com
 const getMessage = (activityType: ActivityType, juzNumber: number, actorName: string) => {
   if (activityType === 'plan_updated') {
     return `JUZ ${juzNumber} | ${actorName} hat den Plan neu verteilt`;
+  }
+  if (activityType === 'plan_cleared') {
+    return `JUZ ${juzNumber} | ${actorName} hat die Verteilung gelöscht`;
   }
   return `JUZ ${juzNumber} | ${actorName} hat ein Audio hochgeladen`;
 };

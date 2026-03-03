@@ -176,6 +176,7 @@ export default function Quran() {
   const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [showManageGroupModal, setShowManageGroupModal] = useState(false);
   const [, setManagingGroup] = useState(false);
+  const [clearingPlan, setClearingPlan] = useState(false);
   const [pagesPerUser, setPagesPerUser] = useState<number[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // Voting (nur wenn in Gruppe)
@@ -239,6 +240,9 @@ export default function Quran() {
     const actor = getActorName(log);
     if (log.activity_type === 'plan_updated') {
       return `JUZ ${log.juz_number} | ${actor} hat den Plan neu verteilt`;
+    }
+    if (log.activity_type === 'plan_cleared') {
+      return `JUZ ${log.juz_number} | ${actor} hat die Verteilung gelöscht`;
     }
     return `JUZ ${log.juz_number} | ${actor} hat ein Audio hochgeladen`;
   };
@@ -523,9 +527,12 @@ export default function Quran() {
           setActivityLogs((prev) => [log, ...prev.filter((x) => x.id !== log.id)].slice(0, 200));
 
           const actorName = actor?.full_name || actor?.email || 'Jemand';
-          const message = row.activity_type === 'plan_updated'
-            ? `JUZ ${row.juz_number} | ${actorName} hat den Plan neu verteilt`
-            : `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
+          const message =
+            row.activity_type === 'plan_updated'
+              ? `JUZ ${row.juz_number} | ${actorName} hat den Plan neu verteilt`
+              : row.activity_type === 'plan_cleared'
+                ? `JUZ ${row.juz_number} | ${actorName} hat die Verteilung gelöscht`
+                : `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
           setActivityToast({ id: row.id, message, juzNumber: row.juz_number });
 
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -905,6 +912,49 @@ export default function Quran() {
       alert('Fehler beim Generieren des Plans.');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const clearDistribution = async () => {
+    if (!currentGroupId || !isGroupOwner) return;
+    if (
+      !window.confirm(
+        `Verteilung für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay} wirklich zurücksetzen? Der Leseplan wird gelöscht.`
+      )
+    )
+      return;
+    setClearingPlan(true);
+    try {
+      const { error } = await supabase
+        .from('daily_reading_status')
+        .delete()
+        .eq('group_id', currentGroupId)
+        .eq('date', selectedDateStr);
+      if (error) throw error;
+      if (user?.id) {
+        const logPayload = {
+          group_id: currentGroupId,
+          date: selectedDateStr,
+          juz_number: selectedRamadanDay,
+          activity_type: 'plan_cleared',
+          actor_user_id: user.id,
+          assignment_user_id: null,
+        } as const;
+        await supabase.from('reading_activity_logs').insert(logPayload);
+        void triggerPushForActivity({
+          group_id: currentGroupId,
+          date: logPayload.date,
+          juz_number: logPayload.juz_number,
+          activity_type: logPayload.activity_type,
+          actor_user_id: logPayload.actor_user_id,
+        });
+      }
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      alert('Fehler beim Zurücksetzen der Verteilung.');
+    } finally {
+      setClearingPlan(false);
     }
   };
 
@@ -1567,6 +1617,16 @@ export default function Quran() {
                 {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                 {visibleAssignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
               </button>
+              {visibleAssignments.length > 0 && (
+                <button
+                  onClick={clearDistribution}
+                  disabled={generating || clearingPlan}
+                  className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium flex items-center gap-1 bg-red-50 dark:bg-red-900/30 px-3 py-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                >
+                  {clearingPlan ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  Verteilung löschen
+                </button>
+              )}
             </div>
           )}
         </div>

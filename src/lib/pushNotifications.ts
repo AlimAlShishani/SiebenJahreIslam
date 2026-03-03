@@ -63,7 +63,7 @@ export const triggerPushForActivity = async (payload: {
   group_id?: string;
   date: string;
   juz_number: number;
-  activity_type: 'audio_added' | 'plan_updated';
+  activity_type: 'audio_added' | 'plan_updated' | 'plan_cleared';
   actor_user_id: string;
 }) => {
   const { error } = await supabase.functions.invoke('send-push-notification', {
