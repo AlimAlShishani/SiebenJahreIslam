@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { User, Save, Mail, Hash, Shield } from 'lucide-react';
+import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+type SavedVerse = {
+  id: string;
+  surahNumber: number;
+  ayahNumber: number;
+  pageNumber: number;
+  arabic: string;
+  translation: string;
+  savedAt: string;
+};
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -10,12 +20,40 @@ export default function Profile() {
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [savedVerses, setSavedVerses] = useState<SavedVerse[]>([]);
 
   useEffect(() => {
     if (user) {
       fetchProfile();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('quran-saved-verses');
+      if (!raw) {
+        setSavedVerses([]);
+        return;
+      }
+      const parsed = JSON.parse(raw) as SavedVerse[] | unknown;
+      if (!Array.isArray(parsed)) {
+        setSavedVerses([]);
+        return;
+      }
+      const cleaned = parsed.filter(
+        (v: any): v is SavedVerse =>
+          v &&
+          typeof v.id === 'string' &&
+          typeof v.surahNumber === 'number' &&
+          typeof v.ayahNumber === 'number'
+      );
+      cleaned.sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+      setSavedVerses(cleaned);
+    } catch {
+      setSavedVerses([]);
+    }
+  }, []);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -114,6 +152,61 @@ export default function Profile() {
               {loading ? 'Speichert...' : <><Save size={20} /> Änderungen speichern</>}
             </button>
           </form>
+
+          <div className="border-t border-gray-100 dark:border-gray-600 pt-6 space-y-3">
+            <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+              <Bookmark size={16} />
+              Gespeicherte Verse
+            </h4>
+            {savedVerses.length === 0 ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Du hast noch keine Verse gespeichert. Markiere in der Einzelversansicht einen Vers mit dem Stern, um ihn hier zu sehen.
+              </p>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {savedVerses.map((v) => (
+                  <div
+                    key={v.id}
+                    className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/70 p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                      <span>Sure {v.surahNumber}, Vers {v.ayahNumber}</span>
+                      <span className="font-mono">
+                        {new Date(v.savedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="font-quran text-lg leading-relaxed text-gray-900 dark:text-gray-100 text-center" dir="rtl">
+                      {v.arabic}
+                    </p>
+                    <p className="text-sm text-gray-800 dark:text-gray-200 text-center">
+                      {v.translation || <span className="text-gray-500 dark:text-gray-400 text-xs">Keine Übersetzung gespeichert.</span>}
+                    </p>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const textToCopy = `${v.arabic}\n\n${v.translation}`;
+                          try {
+                            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                              await navigator.clipboard.writeText(textToCopy);
+                            } else if (typeof window !== 'undefined') {
+                              window.prompt('Text zum Kopieren:', textToCopy);
+                            }
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium border bg-white/80 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                      >
+                        <Copy size={12} />
+                        <span>Kopieren</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="border-t border-gray-100 dark:border-gray-600 pt-6 space-y-3">
             <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Account Details</h4>

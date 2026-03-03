@@ -46,9 +46,19 @@ const QURAN_TEXT_STORAGE_KEY = 'quran-reader-text-type';
 const HIDE_PAUSE_MARKS_STORAGE_KEY = 'quran-reader-hide-pause-marks';
 const ARABIC_FONT_STORAGE_KEY = 'quran-reader-arabic-font';
 const LAST_LOCATION_STORAGE_KEY_PREFIX = 'quran-reader-last-location';
+const SAVED_VERSES_STORAGE_KEY = 'quran-saved-verses';
 
 type ViewLayout = 'verse' | 'flow';
 type ArabicFontChoice = 'uthmanic' | 'scheherazade';
+type SavedVerse = {
+  id: string;
+  surahNumber: number;
+  ayahNumber: number;
+  pageNumber: number;
+  arabic: string;
+  translation: string;
+  savedAt: string;
+};
 const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
   'quran-uthmani',
   'quran-uthmani-min',
@@ -270,6 +280,24 @@ export default function QuranReader() {
   });
   const [translationEdition, setTranslationEdition] = useState(getDefaultTranslationEdition());
   const [translationOptions, setTranslationOptions] = useState<TranslationEdition[]>([]);
+  const [savedVerses, setSavedVerses] = useState<SavedVerse[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem(SAVED_VERSES_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as SavedVerse[] | unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (v: any): v is SavedVerse =>
+          v &&
+          typeof v.id === 'string' &&
+          typeof v.surahNumber === 'number' &&
+          typeof v.ayahNumber === 'number'
+      );
+    } catch {
+      return [];
+    }
+  });
   const [fontSize, setFontSize] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_FONT_SIZE_FLOW;
     const layout = window.localStorage.getItem(VIEW_LAYOUT_STORAGE_KEY) === 'verse' ? 'verse' : 'flow';
@@ -1426,13 +1454,6 @@ export default function QuranReader() {
           )}
           {!loadingPage && !loadingJump && !errorMessage && pageData && (
             <div className={`space-y-4 max-md:flex max-md:flex-col max-md:flex-1 max-md:min-h-0 max-md:overflow-hidden ${viewLayout === 'verse' ? 'max-md:space-y-2' : ''}`}>
-              <div className={`text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2 ${viewLayout === 'verse' ? 'max-md:shrink-0 max-md:py-0' : 'max-md:shrink-0'}`}>
-                <span>Seite {pageData.pageNumber}</span>
-                <span>•</span>
-                <span>Juz {pageData.juzNumber}</span>
-                <span>•</span>
-                <span>Übersetzung: {pageData.translationEditionUsed}</span>
-              </div>
               {viewLayout === 'flow' ? (() => {
                 type Segment = { surahNumber: number; showHeader: boolean; showBismillah: boolean; verses: QuranVerse[] };
                 const segments: Segment[] = [];
@@ -1583,6 +1604,9 @@ export default function QuranReader() {
                   ? getFirstVerseTranslationOnly(currentVerse.translationText)
                   : (currentVerse.translationText || '');
 
+                const currentVerseId = `${currentVerse.surahNumber}:${currentVerse.ayahNumber}`;
+                const isBookmarked = savedVerses.some((v) => v.id === currentVerseId);
+
                 return (
                   <div
                     className={`relative flex flex-1 min-h-0 md:h-[28rem] transition-all duration-300 ease-out ${
@@ -1592,26 +1616,84 @@ export default function QuranReader() {
                     }`}
                   >
                     <div className="flex-1 min-w-0 pr-4 flex flex-col min-h-0">
-                      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0">
-                        <div className="text-center">
-                          <p
-                            className="leading-loose font-quran text-gray-900 dark:text-gray-100"
-                            dir="rtl"
-                            style={{ fontSize: `${fontSize}px` }}
-                          >
-                            {renderArabicWithPauseMarks(arabicText, hidePauseMarks)}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                            {currentVerse.surahNumber}:{currentVerse.ayahNumber}
-                          </p>
-                        </div>
-                        <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
-                          <p
-                            className="leading-relaxed text-gray-800 dark:text-gray-200 text-center"
-                            style={{ fontSize: `${Math.max(14, fontSize - 5)}px` }}
-                          >
-                            {translationText || 'Für diesen Vers ist aktuell keine Übersetzung verfügbar.'}
-                          </p>
+                      <div className="flex-1 min-h-0 overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0">
+                        <div className="h-full flex flex-col">
+                          <div className="flex-1 flex flex-col items-center justify-center text-center">
+                            <p
+                              className="leading-loose font-quran text-gray-900 dark:text-gray-100"
+                              dir="rtl"
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {renderArabicWithPauseMarks(arabicText, hidePauseMarks)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {currentVerse.surahNumber}:{currentVerse.ayahNumber}
+                            </p>
+                          </div>
+                          <div className="flex-1 flex items-center justify-center border-t border-gray-200 dark:border-gray-600 pt-4 mt-2">
+                            <p
+                              className="leading-relaxed text-gray-800 dark:text-gray-200 text-center"
+                              style={{ fontSize: `${Math.max(14, fontSize - 5)}px` }}
+                            >
+                              {translationText || 'Für diesen Vers ist aktuell keine Übersetzung verfügbar.'}
+                            </p>
+                          </div>
+                          <div className="mt-3 flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const base: SavedVerse = {
+                                  id: currentVerseId,
+                                  surahNumber: currentVerse.surahNumber,
+                                  ayahNumber: currentVerse.ayahNumber,
+                                  pageNumber: currentPage,
+                                  arabic: arabicText,
+                                  translation: translationText,
+                                  savedAt: new Date().toISOString(),
+                                };
+                                setSavedVerses((prev) => {
+                                  const exists = prev.some((v) => v.id === currentVerseId);
+                                  const next = exists ? prev.filter((v) => v.id !== currentVerseId) : [...prev, base];
+                                  if (typeof window !== 'undefined') {
+                                    try {
+                                      window.localStorage.setItem(SAVED_VERSES_STORAGE_KEY, JSON.stringify(next));
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                                isBookmarked
+                                  ? 'bg-emerald-600 border-emerald-700 text-white'
+                                  : 'bg-white/80 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
+                              }`}
+                            >
+                              <span className="text-base leading-none">{isBookmarked ? '★' : '☆'}</span>
+                              <span>{isBookmarked ? 'Gespeichert' : 'Speichern'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const textToCopy = `${arabicText}\n\n${translationText}`;
+                                try {
+                                  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                                    await navigator.clipboard.writeText(textToCopy);
+                                  } else if (typeof window !== 'undefined') {
+                                    // Fallback: nur bestmöglicher Versuch
+                                    window.prompt('Text zum Kopieren:', textToCopy);
+                                  }
+                                } catch {
+                                  // ignore
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border bg-white/80 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                            >
+                              <span className="text-sm leading-none">📋</span>
+                              <span>Kopieren</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <div className="hidden md:flex shrink-0 flex-wrap items-center justify-center gap-2 pt-4 pb-1 border-t border-gray-200 dark:border-gray-600 md:gap-4">
