@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ArrowUp, BookOpen, Loader2, Mic, Settings } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
@@ -275,8 +275,7 @@ export default function QuranReader() {
     const layout = window.localStorage.getItem(VIEW_LAYOUT_STORAGE_KEY) === 'verse' ? 'verse' : 'flow';
     const key = layout === 'verse' ? FONT_SIZE_VERSE_STORAGE_KEY : FONT_SIZE_FLOW_STORAGE_KEY;
     const defaultVal = layout === 'verse' ? DEFAULT_FONT_SIZE_VERSE : DEFAULT_FONT_SIZE_FLOW;
-    let raw = Number(window.localStorage.getItem(key));
-    if (!Number.isFinite(raw)) raw = Number(window.localStorage.getItem('quran-reader-font-size'));
+    const raw = Number(window.localStorage.getItem(key));
     if (!Number.isFinite(raw)) return defaultVal;
     return Math.max(18, Math.min(56, Math.round(raw)));
   });
@@ -1716,26 +1715,26 @@ export default function QuranReader() {
           >
             <span className="font-bold text-base leading-none">A</span>
           </button>
-          {/* Pfeil links: 1/6 */}
+          {/* Pfeil oben (vorheriger Vers): 1/6 */}
           <div className="w-1/6 flex items-stretch">
             <button
               type="button"
               onClick={goToPreviousVerse}
               className="w-full h-[4.25rem] flex items-center justify-center bg-emerald-400 text-white hover:bg-emerald-500 active:bg-emerald-600 rounded-tl-xl shadow-lg"
-              aria-label={viewLayout === 'verse' ? 'Vorheriger Vers' : 'Vorherige Seite'}
+              aria-label="Vorheriger Vers"
             >
-              <ArrowLeft size={24} strokeWidth={3} />
+              <ArrowUp size={24} strokeWidth={3} />
             </button>
           </div>
-          {/* Pfeil rechts: 1/6 */}
+          {/* Pfeil unten (nächster Vers): 1/6 */}
           <div className="w-1/6 flex items-stretch">
             <button
               type="button"
               onClick={goToNextVerse}
               className="w-full h-[4.25rem] flex items-center justify-center bg-emerald-400 text-white hover:bg-emerald-500 active:bg-emerald-600 shadow-lg"
-              aria-label={viewLayout === 'verse' ? 'Nächster Vers' : 'Nächste Seite'}
+              aria-label="Nächster Vers"
             >
-              <ArrowRight size={24} strokeWidth={3} />
+              <ArrowDown size={24} strokeWidth={3} />
             </button>
           </div>
           {/* Aufnahme: 1/6 – skaliert bei aktiver Aufnahme */}
