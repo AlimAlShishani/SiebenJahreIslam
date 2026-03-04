@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, BookText, Plus, Trash2, Pencil } from 'lucide-react';
+import { BookOpen, BookText, Moon, Sparkles, Plus, Trash2, Pencil, Hourglass } from 'lucide-react';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
 
 const CUSTOM_SLOTS_STORAGE_KEY = 'quran-reader-custom-slots';
 const FREE_LABEL_STORAGE_KEY = 'quran-reader-free-label';
+const FREE_THEME_STORAGE_KEY = 'quran-reader-free-theme';
 const LAST_LOCATION_PREFIX = 'quran-reader-last-location-';
+
+export type InstanceTheme = 'green' | 'purple' | 'blue' | 'gold';
+const THEMES: InstanceTheme[] = ['green', 'purple', 'blue', 'gold'];
 
 type LastLocation = {
   page?: number;
@@ -17,6 +21,7 @@ type LastLocation = {
 export interface QuranReaderSlot {
   id: string;
   label: string;
+  theme: InstanceTheme;
   createdAt: number;
   expiresAt: number | null;
 }
@@ -34,6 +39,7 @@ function loadCustomSlots(): QuranReaderSlot[] {
       .map((item: any) => ({
         id: item.id,
         label: item.label,
+        theme: THEMES.includes(item.theme) ? item.theme : 'green',
         createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
         expiresAt: typeof item.expiresAt === 'number' ? item.expiresAt : null,
       }))
@@ -77,33 +83,55 @@ function getFreeLabel(): string {
   return window.localStorage.getItem(FREE_LABEL_STORAGE_KEY) || 'Quran lesen (frei)';
 }
 
+function getFreeTheme(): InstanceTheme {
+  if (typeof window === 'undefined') return 'green';
+  const t = window.localStorage.getItem(FREE_THEME_STORAGE_KEY);
+  return THEMES.includes(t as InstanceTheme) ? (t as InstanceTheme) : 'green';
+}
+
 function formatRemaining(expiresAt: number | null): string {
   if (expiresAt === null) return 'Unendlich';
   const ms = expiresAt - Date.now();
   if (ms <= 0) return 'Abgelaufen';
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  const d = Math.floor(h / 24);
-  const w = Math.floor(d / 7);
-  const mo = Math.floor(d / 30);
-  if (mo >= 1) return `${mo} Monat${mo !== 1 ? 'e' : ''}`;
-  if (w >= 1) return `${w} Woche${w !== 1 ? 'n' : ''}`;
-  if (d >= 1) return `${d} Tag${d !== 1 ? 'e' : ''}`;
-  if (h >= 1) return `${h} Stunde${h !== 1 ? 'n' : ''}`;
-  if (m >= 1) return `${m} Minute${m !== 1 ? 'n' : ''}`;
-  return 'weniger als 1 Min.';
+  const totalMinutes = Math.floor(ms / 60000);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const totalDays = Math.floor(totalHours / 24);
+  const months = Math.floor(totalDays / 30);
+  const days = totalDays - months * 30;
+  const hours = totalHours - totalDays * 24;
+  const minutes = totalMinutes - totalHours * 60;
+  if (totalDays >= 1) return `${months}m ${days}t ${hours}st`;
+  if (totalHours >= 1) return `${totalHours}st ${minutes}m`;
+  if (totalMinutes >= 1) return `${totalMinutes}m`;
+  return '<1m';
+}
+
+function themeGradient(theme: InstanceTheme): string {
+  switch (theme) {
+    case 'green':
+      return 'from-emerald-500/95 to-emerald-700/95 dark:from-emerald-600/95 dark:to-emerald-800/95';
+    case 'purple':
+      return 'from-violet-500/95 to-indigo-700/95 dark:from-violet-600/95 dark:to-indigo-800/95';
+    case 'blue':
+      return 'from-sky-500/95 to-blue-700/95 dark:from-sky-600/95 dark:to-blue-800/95';
+    case 'gold':
+      return 'from-amber-400/95 via-amber-500/95 to-yellow-600/95 dark:from-amber-500/95 dark:to-amber-700/95';
+    default:
+      return 'from-emerald-500/95 to-emerald-700/95';
+  }
 }
 
 export default function QuranMenu() {
   const navigate = useNavigate();
   const [customSlots, setCustomSlots] = useState<QuranReaderSlot[]>(loadCustomSlots);
   const [freeLabel, setFreeLabel] = useState(getFreeLabel);
+  const [freeTheme, setFreeTheme] = useState<InstanceTheme>(getFreeTheme);
   const [surahs, setSurahs] = useState<SurahMeta[]>([]);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSlotLabel, setNewSlotLabel] = useState('');
+  const [newSlotTheme, setNewSlotTheme] = useState<InstanceTheme>('green');
   const [newSlotMonths, setNewSlotMonths] = useState('');
   const [newSlotWeeks, setNewSlotWeeks] = useState('');
   const [newSlotDays, setNewSlotDays] = useState('');
@@ -119,6 +147,11 @@ export default function QuranMenu() {
     window.localStorage.setItem(FREE_LABEL_STORAGE_KEY, freeLabel);
   }, [freeLabel]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(FREE_THEME_STORAGE_KEY, freeTheme);
+  }, [freeTheme]);
+
   const lastFree = getLastLocation('free');
   const surahName = (surahNum: number) => surahs.find((s) => s.number === surahNum)?.englishName ?? `Sure ${surahNum}`;
 
@@ -133,6 +166,12 @@ export default function QuranMenu() {
     setCustomSlots(updated);
     saveCustomSlots(updated);
     setEditingLabelId(null);
+  };
+
+  const updateSlotTheme = (id: string, theme: InstanceTheme) => {
+    const updated = customSlots.map((s) => (s.id === id ? { ...s, theme } : s));
+    setCustomSlots(updated);
+    saveCustomSlots(updated);
   };
 
   const saveNewSlot = () => {
@@ -153,6 +192,7 @@ export default function QuranMenu() {
     const next: QuranReaderSlot = {
       id: crypto.randomUUID(),
       label,
+      theme: newSlotTheme,
       createdAt: Date.now(),
       expiresAt,
     };
@@ -161,6 +201,7 @@ export default function QuranMenu() {
     saveCustomSlots(updated);
     setShowAddForm(false);
     setNewSlotLabel('');
+    setNewSlotTheme('green');
     setNewSlotMonths('');
     setNewSlotWeeks('');
     setNewSlotDays('');
@@ -179,81 +220,103 @@ export default function QuranMenu() {
     return { left, right };
   };
 
+  const ThemeIcon = ({ theme, className = 'w-12 h-12 opacity-25' }: { theme: InstanceTheme; className?: string }) => {
+    switch (theme) {
+      case 'green':
+        return <BookText className={className} size={48} />;
+      case 'purple':
+        return <Moon className={className} size={48} />;
+      case 'blue':
+        return <Sparkles className={className} size={48} />;
+      case 'gold':
+        return <span className={`text-4xl opacity-30 ${className}`} aria-hidden>🕋</span>;
+      default:
+        return <BookText className={className} size={48} />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 md:p-6">
-      <div className="max-w-md mx-auto space-y-6">
-        <h1 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">Quran</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-          Wähle, wie du lesen möchtest. Jeder Eintrag merkt sich deine letzte Stelle.
-        </p>
+      <div className="max-w-lg mx-auto space-y-5">
+        <h1 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">Quran Instanzen</h1>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* Hatim Reader – immer Grün */}
           <Link
             to="/hatim?openReader=1"
-            className="flex items-center gap-3 w-full p-4 rounded-xl border-2 border-emerald-200 dark:border-emerald-700 bg-white dark:bg-gray-800 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+            className="block relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/95 to-emerald-700/95 dark:from-emerald-600/95 dark:to-emerald-800/95 shadow-lg hover:shadow-xl transition-shadow p-6 text-white"
           >
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-              <BookOpen className="text-emerald-700 dark:text-emerald-300" size={22} />
+            <div className="absolute top-3 right-3 pointer-events-none">
+              <BookOpen size={56} className="opacity-20" />
             </div>
-            <div className="text-left flex-1 min-w-0">
-              <div className="font-semibold text-gray-900 dark:text-gray-100">Hatim Reader</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Öffnet direkt deinen Part an der Startseite (speichert getrennt)</div>
+            <div className="relative">
+              <h2 className="font-bold text-xl text-white drop-shadow-sm">Hatim Reader</h2>
+              <p className="text-sm text-white/90 mt-0.5">Öffnet direkt deinen Part an der Startseite (speichert getrennt)</p>
             </div>
           </Link>
 
-          {/* Free slot: umbenennbar + Speicherstatus */}
-          <div className="rounded-xl border-2 border-emerald-200 dark:border-emerald-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-            <Link
-              to="/quran/read?slot=free"
-              className="flex items-center gap-3 w-full p-4"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-                <BookText className="text-emerald-700 dark:text-emerald-300" size={22} />
-              </div>
-              <div className="text-left flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 dark:text-gray-100">{freeLabel}</div>
+          {/* Free slot – wählbares Design */}
+          <div className="relative overflow-hidden rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600">
+            <div className={`absolute inset-0 bg-gradient-to-br ${themeGradient(freeTheme)} pointer-events-none`} />
+            <div className="absolute top-4 right-4 pointer-events-none text-white">
+              <ThemeIcon theme={freeTheme} className="!w-14 !h-14 !opacity-20" />
+            </div>
+            <div className="relative p-6 text-white">
+              <Link to="/quran/read?slot=free" className="block">
+                <h2 className="font-bold text-xl drop-shadow-sm">{freeLabel}</h2>
                 {lastFree?.surah && lastFree?.ayah ? (
-                  <div className="flex justify-between items-baseline gap-2 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex justify-between items-baseline gap-2 mt-2 text-sm text-white/95">
                     <span>{surahName(lastFree.surah)} : {lastFree.ayah}</span>
                     <span className="shrink-0">Seite {lastFree.page ?? '?'} | Juz {lastFree.juz ?? '?'}</span>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 dark:text-gray-500 mt-1">Noch nicht gelesen</div>
+                  <p className="text-sm text-white/80 mt-1">Noch nicht gelesen</p>
                 )}
-              </div>
-            </Link>
-            <div className="px-4 pb-3 flex justify-end">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditingLabelId('free');
-                  setEditingLabelValue(freeLabel);
-                }}
-                className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
-              >
-                <Pencil size={12} /> Umbenennen
-              </button>
-            </div>
-            {editingLabelId === 'free' && (
-              <div className="px-4 pb-3 flex gap-2">
-                <input
-                  type="text"
-                  value={editingLabelValue}
-                  onChange={(e) => setEditingLabelValue(e.target.value)}
-                  className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
-                  placeholder="Name"
-                />
+              </Link>
+              <div className="mt-4 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    setFreeLabel(editingLabelValue.trim() || 'Quran lesen (frei)');
-                    setEditingLabelId(null);
-                  }}
-                  className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-xs"
+                  onClick={(e) => { e.preventDefault(); setEditingLabelId('free'); setEditingLabelValue(freeLabel); }}
+                  className="p-2 rounded-lg text-white/90 hover:bg-white/20"
+                  aria-label="Bearbeiten"
                 >
-                  Speichern
+                  <Pencil size={16} />
                 </button>
+              </div>
+            </div>
+            {editingLabelId === 'free' && (
+              <div className="relative px-6 pb-4 space-y-3">
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={editingLabelValue}
+                    onChange={(e) => setEditingLabelValue(e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                    placeholder="Name"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setFreeLabel(editingLabelValue.trim() || 'Quran lesen (frei)'); setEditingLabelId(null); }}
+                    className="px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium hover:bg-white/30"
+                  >
+                    Speichern
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/80">Design:</span>
+                  {THEMES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setFreeTheme(t); }}
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${freeTheme === t ? 'border-white scale-110' : 'border-white/40 hover:border-white/70'}`}
+                      style={{
+                        background: t === 'green' ? 'linear-gradient(135deg, #10b981, #047857)' : t === 'purple' ? 'linear-gradient(135deg, #8b5cf6, #4338ca)' : t === 'blue' ? 'linear-gradient(135deg, #0ea5e9, #1d4ed8)' : 'linear-gradient(135deg, #fbbf24, #ca8a04)',
+                      }}
+                      aria-label={`Design ${t}`}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -264,72 +327,79 @@ export default function QuranMenu() {
             return (
               <div
                 key={slot.id}
-                className="rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm overflow-hidden"
+                className="relative overflow-hidden rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600"
               >
-                <div className="flex items-center gap-3 w-full p-4">
-                  <Link
-                    to={`/quran/read?slot=${encodeURIComponent(slot.id)}`}
-                    className="flex items-center gap-3 flex-1 min-w-0"
-                  >
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                      <BookText className="text-gray-600 dark:text-gray-300" size={22} />
-                    </div>
-                    <div className="text-left flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900 dark:text-gray-100">{slot.label}</div>
-                      {status ? (
-                        <div className="flex justify-between items-baseline gap-2 mt-1 text-sm text-gray-600 dark:text-gray-400">
-                          <span>{status.left}</span>
-                          <span className="shrink-0">{status.right}</span>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500 dark:text-gray-500 mt-1">Noch nicht gelesen</div>
-                      )}
-                      <div className="text-[11px] text-gray-500 dark:text-gray-500 mt-0.5">
-                        Verbleibend: {formatRemaining(slot.expiresAt)}
+                <div className={`absolute inset-0 bg-gradient-to-br ${themeGradient(slot.theme)} pointer-events-none`} />
+                <div className="absolute top-4 right-4 pointer-events-none text-white">
+                  <ThemeIcon theme={slot.theme} className="!w-14 !h-14 !opacity-20" />
+                </div>
+                <div className="relative p-6 text-white">
+                  <Link to={`/quran/read?slot=${encodeURIComponent(slot.id)}`} className="block">
+                    <h2 className="font-bold text-xl drop-shadow-sm">{slot.label}</h2>
+                    {status ? (
+                      <div className="flex justify-between items-baseline gap-2 mt-2 text-sm text-white/95">
+                        <span>{status.left}</span>
+                        <span className="shrink-0">{status.right}</span>
                       </div>
-                    </div>
+                    ) : (
+                      <p className="text-sm text-white/80 mt-1">Noch nicht gelesen</p>
+                    )}
+                    <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1 mt-1">
+                      <Hourglass size={12} />
+                      {formatRemaining(slot.expiresAt)}
+                    </span>
                   </Link>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="mt-4 flex justify-end gap-1">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditingLabelId(slot.id);
-                        setEditingLabelValue(slot.label);
-                      }}
-                      className="p-2 rounded-lg text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                      aria-label="Umbenennen"
+                      onClick={(e) => { e.preventDefault(); setEditingLabelId(slot.id); setEditingLabelValue(slot.label); }}
+                      className="p-2 rounded-lg text-white/90 hover:bg-white/20"
+                      aria-label="Bearbeiten"
                     >
                       <Pencil size={16} />
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        removeSlot(slot.id);
-                      }}
-                      className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      aria-label="Leseplatz entfernen"
+                      onClick={(e) => { e.preventDefault(); removeSlot(slot.id); }}
+                      className="p-2 rounded-lg text-white/90 hover:bg-red-500/30"
+                      aria-label="Entfernen"
                     >
                       <Trash2 size={18} />
                     </button>
                   </div>
                 </div>
                 {isEditing && (
-                  <div className="px-4 pb-3 flex gap-2">
-                    <input
-                      type="text"
-                      value={editingLabelValue}
-                      onChange={(e) => setEditingLabelValue(e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => updateSlotLabel(slot.id, editingLabelValue.trim() || slot.label)}
-                      className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-xs"
-                    >
-                      Speichern
-                    </button>
+                  <div className="relative px-6 pb-4 space-y-3 bg-black/10">
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={editingLabelValue}
+                        onChange={(e) => setEditingLabelValue(e.target.value)}
+                        className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateSlotLabel(slot.id, editingLabelValue.trim() || slot.label)}
+                        className="px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium hover:bg-white/30"
+                      >
+                        Speichern
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-white/80">Design:</span>
+                      {THEMES.map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); updateSlotTheme(slot.id, t); }}
+                          className={`w-8 h-8 rounded-full border-2 transition-all ${slot.theme === t ? 'border-white scale-110' : 'border-white/40 hover:border-white/70'}`}
+                          style={{
+                            background: t === 'green' ? 'linear-gradient(135deg, #10b981, #047857)' : t === 'purple' ? 'linear-gradient(135deg, #8b5cf6, #4338ca)' : t === 'blue' ? 'linear-gradient(135deg, #0ea5e9, #1d4ed8)' : 'linear-gradient(135deg, #fbbf24, #ca8a04)',
+                          }}
+                          aria-label={`Design ${t}`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -348,6 +418,21 @@ export default function QuranMenu() {
                 placeholder={`Leseplatz ${customSlots.length + 2}`}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
               />
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Design</div>
+              <div className="flex gap-2">
+                {THEMES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setNewSlotTheme(t)}
+                    className={`h-10 w-10 rounded-full border-2 transition-all ${newSlotTheme === t ? 'border-emerald-600 ring-2 ring-emerald-400' : 'border-gray-300 dark:border-gray-600'}`}
+                    style={{
+                      background: t === 'green' ? 'linear-gradient(135deg, #10b981, #047857)' : t === 'purple' ? 'linear-gradient(135deg, #8b5cf6, #4338ca)' : t === 'blue' ? 'linear-gradient(135deg, #0ea5e9, #1d4ed8)' : 'linear-gradient(135deg, #fbbf24, #ca8a04)',
+                    }}
+                    aria-label={`Design ${t}`}
+                  />
+                ))}
+              </div>
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Löscht sich nach</div>
               <label className="flex items-center gap-2">
                 <input
@@ -415,6 +500,7 @@ export default function QuranMenu() {
                   onClick={() => {
                     setShowAddForm(false);
                     setNewSlotLabel('');
+                    setNewSlotTheme('green');
                     setNewSlotMonths('');
                     setNewSlotWeeks('');
                     setNewSlotDays('');

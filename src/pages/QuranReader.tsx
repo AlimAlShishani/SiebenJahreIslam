@@ -1799,36 +1799,10 @@ export default function QuranReader() {
       )}
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex justify-start items-end">
-        {/* Bottom-Bar: feste Breitenverhältnisse 1/4 + 1/4 + 1/6 + 1/6 + 1/6 */}
-        <div className="flex items-end pointer-events-auto w-full">
-          {/* Arabisch: 1/4 */}
-          <button
-            type="button"
-            onClick={() => setMode('arabic')}
-            disabled={viewLayout === 'verse'}
-            className={`w-1/4 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all border-t border-x border-gray-500/60 ${
-              mode === 'arabic' && viewLayout !== 'verse'
-                ? 'bg-gray-900 text-gray-100 z-10 -translate-y-1 shadow-lg'
-                : 'bg-gray-800 text-gray-400 h-[3.25rem] border-transparent'
-            } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <span className="font-quran text-lg leading-none" dir="rtl">أ</span>
-          </button>
-          {/* Deutsch: 1/4 */}
-          <button
-            type="button"
-            onClick={() => setMode('translation')}
-            disabled={viewLayout === 'verse'}
-            className={`w-1/4 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all border-t border-x border-gray-500/60 ${
-              mode === 'translation' && viewLayout !== 'verse'
-                ? 'bg-gray-900 text-gray-100 z-10 -translate-y-1 shadow-lg'
-                : 'bg-gray-800 text-gray-400 h-[3.25rem] border-transparent'
-            } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <span className="font-bold text-base leading-none">A</span>
-          </button>
-          {/* Pfeil oben (vorheriger Vers): 1/6 */}
-          <div className="w-1/6 flex items-stretch">
+        {/* Bottom-Bar: Vorheriger | Arabisch | Übersetzung | Nächster | Aufnahme – 1/6 + 1/4 + 1/4 + 1/6 + 1/6, gap-0 */}
+        <div className="flex items-end gap-0 pointer-events-auto w-full">
+          {/* Vorheriger Vers: 1/6 */}
+          <div className="w-1/6 flex items-stretch shrink-0">
             <button
               type="button"
               onClick={goToPreviousVerse}
@@ -1838,8 +1812,34 @@ export default function QuranReader() {
               <ArrowUp size={24} strokeWidth={3} />
             </button>
           </div>
-          {/* Pfeil unten (nächster Vers): 1/6 */}
-          <div className="w-1/6 flex items-stretch">
+          {/* Arabisch: 1/4 */}
+          <button
+            type="button"
+            onClick={() => setMode('arabic')}
+            disabled={viewLayout === 'verse'}
+            className={`w-1/4 shrink-0 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all border-t border-x border-gray-500/60 ${
+              mode === 'arabic' && viewLayout !== 'verse'
+                ? 'bg-gray-900 text-gray-100 z-10 -translate-y-1 shadow-lg'
+                : 'bg-gray-800 text-gray-400 h-[3.25rem] border-transparent'
+            } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            <span className="font-quran text-lg leading-none" dir="rtl">أ</span>
+          </button>
+          {/* Übersetzung: 1/4 */}
+          <button
+            type="button"
+            onClick={() => setMode('translation')}
+            disabled={viewLayout === 'verse'}
+            className={`w-1/4 shrink-0 h-[4.5rem] rounded-t-xl flex flex-col items-center justify-center pb-1 transition-all border-t border-x border-gray-500/60 ${
+              mode === 'translation' && viewLayout !== 'verse'
+                ? 'bg-gray-900 text-gray-100 z-10 -translate-y-1 shadow-lg'
+                : 'bg-gray-800 text-gray-400 h-[3.25rem] border-transparent'
+            } ${viewLayout === 'verse' ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            <span className="font-bold text-base leading-none">A</span>
+          </button>
+          {/* Nächster Vers: 1/6 */}
+          <div className="w-1/6 flex items-stretch shrink-0">
             <button
               type="button"
               onClick={goToNextVerse}
@@ -1851,7 +1851,7 @@ export default function QuranReader() {
           </div>
           {/* Aufnahme: 1/6 – skaliert bei aktiver Aufnahme */}
           <div
-            className={`w-1/6 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-500/60 rounded-tl-3xl flex flex-col items-center justify-end py-2 pointer-events-auto shadow-lg transition-all duration-200 ${
+            className={`w-1/6 shrink-0 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-500/60 rounded-tl-3xl flex flex-col items-center justify-end py-2 pointer-events-auto shadow-lg transition-all duration-200 ${
               mobileRecording ? 'h-40' : 'h-24'
             }`}
           >
