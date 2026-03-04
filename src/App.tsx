@@ -6,6 +6,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import Login from './pages/Login';
 import Datenschutz from './pages/Datenschutz';
+import Entwickler from './pages/Entwickler';
+import AndroidNutzung from './pages/AndroidNutzung';
 import Quran from './pages/Quran';
 import QuranMenu from './pages/QuranMenu';
 import QuranReader from './pages/QuranReader';
@@ -22,6 +24,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/datenschutz" element={<Datenschutz />} />
+          <Route path="/entwickler" element={<Entwickler />} />
+          <Route path="/android-nutzung" element={<AndroidNutzung />} />
           
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
