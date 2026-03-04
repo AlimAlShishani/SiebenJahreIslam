@@ -70,3 +70,37 @@ Damit der Login auf der neuen Seite geht:
    - `VAPID_SUBJECT` (z.B. `mailto:you@example.com`)
 4. Supabase Edge Function deployen (mit --no-verify-jwt, da wir Publishable/Secret Keys nutzen):
    - `supabase functions deploy send-push-notification --no-verify-jwt`
+
+## TWA/APK: App ohne Browser-Leiste (Digital Asset Links)
+
+Damit die installierte APK wie eine echte App wirkt (ohne Adresszeile, ohne Browser-UI), muss die Website **Digital Asset Links** bereitstellen. Ohne diese Verknüpfung zeigt Chrome die Browser-Oberfläche.
+
+### 1. SHA-256 Fingerprint ermitteln
+
+Im Projektordner im Terminal ausführen:
+
+```powershell
+& "C:\Program Files\Java\jre1.8.0_451\bin\keytool.exe" -list -v -keystore android.keystore -alias android -storepass DEIN_PASSWORT
+```
+
+`DEIN_PASSWORT` durch das tatsächliche Keystore-Passwort ersetzen. **Hinweis:** Das Passwort erscheint im Klartext – danach ggf. die Befehlszeile aus der History löschen.
+
+Alternative ohne Passwort im Befehl: Den Befehl ohne `-storepass` ausführen. Wenn nach dem Passwort gefragt wird: **einfach tippen und Enter drücken** – es erscheint nichts beim Tippen (Sicherheitsfeature), die Eingabe funktioniert aber.
+
+In der Ausgabe die Zeile **SHA256:** suchen. Den Fingerprint kopieren (Format z.B. `AB:CD:EF:12:34:...`), **ohne** Leerzeichen, in **Großbuchstaben**.
+
+### 2. Fingerprint in assetlinks.json eintragen
+
+Datei `public/.well-known/assetlinks.json` öffnen und `DEIN_SHA256_FINGERPRINT_HIER_EINFÜGEN` durch den echten Fingerprint ersetzen.
+
+### 3. Deployen
+
+Nach dem nächsten Vercel-Deploy muss die Datei unter `https://nuruna.net/.well-known/assetlinks.json` erreichbar sein. Prüfen mit:
+
+```
+https://nuruna.net/.well-known/assetlinks.json
+```
+
+### 4. APK neu bauen und installieren
+
+Nach dem Deploy die APK neu bauen (`bubblewrap build`) und auf dem Gerät neu installieren. Danach sollte die App ohne Browser-Leiste starten.
