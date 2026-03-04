@@ -1708,7 +1708,7 @@ export default function QuranReader() {
 
                 return (
                   <div
-                    className={`relative flex flex-1 min-h-0 md:h-[28rem] transition-all duration-300 ease-out ${
+                    className={`relative flex flex-1 min-h-0 md:h-[22rem] transition-all duration-300 ease-out ${
                       versePageTransition === 'changing'
                         ? 'opacity-0 translate-x-3'
                         : 'opacity-100 translate-x-0'

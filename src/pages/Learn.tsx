@@ -122,8 +122,8 @@ export default function Learn() {
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Lernbereich</h2>
+    <div className="p-4 md:p-6 space-y-6 pb-20">
+      <h2 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">Lernbereich</h2>
 
       {/* Buchstaben-Übersicht (statische Seite) */}
       <div

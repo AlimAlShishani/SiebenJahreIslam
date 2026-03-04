@@ -110,8 +110,8 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto pb-20">
-      <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Mein Profil</h2>
+    <div className="p-4 md:p-6 space-y-6 max-w-lg mx-auto pb-20">
+      <h2 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">Mein Profil</h2>
       
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-emerald-100 dark:border-gray-600 overflow-hidden">
         {/* Header mit Avatar */}
