@@ -79,6 +79,16 @@
   animation: kahf-float 4s ease-in-out infinite;
 }
 
+/* Stufen-Titel: horizontales Scrollen bei langem Text */
+@keyframes marquee-level-title {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-level-title {
+  animation: marquee-level-title 8s linear infinite;
+}
+
 @supports (-webkit-touch-callout: none) {
   .font-quran,
   .font-arabic,

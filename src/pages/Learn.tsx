@@ -1,6 +1,53 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Type, Star, Lock } from 'lucide-react';
+import { Type, Lock } from 'lucide-react';
+
+function LevelTitle({
+  title,
+  unlocked,
+}: {
+  title: string;
+  unlocked: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const [useMarquee, setUseMarquee] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+    const check = () => setUseMarquee(measure.scrollWidth > container.clientWidth);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [title]);
+
+  const baseClass = unlocked
+    ? 'text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400'
+    : 'text-gray-500 dark:text-gray-400';
+
+  return (
+    <div ref={containerRef} className="flex-1 min-w-0 overflow-hidden relative">
+      <span
+        ref={measureRef}
+        className="absolute left-0 top-0 whitespace-nowrap opacity-0 pointer-events-none text-lg font-semibold"
+        aria-hidden
+      >
+        {title}
+      </span>
+      {useMarquee ? (
+        <div className="inline-flex animate-marquee-level-title whitespace-nowrap">
+          <span className={`text-lg font-semibold ${baseClass}`}>{title}</span>
+          <span className={`text-lg font-semibold mx-6 shrink-0 ${baseClass}`}>{title}</span>
+        </div>
+      ) : (
+        <h3 className={`text-lg font-semibold ${baseClass}`}>{title}</h3>
+      )}
+    </div>
+  );
+}
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -164,16 +211,21 @@ export default function Learn() {
               className={`block group ${unlocked ? 'cursor-pointer' : 'cursor-not-allowed'}`}
             >
               <div
-                className={`p-5 rounded-xl shadow-sm border flex items-center justify-between transition-all ${
+                className={`relative p-5 rounded-xl shadow-sm border flex items-center transition-all ${
                   unlocked
                     ? 'bg-white dark:bg-gray-800 border-emerald-100 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-md'
                     : 'bg-gray-100 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 opacity-80'
                 }`}
               >
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
+                {completed && (
+                  <span className="absolute top-4 right-4 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                    ✓ geschafft
+                  </span>
+                )}
+                <div className="flex-1 min-w-0 pr-16">
+                  <div className="flex items-center gap-3 mb-1 min-w-0">
                     <span
-                      className={`text-xs font-bold px-2 py-1 rounded-full ${
+                      className={`text-xs font-bold px-2 py-1 rounded-full shrink-0 ${
                         completed
                           ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'
                           : unlocked
@@ -183,18 +235,7 @@ export default function Learn() {
                     >
                       Stufe {level.level_number}
                     </span>
-                    <h3
-                      className={`text-lg font-semibold ${
-                        unlocked
-                          ? 'text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      {level.title}
-                    </h3>
-                    {completed && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ geschafft</span>
-                    )}
+                    <LevelTitle title={level.title} unlocked={unlocked} />
                   </div>
                   {level.description && (
                     <p className="text-sm text-gray-500 dark:text-gray-400">{level.description}</p>
@@ -205,19 +246,11 @@ export default function Learn() {
                     </p>
                   )}
                 </div>
-                <div
-                  className={`p-3 rounded-full transition-colors ${
-                    unlocked
-                      ? 'bg-emerald-50 dark:bg-emerald-900/30 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50'
-                      : 'bg-gray-200 dark:bg-gray-700'
-                  }`}
-                >
-                  {unlocked ? (
-                    <Star size={22} className="text-emerald-600 dark:text-emerald-400" />
-                  ) : (
+                {!unlocked && (
+                  <div className="p-3 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0">
                     <Lock size={22} className="text-gray-400 dark:text-gray-500" />
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           );
