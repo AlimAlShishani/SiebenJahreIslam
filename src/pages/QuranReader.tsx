@@ -1185,6 +1185,7 @@ export default function QuranReader() {
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (typeof window !== 'undefined' && !window.matchMedia('(max-width: 767px)').matches) return;
+    if (viewLayout === 'verse') return;
     if (loadingPage || loadingJump) return;
     const startX = touchStartXRef.current;
     const startY = touchStartYRef.current;
