@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { translateOptionText } from '../i18n/translateOption';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Play, Check, X, Volume2, Heart, RefreshCw, Trophy, BookOpen, HelpCircle, Film } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +53,7 @@ function getYouTubeEmbedUrl(url: string): string {
 }
 
 export default function LearnLevel() {
+  const { t, i18n } = useTranslation();
   const { levelId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -320,24 +323,24 @@ export default function LearnLevel() {
     if (error) console.error('Error saving progress:', error);
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Laden...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-600 dark:text-gray-400">{t('learnLevel.loading')}</div>;
 
   const levelNum = parseInt(levelId || '0');
   if (levelNum > 1 && levelAccessAllowed === null) {
-    return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Laden...</div>;
+    return <div className="p-8 text-center text-gray-600 dark:text-gray-400">{t('learnLevel.loading')}</div>;
   }
 
   if (levelAccessAllowed === false) {
     return (
       <div className="p-8 text-center max-w-md mx-auto">
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Diese Stufe ist noch gesperrt. Schließe zuerst die vorherige Stufe ab (Quiz ohne alle Leben zu verlieren).
+          {t('learnLevel.levelLocked')}
         </p>
         <button
           onClick={() => navigate('/learn')}
           className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
         >
-          Zur Lernübersicht
+          {t('learnLevel.toOverview')}
         </button>
       </div>
     );
@@ -349,7 +352,7 @@ export default function LearnLevel() {
       <div className="pb-20 max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <button onClick={() => navigate('/learn')} className="flex items-center text-gray-500 hover:text-emerald-600">
-            <ArrowLeft size={20} className="mr-1" /> Zurück
+            <ArrowLeft size={20} className="mr-1" /> {t('common.back')}
           </button>
         </div>
         <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-600 bg-black shadow-lg aspect-video">
@@ -370,13 +373,13 @@ export default function LearnLevel() {
             onClick={() => setShowIntroVideo(false)}
             className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold shadow-lg"
           >
-            Quiz starten
+            {t('learnLevel.startQuiz')}
           </button>
           <button
             onClick={() => navigate('/learn')}
             className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
           >
-            Zur Lernübersicht
+            {t('learnLevel.toOverview')}
           </button>
         </div>
       </div>
@@ -385,20 +388,20 @@ export default function LearnLevel() {
 
   if (allItems.length === 0) return (
     <div className="p-8 text-center max-w-md mx-auto">
-      <p className="text-gray-600 dark:text-gray-400 mb-4">Noch keine Inhalte in dieser Stufe.</p>
+      <p className="text-gray-600 dark:text-gray-400 mb-4">{t('learnLevel.noContentYet')}</p>
       {levelInfo?.intro_video_url && (
         <button
           onClick={() => setShowIntroVideo(true)}
           className="px-4 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg mb-4 flex items-center gap-2 mx-auto"
         >
-          <Film size={18} /> Zum Video
+          <Film size={18} /> {t('learnLevel.toVideo')}
         </button>
       )}
       <button
         onClick={() => navigate('/learn')}
         className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
       >
-        Zur Lernübersicht
+        {t('learnLevel.toOverview')}
       </button>
     </div>
   );
@@ -410,9 +413,9 @@ export default function LearnLevel() {
         <div className="bg-red-100 p-6 rounded-full mb-6">
           <X size={64} className="text-red-500" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Keine Leben mehr!</h2>
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">{t('learnLevel.levelFailed')}</h2>
         <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
-          Du hast leider 3 Fehler gemacht. Versuche es noch einmal, um die Stufe zu meistern.
+          {t('learnLevel.levelFailedDesc')}
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           {levelInfo?.intro_video_url && (
@@ -420,7 +423,7 @@ export default function LearnLevel() {
               onClick={() => setShowIntroVideo(true)}
               className="px-4 py-2 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2"
             >
-              <Film size={18} /> Zum Video
+              <Film size={18} /> {t('learnLevel.toVideo')}
             </button>
           )}
           <button 
@@ -433,7 +436,7 @@ export default function LearnLevel() {
             onClick={() => startNewRun(allItems)}
             className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold flex items-center gap-2 shadow-lg"
           >
-            <RefreshCw size={20} /> Neuer Versuch
+            <RefreshCw size={20} /> {t('learnLevel.startOver')}
           </button>
         </div>
       </div>
@@ -447,9 +450,9 @@ export default function LearnLevel() {
         <div className="bg-yellow-100 p-6 rounded-full mb-6">
           <Trophy size={64} className="text-yellow-600" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Mashallah!</h2>
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">{t('learnLevel.mashallah')}</h2>
         <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md">
-          Du hast die Stufe erfolgreich abgeschlossen und {lives} Leben behalten.
+          {t('learnLevel.levelCompleteWithLives', { count: lives })}
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           {levelInfo?.intro_video_url && (
@@ -457,14 +460,14 @@ export default function LearnLevel() {
               onClick={() => setShowIntroVideo(true)}
               className="px-4 py-2 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2"
             >
-              <Film size={18} /> Zum Video
+              <Film size={18} /> {t('learnLevel.toVideo')}
             </button>
           )}
           <button 
             onClick={() => navigate('/learn')}
             className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold shadow-lg"
           >
-            Zur Übersicht
+            {t('learnLevel.toOverview')}
           </button>
         </div>
       </div>
@@ -482,22 +485,22 @@ export default function LearnLevel() {
             onClick={() => navigate('/learn')} 
             className="flex items-center text-gray-500 hover:text-emerald-600"
           >
-            <ArrowLeft size={20} className="mr-1" /> Abbruch
+            <ArrowLeft size={20} className="mr-1" /> {t('learnLevel.cancel')}
           </button>
           <button
             onClick={() => setShowLevelModal(true)}
             className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 px-2 py-1 rounded-lg hover:bg-emerald-50"
-            title="Stufen-Info anzeigen"
+            title={t('learnLevel.showLevelInfo')}
           >
-            <BookOpen size={18} /> Stufen-Info
+            <BookOpen size={18} /> {t('learnLevel.levelInfo')}
           </button>
           {levelInfo?.intro_video_url && (
             <button
               onClick={() => setShowIntroVideo(true)}
               className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 px-2 py-1 rounded-lg hover:bg-emerald-50"
-              title="Intro-Video ansehen"
+              title={t('learnLevel.toVideo')}
             >
-              <Film size={18} /> Zum Video
+              <Film size={18} /> {t('learnLevel.toVideo')}
             </button>
           )}
         </div>
@@ -523,13 +526,13 @@ export default function LearnLevel() {
         </div>
 
         <div className="flex-grow flex flex-col items-center justify-center p-8 text-center">
-          <span className="text-sm text-gray-400 mb-4">Frage {allItems.length - queue.length + 1} von {allItems.length}</span>
+          <span className="text-sm text-gray-400 mb-4">{t('learnLevel.question')} {allItems.length - queue.length + 1} {t('learnLevel.of')} {allItems.length}</span>
           
           <div className="mb-8 w-full flex flex-col items-center animate-fade-in" key={currentItem.id}>
             {/* Stufe 8 (Madd): Vers mit klickbaren Buchstaben – nur natürliche Madd-Buchstaben markieren */}
             {levelNum === 8 ? (
               <div className="w-full px-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Markiere alle Buchstaben mit <strong>natürlichem Madd</strong> (Alif, Yā, Wāw mit passendem Tashkīl davor), dann „Prüfen“. Du kannst beliebig viele anklicken.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('learnLevel.maddInstruction')}</p>
                 <ClickableArabicVerse
                   content={currentItem.content}
                   selectedIndices={selectedMaddIndices}
@@ -544,7 +547,7 @@ export default function LearnLevel() {
                 />
                 {hasCheckedMadd && (
                   <p className={`mt-4 text-lg font-semibold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {isCorrect ? 'Richtig!' : 'Leider falsch.'}
+                    {isCorrect ? t('learnLevel.correct') : t('learnLevel.wrong')}
                   </p>
                 )}
               </div>
@@ -563,7 +566,7 @@ export default function LearnLevel() {
                   onClick={() => playAudio(currentItem.audio_url!)}
                   disabled={isPlaying}
                   className="p-4 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors shadow-sm"
-                  title="Frage anhören"
+                  title={t('learnLevel.listenQuestion')}
                 >
                   <Play size={32} className={isPlaying ? 'animate-pulse' : ''} />
                 </button>
@@ -573,9 +576,9 @@ export default function LearnLevel() {
                   onClick={() => playAudio(currentItem.help_audio_url!)}
                   disabled={isPlaying}
                   className="p-3 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors shadow-sm flex items-center gap-2"
-                  title="Hilfe anhören"
+                  title={t('learnLevel.listenHelp')}
                 >
-                  <HelpCircle size={24} /> <span className="text-sm font-medium">Hilfe</span>
+                  <HelpCircle size={24} /> <span className="text-sm font-medium">{t('learnLevel.help')}</span>
                 </button>
               )}
               {currentItem.rule_audio_url && (
@@ -583,13 +586,13 @@ export default function LearnLevel() {
                   onClick={() => playAudio(currentItem.rule_audio_url!)}
                   disabled={isPlaying}
                   className="p-3 rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition-colors shadow-sm flex items-center gap-2"
-                  title="Regel-Audio anhören"
+                  title={t('learnLevel.rule')}
                 >
-                  <Volume2 size={24} /> <span className="text-sm font-medium">Regel</span>
+                  <Volume2 size={24} /> <span className="text-sm font-medium">{t('learnLevel.rule')}</span>
                 </button>
               )}
               {!currentItem.audio_url && !currentItem.help_audio_url && !currentItem.rule_audio_url && (
-                <p className="text-xs text-gray-400">(Kein Frage-Audio)</p>
+                <p className="text-xs text-gray-400">{t('learnLevel.noQuestionAudio')}</p>
               )}
             </div>
 
@@ -617,13 +620,13 @@ export default function LearnLevel() {
                     disabled={selectedOptionId !== null}
                     className={btnClass}
                   >
-                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined}>{option.text}</span>
+                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined}>{translateOptionText(option.text, i18n.language)}</span>
                     
                     {option.audio_url && (
                       <div 
                         onClick={(e) => playAudio(option.audio_url!, e)}
                         className="ml-2 p-2 rounded-full bg-white/50 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-800 text-emerald-600 cursor-pointer z-10"
-                        title="Antwort anhören"
+                        title={t('learnLevel.listenAnswer')}
                       >
                         <Volume2 size={16} />
                       </div>
@@ -642,25 +645,25 @@ export default function LearnLevel() {
            {levelNum === 8 ? (
              <>
                {hasCheckedMadd && (isCorrect === true ? (
-                 <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in"><Check size={24} /> Richtig!</div>
+                 <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in"><Check size={24} /> {t('learnLevel.correct')}</div>
                ) : isCorrect === false ? (
-                 <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in"><X size={24} /> Falsch! -1 ❤️</div>
+                 <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in"><X size={24} /> {t('learnLevel.wrongMinusLife')}</div>
                ) : null)}
                <button onClick={handleMaddWeiter} className="ml-auto px-8 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transform active:scale-95 transition-all flex items-center gap-2">
-                 {hasCheckedMadd ? (queue.length === 1 ? 'Beenden' : 'Weiter') : 'Prüfen'} <Check size={18} />
+                 {hasCheckedMadd ? (queue.length === 1 ? t('learnLevel.finish') : t('learnLevel.next')) : t('learnLevel.check')} <Check size={18} />
                </button>
              </>
            ) : (
              <>
                {isCorrect === true && (
-                 <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in"><Check size={24} /> Richtig!</div>
+                 <div className="flex items-center gap-2 text-emerald-600 font-bold animate-fade-in"><Check size={24} /> {t('learnLevel.correct')}</div>
                )}
                {isCorrect === false && (
-                 <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in"><X size={24} /> Falsch! -1 ❤️</div>
+                 <div className="flex items-center gap-2 text-red-600 font-bold animate-fade-in"><X size={24} /> {t('learnLevel.wrongMinusLife')}</div>
                )}
                {selectedOptionId && (
                  <button onClick={handleNext} className="ml-auto px-8 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transform active:scale-95 transition-all flex items-center gap-2">
-                   {queue.length === 1 ? 'Beenden' : 'Weiter'} <Check size={18} />
+                   {queue.length === 1 ? t('learnLevel.finish') : t('learnLevel.next')} <Check size={18} />
                  </button>
                )}
              </>

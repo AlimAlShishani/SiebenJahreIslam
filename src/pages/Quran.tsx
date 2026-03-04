@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
 import { useAuth } from '../context/AuthContext';
@@ -134,7 +135,7 @@ function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Ab 2 Uhr zählt ein neuer Tag (Lesen bis 1 Uhr gehört noch zum Vortag). */
+/** Ab 2 Uhr zählt ein neuer Tag ({t('quran.read')} bis 1 Uhr gehört noch zum Vortag). */
 function getEffectiveToday(): Date {
   const now = new Date();
   if (now.getHours() < 2) {
@@ -158,6 +159,7 @@ const readQuranPageCache = (): QuranPageCache | null => {
 let quranPageCache: QuranPageCache | null = typeof window !== 'undefined' ? readQuranPageCache() : null;
 
 export default function Quran() {
+  const { t } = useTranslation();
   const effectiveToday = getEffectiveToday();
   const todayLocalDate = toLocalDateString(effectiveToday);
   const { user } = useAuth();
@@ -234,19 +236,19 @@ export default function Quran() {
     return [];
   };
 
-  const formatVoteLabel = (vote: VoteValue) => (vote === '0' || vote === '1' ? `${vote} Uhr` : vote);
+  const formatVoteLabel = (vote: VoteValue) => t('vote.' + vote, { defaultValue: vote });
   const formatActivityTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  const getActorName = (log: ReadingActivityLog) => log.profiles?.full_name || log.profiles?.email || 'Unbekannt';
+  const getActorName = (log: ReadingActivityLog) => log.profiles?.full_name || log.profiles?.email || t('common.unknown');
   const formatActivityMessage = (log: ReadingActivityLog) => {
     const actor = getActorName(log);
     if (log.activity_type === 'plan_updated') {
-      return `JUZ ${log.juz_number} | ${actor} hat den Plan neu verteilt`;
+      return `JUZ ${log.juz_number} | ${t('activity.planUpdated', { actor })}`;
     }
     if (log.activity_type === 'plan_cleared') {
-      return `JUZ ${log.juz_number} | ${actor} hat die Verteilung gelöscht`;
+      return `JUZ ${log.juz_number} | ${t('activity.planCleared', { actor })}`;
     }
-    return `JUZ ${log.juz_number} | ${actor} hat ein Audio hochgeladen`;
+    return `JUZ ${log.juz_number} | ${t('activity.audioUploaded', { actor })}`;
   };
 
   const getEarliestVote = (votes: VoteValue[]): VoteValue | null => {
@@ -541,14 +543,14 @@ export default function Quran() {
           const actorName = actor?.full_name || actor?.email || 'Jemand';
           const message =
             row.activity_type === 'plan_updated'
-              ? `JUZ ${row.juz_number} | ${actorName} hat den Plan neu verteilt`
+              ? `JUZ ${row.juz_number} | ${t('activity.planUpdated', { actor: actorName })}`
               : row.activity_type === 'plan_cleared'
-                ? `JUZ ${row.juz_number} | ${actorName} hat die Verteilung gelöscht`
+                ? `JUZ ${row.juz_number} | ${t('activity.planCleared', { actor: actorName })}`
                 : `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
           setActivityToast({ id: row.id, message, juzNumber: row.juz_number });
 
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            new Notification('Neue Aktivität', { body: message });
+            new Notification(t('activity.newActivity'), { body: message });
           }
         }
       )
@@ -620,7 +622,7 @@ export default function Quran() {
     if (
       assignments.length > 0 &&
       !window.confirm(
-        `Es existiert bereits ein Plan für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}. Neu verteilen? Der alte Fortschritt geht verloren.`
+        t('group.confirmRedistribute', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })
       )
     )
       return;
@@ -644,14 +646,14 @@ export default function Quran() {
         .insert({ name: createGroupName.trim() || null, owner_id: user.id })
         .select('id')
         .single();
-      if (groupError || !group) throw groupError ?? new Error('Gruppe konnte nicht erstellt werden');
+      if (groupError || !group) throw groupError ?? new Error(t('group.errorCreate'));
       await supabase.from('reading_group_members').insert({ group_id: group.id, user_id: user.id });
       setCreateGroupName('');
       setShowCreateGroupModal(false);
       await fetchData();
     } catch (e) {
       console.error(e);
-      alert('Fehler beim Erstellen der Gruppe.');
+      alert(t('group.errorCreate'));
     } finally {
       setCreatingGroup(false);
     }
@@ -718,7 +720,7 @@ export default function Quran() {
 
   const leaveGroup = async () => {
     if (!currentGroupId || !user?.id) return;
-    if (!window.confirm('Gruppe wirklich verlassen? Du verlierst den Zugriff auf den gemeinsamen Plan.')) return;
+    if (!window.confirm(t('group.confirmLeave'))) return;
     try {
       const isOwner = currentGroup?.owner_id === user.id;
       const otherMembers = users.filter((u) => u.id !== user.id);
@@ -732,13 +734,13 @@ export default function Quran() {
       await fetchData();
     } catch (e) {
       console.error(e);
-      alert('Fehler beim Verlassen der Gruppe.');
+      alert(t('group.errorLeave'));
     }
   };
 
   const transferOwnership = async (newOwnerId: string) => {
     if (!currentGroupId || !isGroupOwner || currentGroup?.owner_id === newOwnerId) return;
-    if (!window.confirm(`${users.find((u) => u.id === newOwnerId)?.full_name || users.find((u) => u.id === newOwnerId)?.email || 'Diesem Nutzer'} die Gruppenleitung übertragen?`)) return;
+    if (!window.confirm(t('group.confirmTransfer', { name: users.find((u) => u.id === newOwnerId)?.full_name || users.find((u) => u.id === newOwnerId)?.email || t('common.you') }))) return;
     try {
       await supabase.from('reading_groups').update({ owner_id: newOwnerId }).eq('id', currentGroupId).eq('owner_id', user?.id);
       await fetchData();
@@ -921,7 +923,7 @@ export default function Quran() {
       await fetchData();
     } catch (error) {
       console.error('Error generating assignments:', error);
-      alert('Fehler beim Generieren des Plans.');
+      alert(t('group.errorGenerate'));
     } finally {
       setGenerating(false);
     }
@@ -931,7 +933,7 @@ export default function Quran() {
     if (!currentGroupId || !isGroupOwner) return;
     if (
       !window.confirm(
-        `Verteilung für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay} wirklich zurücksetzen? Der Leseplan wird gelöscht.`
+        t('group.confirmClear', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })
       )
     )
       return;
@@ -964,7 +966,7 @@ export default function Quran() {
       await fetchData();
     } catch (e) {
       console.error(e);
-      alert('Fehler beim Zurücksetzen der Verteilung.');
+      alert(t('group.errorGenerate'));
     } finally {
       setClearingPlan(false);
     }
@@ -1009,7 +1011,7 @@ export default function Quran() {
 
       if (abgebenUsers.length > 0) {
         if (orderedUsers.length === 0) {
-          alert('Alle haben „abgeben“ gewählt. Es gibt niemanden, dem die Seiten zugeteilt werden können. Bitte manuell verteilen.');
+          alert(t('group.allVotedPass'));
           return;
         }
         setAbgebenRecipients(
@@ -1022,7 +1024,7 @@ export default function Quran() {
       }
     } catch (error) {
       console.error('Error preparing plan from votes:', error);
-      alert('Fehler beim Erzeugen des Plans aus Votes.');
+      alert(t('group.errorVotes'));
     } finally {
       setGenerating(false);
     }
@@ -1131,7 +1133,7 @@ export default function Quran() {
       await fetchData();
     } catch (error) {
       console.error('Error generating plan from votes:', error);
-      alert('Fehler beim Erzeugen des Plans aus Votes.');
+      alert(t('group.errorVotes'));
     } finally {
       setGenerating(false);
     }
@@ -1161,7 +1163,7 @@ export default function Quran() {
       await fetchData();
     } catch (error) {
       console.error('Error generating plan from votes:', error);
-      alert('Fehler beim Erzeugen des Plans aus Votes.');
+      alert(t('group.errorVotes'));
     } finally {
       setGenerating(false);
     }
@@ -1431,12 +1433,12 @@ export default function Quran() {
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-3 mb-2 opacity-90">
             <Calendar size={20} />
-            <span className="font-medium">{islamicMonthInfo.monthName} Tag</span>
+            <span className="font-medium">{islamicMonthInfo.monthName} {t('quran.day')}</span>
             <select
               value={selectedRamadanDay}
               onChange={(e) => setSelectedRamadanDay(Number(e.target.value))}
               className="bg-white dark:bg-gray-700 text-emerald-800 dark:text-emerald-200 font-bold border-2 border-white dark:border-gray-600 rounded-lg px-4 py-2 min-w-[4rem] shadow-md focus:ring-2 focus:ring-emerald-300 focus:outline-none cursor-pointer appearance-auto"
-              title="Tag auswählen"
+              title={t('quran.selectDay')}
             >
               {[...Array(islamicMonthInfo.monthLength)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>
@@ -1445,24 +1447,24 @@ export default function Quran() {
               ))}
             </select>
             {isToday ? (
-              <span className="text-emerald-200 text-sm">(heute)</span>
+              <span className="text-emerald-200 text-sm">({t('quran.today')})</span>
             ) : (
               <button
                 type="button"
                 onClick={() => setSelectedRamadanDay(islamicMonthInfo.currentDay)}
                 className="text-sm font-medium text-white bg-emerald-500/80 hover:bg-emerald-500 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                title="Zum heutigen Tag wechseln"
+                title={t('quran.goToToday')}
               >
                 <Calendar size={14} />
-                Heute
+                {t('quran.today')}
               </button>
             )}
           </div>
           <h1 className="text-4xl font-bold mb-2">Juz {selectedRamadanDay}</h1>
           <p className="text-emerald-100 max-w-md">
             {isToday
-              ? 'Lese heute deinen Teil, um gemeinsam mit der Gruppe den Qur\'an zu khatmen.'
-              : `Aufteilung und Fortschritt für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}.`}
+              ? t('quran.readToday')
+              : t('quran.distributionFor', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })}
           </p>
         </div>
         <BookOpen className="absolute right-[-20px] bottom-[-40px] opacity-10" size={200} />
@@ -1472,7 +1474,7 @@ export default function Quran() {
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> Aktive Gruppe
+            <Users size={20} className="text-emerald-600 dark:text-emerald-400" /> {t('quran.activeGroup')}
           </h3>
           {isGroupOwner && isInGroup && (
             <button
@@ -1480,31 +1482,31 @@ export default function Quran() {
               onClick={openManageGroupModal}
               className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
             >
-              <Settings2 size={16} /> Gruppe verwalten
+              <Settings2 size={16} /> {t('quran.manageGroup')}
             </button>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
           {!isInGroup ? (
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Du bist in keiner Lese-Gruppe.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('quran.noGroup')}</p>
               <button
                 type="button"
                 onClick={() => setShowCreateGroupModal(true)}
                 className="text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 px-3 py-1.5 rounded-lg"
               >
-                Gruppe erstellen
+                {t('group.createGroup')}
               </button>
               <button
                 type="button"
                 onClick={openMailbox}
                 className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-500 dark:border-emerald-400"
               >
-                <Mail size={14} className="inline mr-1" /> Anfragen
+                <Mail size={14} className="inline mr-1" /> {t('quran.invitations')}
               </button>
             </div>
           ) : users.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Noch niemand in der Lese-Gruppe. {isGroupOwner && 'Nutze „Gruppe verwalten“, um andere einzuladen.'}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('group.noOneInGroup')} {isGroupOwner && t('group.useManageToInvite')}</p>
           ) : (
             users.map((u) => (
               <div key={u.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600">
@@ -1523,10 +1525,10 @@ export default function Quran() {
               onClick={leaveGroup}
               className="text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium flex items-center gap-1"
             >
-              <LogOut size={14} /> Gruppe verlassen
+              <LogOut size={14} /> {t('group.leaveGroup')}
             </button>
             <button type="button" onClick={openMailbox} className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1">
-              <Mail size={14} /> Anfragen
+              <Mail size={14} /> {t('quran.invitations')}
             </button>
           </div>
         )}
@@ -1534,10 +1536,10 @@ export default function Quran() {
           <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
             <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
               <History size={16} className="text-emerald-600 dark:text-emerald-400" />
-              Activity Log (global)
+              {t('quran.activityLog')}
             </h4>
             {activityLogs.length === 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">Noch keine Aktivitäten.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('quran.noActivity')}</p>
             ) : (
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {activityLogs.map((log) => (
@@ -1573,7 +1575,7 @@ export default function Quran() {
       {isInGroup && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-3">
-            Wann kannst du lesen? ({islamicMonthInfo.monthName} Tag {selectedRamadanDay})
+            {t('quran.whenCanYouRead', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })}
           </h3>
           <div className="flex flex-wrap gap-2 mb-3">
             {VOTE_OPTIONS.map((opt) => (
@@ -1594,12 +1596,12 @@ export default function Quran() {
           </div>
           {myVotes.length > 0 && (
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Deine Wahl: {myVotes.map(formatVoteLabel).join(', ')}
+              {t('quran.yourChoice')} {myVotes.map(formatVoteLabel).join(', ')}
             </p>
           )}
           {votesForDay.length > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Wer hat was gewählt:</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('quran.whoVoted')}</p>
               <ul className="space-y-2">
                 {votesForDay.map((v) => (
                   <li key={v.user_id} className="flex flex-wrap items-center gap-2 text-sm">
@@ -1621,7 +1623,7 @@ export default function Quran() {
       <div ref={assignmentsSectionRef} className="space-y-4 min-w-0 max-w-full">
         <div className="flex flex-wrap justify-between items-center gap-2">
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 min-w-0">
-            {isToday ? 'Heutige Aufteilung' : `Aufteilung für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}`}
+            {isToday ? t('quran.todayDistribution') : t('quran.distributionForDay', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })}
           </h3>
           {isGroupOwner && isInGroup && (
             <div className="flex flex-wrap items-center gap-2">
@@ -1631,7 +1633,7 @@ export default function Quran() {
                 className="text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
               >
                 {generating ? <Loader2 size={14} className="animate-spin" /> : null}
-                Plan aus Votes erzeugen
+                {t('quran.generateFromVotes')}
               </button>
               <button
                 onClick={openDistributeModal}
@@ -1639,7 +1641,7 @@ export default function Quran() {
                 className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
               >
                 {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                {visibleAssignments.length > 0 ? 'Neu verteilen' : 'Plan generieren'}
+                {visibleAssignments.length > 0 ? t('quran.redistribute') : t('quran.generatePlan')}
               </button>
               {visibleAssignments.length > 0 && (
                 <button
@@ -1648,7 +1650,7 @@ export default function Quran() {
                   className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium flex items-center gap-1 bg-red-50 dark:bg-red-900/30 px-3 py-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                 >
                   {clearingPlan ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                  Verteilung löschen
+                  {t('quran.deleteDistribution')}
                 </button>
               )}
             </div>
@@ -1659,8 +1661,8 @@ export default function Quran() {
           <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-600">
             <p className="text-gray-500 dark:text-gray-400">
               {isInGroup
-                ? (isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}.`)
-                : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}).`)}
+                ? (isToday ? t('quran.noPlanToday') : t('quran.noPlanForDay', { month: islamicMonthInfo.monthName, day: selectedRamadanDay }))
+                : t('quran.noPlanForYou')}
             </p>
           </div>
         ) : (
@@ -1708,7 +1710,7 @@ export default function Quran() {
                               )}
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                              Seite <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> bis <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
+                              {t('quran.page')} <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> {t('quran.to')} <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
                             </p>
                             {isMe && (
                               <button
@@ -1721,7 +1723,7 @@ export default function Quran() {
                                 className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
                               >
                                 <BookOpen size={14} />
-                                Lesen
+                                {t('quran.read')}
                               </button>
                             )}
                             <ReadingAudioCell
@@ -1746,12 +1748,12 @@ export default function Quran() {
                             >
                               {assignment.is_completed ? (
                                 <>
-                                  <CheckCircle size={18} className="sm:w-5 sm:h-5" /> Erledigt
+                                  <CheckCircle size={18} className="sm:w-5 sm:h-5" /> {t('quran.done')}
                                 </>
                               ) : (
                                 <>
                                   <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 shrink-0" />
-                                  <span>Offen</span>
+                                  <span>{t('quran.open')}</span>
                                 </>
                               )}
                             </button>
@@ -1759,7 +1761,7 @@ export default function Quran() {
                             <div className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium shrink-0 ${
                               assignment.is_completed ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                             }`}>
-                              {assignment.is_completed ? 'Fertig' : 'Offen'}
+                              {assignment.is_completed ? t('quran.finished') : t('quran.open')}
                             </div>
                           )}
                         </div>
@@ -1779,7 +1781,7 @@ export default function Quran() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                Wer wie viele Seiten? (Juz {selectedRamadanDay} - {islamicMonthInfo.monthName})
+                {t('group.whoHowManyPages', { juz: selectedRamadanDay, month: islamicMonthInfo.monthName })}
               </h3>
               <button
                 type="button"
@@ -1790,14 +1792,14 @@ export default function Quran() {
               </button>
             </div>
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-              Gesamt: {totalPagesForJuz} Seiten. Die Summe pro Person muss genau {totalPagesForJuz} ergeben.
+              {t('group.totalPages', { n: totalPagesForJuz })}
             </p>
             {arabic3InDistributeUserId && (() => {
               const arUsers = distributionUsers.filter((u: { reader_language?: string | null }) => u.reader_language === 'ar');
               if (arUsers.length < 2) return null;
               return (
                 <div className="px-6 pt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Wer von den Arabisch-Lesern liest 3 Seiten?</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{t('group.whoReads3Pages')}</span>
                   <select
                     value={arabic3InDistributeUserId}
                     onChange={(e) => {
@@ -1847,7 +1849,7 @@ export default function Quran() {
                       onChange={(e) => setPageCountForUser(idx, e.target.valueAsNumber || 0)}
                       className="w-16 px-2 py-1.5 text-center border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">Seiten</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">{t('common.pages')}</span>
                   </div>
                 </div>
               ))}
@@ -1862,7 +1864,7 @@ export default function Quran() {
                   onClick={() => setShowDistributeModal(false)}
                   className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -1870,7 +1872,7 @@ export default function Quran() {
                   disabled={!distributeValid}
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  Plan generieren
+                  {t('group.generatePlan')}
                 </button>
               </div>
             </div>
@@ -1884,7 +1886,7 @@ export default function Quran() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                Seiten von „abgeben“ zuweisen
+                {t('group.assignAbgebenPages')}
               </h3>
               <button
                 type="button"
@@ -1895,13 +1897,13 @@ export default function Quran() {
               </button>
             </div>
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-              Diese Nutzer haben „abgeben“ gewählt. Wem sollen ihre Seiten zugeteilt werden?
+              {t('group.assignAbgebenDesc')}
             </p>
             <div className="p-6 overflow-y-auto space-y-4">
               {abgebenAssignData.abgebenUsers.map(({ user: u, pages }) => (
                 <div key={u.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-700/50">
                   <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{u.full_name || u.email}</span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">({pages} S.)</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({pages} {t('group.pagesShort')})</span>
                   <span className="text-gray-400 dark:text-gray-500">→</span>
                   <select
                     value={abgebenRecipients[u.id] ?? ''}
@@ -1921,7 +1923,7 @@ export default function Quran() {
                 onClick={() => { setShowAbgebenAssignModal(false); setAbgebenAssignData(null); }}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -1930,7 +1932,7 @@ export default function Quran() {
                 className="flex-1 py-2.5 rounded-xl bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {generating ? <Loader2 size={18} className="animate-spin" /> : null}
-                Plan erzeugen
+                {t('group.generatePlan')}
               </button>
             </div>
           </div>
@@ -1946,7 +1948,7 @@ export default function Quran() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full overflow-hidden flex flex-col">
               <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Arabisch-Leser mit 3 Seiten
+                  {t('group.arabicReader3Pages')}
                 </h3>
                 <button
                   type="button"
@@ -1957,7 +1959,7 @@ export default function Quran() {
                 </button>
               </div>
               <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-                Ein Arabisch-Leser erhält 3 Seiten (statt 2). Wer soll es sein?
+                {t('group.arabicReader3Desc')}
               </p>
               <div className="p-6">
                 <select
@@ -1976,7 +1978,7 @@ export default function Quran() {
                   onClick={() => { setShowArabic3Modal(false); setArabic3ModalData(null); setArabic3SelectedUserId(''); }}
                   className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -1985,7 +1987,7 @@ export default function Quran() {
                   className="flex-1 py-2.5 rounded-xl bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {generating ? <Loader2 size={18} className="animate-spin" /> : null}
-                  Plan erzeugen
+                  {t('group.generatePlan')}
                 </button>
               </div>
             </div>
@@ -1997,18 +1999,18 @@ export default function Quran() {
       {showCreateGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Gruppe erstellen</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Erstelle eine Lese-Gruppe und lade später andere per E-Mail oder Name ein.</p>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">{t('group.createGroup')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('group.createGroupDesc')}</p>
             <input
               type="text"
               value={createGroupName}
               onChange={(e) => setCreateGroupName(e.target.value)}
-              placeholder="Gruppenname (optional)"
+              placeholder={t('group.groupNamePlaceholder')}
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 mb-4 text-gray-800 dark:text-gray-200"
             />
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setShowCreateGroupModal(false); setCreateGroupName(''); }} className="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">Abbrechen</button>
-              <button type="button" onClick={createGroup} disabled={creatingGroup} className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-50">{creatingGroup ? <Loader2 className="animate-spin inline" size={18} /> : 'Erstellen'}</button>
+              <button type="button" onClick={() => { setShowCreateGroupModal(false); setCreateGroupName(''); }} className="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">{t('common.cancel')}</button>
+              <button type="button" onClick={createGroup} disabled={creatingGroup} className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-50">{creatingGroup ? <Loader2 className="animate-spin inline" size={18} /> : t('group.create')}</button>
             </div>
           </div>
         </div>
@@ -2019,25 +2021,25 @@ export default function Quran() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><Mail size={20} /> Anfragen</h3>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><Mail size={20} /> {t('group.invitations')}</h3>
               <button type="button" onClick={() => setShowMailboxModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} /></button>
             </div>
             <div className="p-6 overflow-y-auto">
               {loadingMailbox ? (
                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>
               ) : pendingInvitations.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Keine offenen Einladungen.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('group.noInvitations')}</p>
               ) : (
                 <div className="space-y-3">
                   {pendingInvitations.map((inv) => (
                     <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700">
                       <div>
-                        <p className="font-medium text-gray-800 dark:text-gray-200">{inv.group_name || 'Lese-Gruppe'}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{inv.inviter_name || inv.inviter_email} lädt dich ein.</p>
+                        <p className="font-medium text-gray-800 dark:text-gray-200">{inv.group_name || t('group.defaultGroupName')}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{inv.inviter_name || inv.inviter_email} {t('group.invitesYou')}</p>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button type="button" onClick={() => declineInvitation(inv.id)} disabled={respondingToInvite === inv.id} className="text-sm text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50">Ablehnen</button>
-                        <button type="button" onClick={() => acceptInvitation(inv.id, inv.group_id)} disabled={respondingToInvite === inv.id} className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50">{respondingToInvite === inv.id ? <Loader2 size={14} className="animate-spin inline" /> : 'Annehmen'}</button>
+                        <button type="button" onClick={() => declineInvitation(inv.id)} disabled={respondingToInvite === inv.id} className="text-sm text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50">{t('group.decline')}</button>
+                        <button type="button" onClick={() => acceptInvitation(inv.id, inv.group_id)} disabled={respondingToInvite === inv.id} className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50">{respondingToInvite === inv.id ? <Loader2 size={14} className="animate-spin inline" /> : t('group.accept')}</button>
                       </div>
                     </div>
                   ))}
@@ -2054,7 +2056,7 @@ export default function Quran() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                Lese-Gruppe verwalten
+                {t('group.manageReadingGroup')}
               </h3>
               <button
                 type="button"
@@ -2065,22 +2067,22 @@ export default function Quran() {
               </button>
             </div>
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-              Suche nach E-Mail oder Name und lade Nutzer ein. Mitglieder können Lese-Sprache festlegen oder du überträgst die Gruppenleitung.
+              {t('group.manageDesc')}
             </p>
             <div className="p-6 overflow-y-auto space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Nutzer suchen (E-Mail oder Name)</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">{t('group.searchUser')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={groupSearchQuery}
                     onChange={(e) => setGroupSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && searchUsersForGroup()}
-                    placeholder="E-Mail oder Name eingeben"
+                    placeholder={t('group.searchPlaceholder')}
                     className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
                   />
                   <button type="button" onClick={searchUsersForGroup} disabled={searchingGroup} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium disabled:opacity-50">
-                    {searchingGroup ? <Loader2 size={16} className="animate-spin" /> : 'Suchen'}
+                    {searchingGroup ? <Loader2 size={16} className="animate-spin" /> : t('group.search')}
                   </button>
                 </div>
                 {groupSearchResults.length > 0 && (
@@ -2093,11 +2095,11 @@ export default function Quran() {
                       return (
                         <div key={p.id} className="flex items-center justify-between gap-2 py-2 px-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                           <span className="text-sm text-gray-800 dark:text-gray-200 truncate">{p.full_name || p.email}</span>
-                          {inGroup && <span className="text-xs text-emerald-600 dark:text-emerald-400">In Gruppe</span>}
-                          {alreadyInvited && <span className="text-xs text-amber-600 dark:text-amber-400">Eingeladen</span>}
+                          {inGroup && <span className="text-xs text-emerald-600 dark:text-emerald-400">{t('group.inGroup')}</span>}
+                          {alreadyInvited && <span className="text-xs text-amber-600 dark:text-amber-400">{t('group.invited')}</span>}
                           {canInvite && (
                             <button type="button" onClick={() => inviteToGroup(p.id)} disabled={invitingUserId === p.id} className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 flex items-center gap-1">
-                              {invitingUserId === p.id ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} Einladen
+                              {invitingUserId === p.id ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} {t('group.invite')}
                             </button>
                           )}
                         </div>
@@ -2107,7 +2109,7 @@ export default function Quran() {
                 )}
               </div>
               <div>
-                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">Mitglieder</h4>
+                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">{t('group.members')}</h4>
                 {users.map((p) => {
                   const member = users.find((u) => u.id === p.id) as { reader_language?: string | null } | undefined;
                   const readerLang = member?.reader_language ?? null;
@@ -2123,22 +2125,22 @@ export default function Quran() {
                           value={readerLang ?? ''}
                           onChange={(e) => setReaderLanguage(p.id, (e.target.value || null) as 'ar' | 'de' | null)}
                           className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                          title="Lese-Sprache"
+                          title={t('group.readingLanguage')}
                         >
                           <option value="">—</option>
-                          <option value="ar">Arabisch (2 S.)</option>
-                          <option value="de">Deutsch (3 S.)</option>
+                          <option value="ar">{t('group.arabic')}</option>
+                          <option value="de">{t('group.german')}</option>
                         </select>
                         {isGroupOwner && p.id !== user?.id && (
-                          <button type="button" onClick={() => transferOwnership(p.id)} className="text-xs text-amber-600 dark:text-amber-400 hover:underline">Owner übertragen</button>
+                          <button type="button" onClick={() => transferOwnership(p.id)} className="text-xs text-amber-600 dark:text-amber-400 hover:underline">{t('group.transferOwnership')}</button>
                         )}
                         {p.id === user?.id ? (
                           <button type="button" onClick={leaveGroup} className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:underline">
-                            <LogOut size={14} /> Gruppe verlassen
+                            <LogOut size={14} /> {t('group.leaveGroup')}
                           </button>
                         ) : (
                           <button type="button" onClick={() => removeFromGroup(p.id)} className="flex items-center gap-1 text-sm text-rose-600 dark:text-rose-400 hover:underline">
-                            <UserMinus size={14} /> Entfernen
+                            <UserMinus size={14} /> {t('group.remove')}
                           </button>
                         )}
                       </div>
@@ -2163,7 +2165,7 @@ export default function Quran() {
           <p className="text-xs md:text-sm font-medium text-emerald-800 dark:text-emerald-100">
             {activityToast.message}
           </p>
-          <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">Tippen zum Öffnen</p>
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">{t('quran.tapToOpen')}</p>
         </button>
       )}
     </div>

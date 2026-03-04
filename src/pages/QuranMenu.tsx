@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BookOpen, BookText, Moon, Sparkles, Plus, Trash2, Pencil, Hourglass } from 'lucide-react';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
 import { getKahfWindow, isKahfWindowActiveSync, getKahfRemainingMsSync } from '../lib/maghrib';
@@ -88,10 +89,6 @@ function clearKahfLastLocation() {
   }
 }
 
-function getFreeLabel(): string {
-  if (typeof window === 'undefined') return 'Quran lesen (frei)';
-  return window.localStorage.getItem(FREE_LABEL_STORAGE_KEY) || 'Quran lesen (frei)';
-}
 
 function getFreeTheme(): InstanceTheme {
   if (typeof window === 'undefined') return 'green';
@@ -99,10 +96,10 @@ function getFreeTheme(): InstanceTheme {
   return THEMES.includes(t as InstanceTheme) ? (t as InstanceTheme) : 'green';
 }
 
-function formatRemaining(expiresAt: number | null): string {
-  if (expiresAt === null) return 'Unendlich';
+function formatRemaining(expiresAt: number | null, t: (k: string) => string): string {
+  if (expiresAt === null) return t('quranMenu.infinite');
   const ms = expiresAt - Date.now();
-  if (ms <= 0) return 'Abgelaufen';
+  if (ms <= 0) return t('quranMenu.expired');
   const totalMinutes = Math.floor(ms / 60000);
   const totalHours = Math.floor(totalMinutes / 60);
   const totalDays = Math.floor(totalHours / 24);
@@ -110,21 +107,21 @@ function formatRemaining(expiresAt: number | null): string {
   const days = totalDays - months * 30;
   const hours = totalHours - totalDays * 24;
   const minutes = totalMinutes - totalHours * 60;
-  if (totalDays >= 1) return `${months}m ${days}t ${hours}st`;
-  if (totalHours >= 1) return `${totalHours}st ${minutes}m`;
+  if (totalDays >= 1) return `${months}m ${days}d ${hours}h`;
+  if (totalHours >= 1) return `${totalHours}h ${minutes}m`;
   if (totalMinutes >= 1) return `${totalMinutes}m`;
   return '<1m';
 }
 
 /** Verbleibende Zeit nur in Stunden und Minuten (für Kahf). */
-function formatRemainingKahf(expiresAt: number | null): string {
-  if (expiresAt === null) return 'Unendlich';
+function formatRemainingKahf(expiresAt: number | null, t: (k: string) => string): string {
+  if (expiresAt === null) return t('quranMenu.infinite');
   const ms = expiresAt - Date.now();
-  if (ms <= 0) return 'Abgelaufen';
+  if (ms <= 0) return t('quranMenu.expired');
   const totalMinutes = Math.floor(ms / 60000);
   const totalHours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes - totalHours * 60;
-  if (totalHours >= 1) return `${totalHours}st ${minutes}m`;
+  if (totalHours >= 1) return `${totalHours}h ${minutes}m`;
   if (totalMinutes >= 1) return `${totalMinutes}m`;
   return '<1m';
 }
@@ -145,9 +142,13 @@ function themeGradient(theme: InstanceTheme): string {
 }
 
 export default function QuranMenu() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [customSlots, setCustomSlots] = useState<QuranReaderSlot[]>(loadCustomSlots);
-  const [freeLabel, setFreeLabel] = useState(getFreeLabel);
+  const [freeLabel, setFreeLabel] = useState(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(FREE_LABEL_STORAGE_KEY) : null;
+    return stored || t('quranMenu.freeLabelDefault');
+  });
   const [freeTheme, setFreeTheme] = useState<InstanceTheme>(getFreeTheme);
   const [surahs, setSurahs] = useState<SurahMeta[]>([]);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -199,7 +200,7 @@ export default function QuranMenu() {
   };
 
   const saveNewSlot = () => {
-    const label = (newSlotLabel || `Leseplatz ${customSlots.length + 2}`).trim();
+    const label = (newSlotLabel || t('quranMenu.slotPlaceholder', { n: customSlots.length + 2 })).trim();
     let expiresAt: number | null = null;
     if (!newSlotInfinite) {
       const months = Math.max(0, parseInt(newSlotMonths, 10) || 0);
@@ -240,7 +241,7 @@ export default function QuranMenu() {
     const left = `${surahName(loc.surah)} : ${loc.ayah}`;
     const page = loc.page ?? '?';
     const juz = loc.juz ?? '?';
-    const right = `Seite ${page} | Juz ${juz}`;
+    const right = `${t('quranMenu.page')} ${page} | ${t('quranMenu.juz')} ${juz}`;
     return { left, right };
   };
 
@@ -280,7 +281,7 @@ export default function QuranMenu() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 md:p-6">
       <div className="max-w-lg mx-auto space-y-5">
-        <h1 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">Quran Instanzen</h1>
+        <h1 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">{t('quranMenu.title')}</h1>
 
         <div className="space-y-4">
           {/* Hatim Reader – immer Grün */}
@@ -292,8 +293,8 @@ export default function QuranMenu() {
               <BookOpen size={56} className="opacity-20" />
             </div>
             <div className="relative">
-              <h2 className="font-bold text-xl text-white drop-shadow-sm">Hatim Reader</h2>
-              <p className="text-sm text-white/90 mt-0.5">Öffnet direkt deinen Part an der Startseite (speichert getrennt)</p>
+              <h2 className="font-bold text-xl text-white drop-shadow-sm">{t('quranMenu.hatimReader')}</h2>
+              <p className="text-sm text-white/90 mt-0.5">{t('quranMenu.hatimDesc')}</p>
             </div>
           </Link>
 
@@ -323,8 +324,8 @@ export default function QuranMenu() {
                 {lastKahf?.surah === 18 && lastKahf?.ayah ? (
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between items-baseline gap-2 text-sm text-emerald-100/95">
-                      <span>{lastKahf.ayah === 110 ? 'Erledigt' : `Al-Kahf : ${lastKahf.ayah}`}</span>
-                      <span className="shrink-0">Seite {lastKahf.page ?? '?'}</span>
+                      <span>{lastKahf.ayah === 110 ? t('quranMenu.completed') : `Al-Kahf : ${lastKahf.ayah}`}</span>
+                      <span className="shrink-0">{t('quranMenu.page')} {lastKahf.page ?? '?'}</span>
                     </div>
                     {kahfWindow && (() => {
                       const remaining = getKahfRemainingMsSync(kahfWindow);
@@ -332,7 +333,7 @@ export default function QuranMenu() {
                       return (
                         <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1">
                           <Hourglass size={12} />
-                          {formatRemainingKahf(Date.now() + remaining)}
+                          {formatRemainingKahf(Date.now() + remaining, t)}
                         </span>
                       );
                     })()}
@@ -345,11 +346,11 @@ export default function QuranMenu() {
                       return (
                         <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1 shrink-0">
                           <Hourglass size={12} />
-                          {formatRemainingKahf(Date.now() + remaining)}
+                          {formatRemainingKahf(Date.now() + remaining, t)}
                         </span>
                       );
                     })()}
-                    <p className="text-sm text-emerald-200/80 ml-auto">Noch nicht gelesen</p>
+                    <p className="text-sm text-emerald-200/80 ml-auto">{t('quranMenu.notReadYet')}</p>
                   </div>
                 )}
               </div>
@@ -368,10 +369,10 @@ export default function QuranMenu() {
                 {lastFree?.surah && lastFree?.ayah ? (
                   <div className="flex justify-between items-baseline gap-2 mt-2 text-sm text-white/95">
                     <span>{surahName(lastFree.surah)} : {lastFree.ayah}</span>
-                    <span className="shrink-0">Seite {lastFree.page ?? '?'} | Juz {lastFree.juz ?? '?'}</span>
+                    <span className="shrink-0">{t('quranMenu.page')} {lastFree.page ?? '?'} | {t('quranMenu.juz')} {lastFree.juz ?? '?'}</span>
                   </div>
                 ) : (
-                  <p className="text-sm text-white/80 mt-1">Noch nicht gelesen</p>
+                  <p className="text-sm text-white/80 mt-1">{t('quranMenu.notReadYet')}</p>
                 )}
               </Link>
               <div className="mt-4 flex justify-end">
@@ -379,7 +380,7 @@ export default function QuranMenu() {
                   type="button"
                   onClick={(e) => { e.preventDefault(); setEditingLabelId('free'); setEditingLabelValue(freeLabel); }}
                   className="p-2 rounded-lg text-white/90 hover:bg-white/20"
-                  aria-label="Bearbeiten"
+                  aria-label={t('quranMenu.edit')}
                 >
                   <Pencil size={16} />
                 </button>
@@ -393,18 +394,18 @@ export default function QuranMenu() {
                     value={editingLabelValue}
                     onChange={(e) => setEditingLabelValue(e.target.value)}
                     className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-                    placeholder="Name"
+                    placeholder={t('quranMenu.slotName')}
                   />
                   <button
                     type="button"
-                    onClick={() => { setFreeLabel(editingLabelValue.trim() || 'Quran lesen (frei)'); setEditingLabelId(null); }}
+                    onClick={() => { setFreeLabel(editingLabelValue.trim() || t('quranMenu.freeLabelDefault')); setEditingLabelId(null); }}
                     className="px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium hover:bg-white/30"
                   >
-                    Speichern
+                    {t('quranMenu.save')}
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-white/80">Design:</span>
+                  <span className="text-xs text-white/80">{t('quranMenu.design')}:</span>
                   {THEMES.map((t) => (
                     <button
                       key={t}
@@ -443,11 +444,11 @@ export default function QuranMenu() {
                         <span className="shrink-0">{status.right}</span>
                       </div>
                     ) : (
-                      <p className="text-sm text-white/80 mt-1">Noch nicht gelesen</p>
+                      <p className="text-sm text-white/80 mt-1">{t('quranMenu.notReadYet')}</p>
                     )}
                     <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1 mt-1">
                       <Hourglass size={12} />
-                      {formatRemaining(slot.expiresAt)}
+                      {formatRemaining(slot.expiresAt, t)}
                     </span>
                   </Link>
                   <div className="mt-4 flex justify-end gap-1">
@@ -455,7 +456,7 @@ export default function QuranMenu() {
                       type="button"
                       onClick={(e) => { e.preventDefault(); setEditingLabelId(slot.id); setEditingLabelValue(slot.label); }}
                       className="p-2 rounded-lg text-white/90 hover:bg-white/20"
-                      aria-label="Bearbeiten"
+                      aria-label={t('quranMenu.edit')}
                     >
                       <Pencil size={16} />
                     </button>
@@ -463,7 +464,7 @@ export default function QuranMenu() {
                       type="button"
                       onClick={(e) => { e.preventDefault(); removeSlot(slot.id); }}
                       className="p-2 rounded-lg text-white/90 hover:bg-red-500/30"
-                      aria-label="Entfernen"
+                      aria-label={t('quranMenu.remove')}
                     >
                       <Trash2 size={18} />
                     </button>
@@ -483,11 +484,11 @@ export default function QuranMenu() {
                         onClick={() => updateSlotLabel(slot.id, editingLabelValue.trim() || slot.label)}
                         className="px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium hover:bg-white/30"
                       >
-                        Speichern
+                        {t('quranMenu.save')}
                       </button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-white/80">Design:</span>
+                      <span className="text-xs text-white/80">{t('quranMenu.design')}:</span>
                       {THEMES.map((t) => (
                         <button
                           key={t}
@@ -510,16 +511,16 @@ export default function QuranMenu() {
           {showAddForm ? (
             <div className="rounded-xl border-2 border-dashed border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-800 p-4 space-y-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Name
+                {t('quranMenu.slotName')}
               </label>
               <input
                 type="text"
                 value={newSlotLabel}
                 onChange={(e) => setNewSlotLabel(e.target.value)}
-                placeholder={`Leseplatz ${customSlots.length + 2}`}
+                placeholder={t('quranMenu.slotPlaceholder', { n: customSlots.length + 2 })}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
               />
-              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Design</div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('quranMenu.design')}</div>
               <div className="flex gap-2">
                 {THEMES.map((t) => (
                   <button
@@ -534,14 +535,14 @@ export default function QuranMenu() {
                   />
                 ))}
               </div>
-              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Löscht sich nach</div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('quranMenu.deleteAfter')}</div>
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
                   checked={newSlotInfinite}
                   onChange={() => setNewSlotInfinite(true)}
                 />
-                <span>Unendlich (bis du sie löschst)</span>
+                <span>{t('quranMenu.infiniteUntilDelete')}</span>
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -549,7 +550,7 @@ export default function QuranMenu() {
                   checked={!newSlotInfinite}
                   onChange={() => setNewSlotInfinite(false)}
                 />
-                <span>Zeitraum:</span>
+                <span>{t('quranMenu.timePeriod')}</span>
               </label>
               {!newSlotInfinite && (
                 <div className="flex flex-wrap gap-3 text-sm">
@@ -561,7 +562,7 @@ export default function QuranMenu() {
                       onChange={(e) => setNewSlotMonths(e.target.value)}
                       className="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1 py-0.5 text-center"
                     />
-                    Monate
+                    {t('quranMenu.months')}
                   </span>
                   <span className="flex items-center gap-1">
                     <input
@@ -571,7 +572,7 @@ export default function QuranMenu() {
                       onChange={(e) => setNewSlotWeeks(e.target.value)}
                       className="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1 py-0.5 text-center"
                     />
-                    Wochen
+                    {t('quranMenu.weeks')}
                   </span>
                   <span className="flex items-center gap-1">
                     <input
@@ -581,7 +582,7 @@ export default function QuranMenu() {
                       onChange={(e) => setNewSlotDays(e.target.value)}
                       className="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1 py-0.5 text-center"
                     />
-                    Tage
+                    {t('quranMenu.days')}
                   </span>
                   <span className="flex items-center gap-1">
                     <input
@@ -591,7 +592,7 @@ export default function QuranMenu() {
                       onChange={(e) => setNewSlotHours(e.target.value)}
                       className="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1 py-0.5 text-center"
                     />
-                    Stunden
+                    {t('quranMenu.hours')}
                   </span>
                 </div>
               )}
@@ -610,14 +611,14 @@ export default function QuranMenu() {
                   }}
                   className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm"
                 >
-                  Abbrechen
+                  {t('quranMenu.cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={saveNewSlot}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm"
                 >
-                  Erstellen & öffnen
+                  {t('quranMenu.createAndOpen')}
                 </button>
               </div>
             </div>
@@ -628,7 +629,7 @@ export default function QuranMenu() {
               className="flex items-center justify-center gap-2 w-full p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-emerald-400 dark:hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
             >
               <Plus size={20} />
-              <span>Neuer Leseplatz</span>
+              <span>{t('quranMenu.newSlot')}</span>
             </button>
           )}
         </div>

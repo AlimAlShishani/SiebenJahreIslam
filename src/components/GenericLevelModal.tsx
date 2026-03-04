@@ -1,5 +1,39 @@
 import { X, ArrowRight, BookOpen, Volume2 } from 'lucide-react';
-import { levelContents } from '../data/levelContent';
+import { useTranslation } from 'react-i18next';
+
+function LevelModalContentFromTranslations({ levelNumber }: { levelNumber: number }) {
+  const { t } = useTranslation();
+  const intro = t(`levels.${levelNumber}.modalIntro`, { defaultValue: '' });
+  const goal = t(`levels.${levelNumber}.modalGoal`, { defaultValue: '' });
+  const goalText = t(`levels.${levelNumber}.modalGoalText`, { defaultValue: '' });
+  const bullets: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const b = t(`levels.${levelNumber}.modalBullets.${i}`, { defaultValue: '' });
+    if (b) bullets.push(b);
+    else break;
+  }
+  if (!intro && !goal && !goalText && bullets.length === 0) {
+    return <p className="text-gray-500">{t('learn.loading')}</p>;
+  }
+  return (
+    <div className="space-y-4">
+      {intro && <p>{intro}</p>}
+      {bullets.length > 0 && (
+        <ul className="list-disc list-inside space-y-2 ml-2">
+          {bullets.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      )}
+      {(goal || goalText) && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 p-4 rounded-lg mt-4">
+          {goal && <p className="font-bold text-emerald-800 dark:text-emerald-300">{goal}</p>}
+          {goalText && <p>{goalText}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface LevelInfoFromDb {
   title: string;
@@ -18,11 +52,11 @@ interface GenericLevelModalProps {
 }
 
 export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, levelFromDb }: GenericLevelModalProps) {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
-  const fallback = levelContents[levelNumber];
-  const title = levelFromDb?.title ?? fallback?.title ?? `Stufe ${levelNumber}`;
-  const description = levelFromDb?.description ?? fallback?.description ?? '';
+  const title = levelFromDb?.title ?? t(`levels.${levelNumber}.title`, { defaultValue: `Level ${levelNumber}` }) ?? `Level ${levelNumber}`;
+  const description = levelFromDb?.description ?? t(`levels.${levelNumber}.description`, { defaultValue: '' }) ?? '';
   const useDbContent = levelFromDb?.modal_content != null && levelFromDb.modal_content.trim() !== '';
   const audioUrls: string[] = levelFromDb?.modal_audio_urls?.length
     ? levelFromDb.modal_audio_urls
@@ -53,7 +87,7 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
               dangerouslySetInnerHTML={{ __html: levelFromDb!.modal_content! }}
             />
           ) : (
-            fallback?.modalContent
+            <LevelModalContentFromTranslations levelNumber={levelNumber} />
           )}
           {audioUrls.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
@@ -64,7 +98,7 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
                   onClick={() => { const a = new Audio(url); a.volume = 0.6; a.play(); }}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/70 transition-colors"
                 >
-                  <Volume2 size={18} /> Audio {audioUrls.length > 1 ? i + 1 : ''} abspielen
+                  <Volume2 size={18} /> {t('levelModal.playAudio')} {audioUrls.length > 1 ? i + 1 : ''}
                 </button>
               ))}
             </div>
@@ -76,7 +110,7 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
             onClick={onStart}
             className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-lg transform active:scale-95"
           >
-            Verstanden, los geht&apos;s! <ArrowRight size={20} />
+            {t('levelModal.understood')} <ArrowRight size={20} />
           </button>
         </div>
       </div>

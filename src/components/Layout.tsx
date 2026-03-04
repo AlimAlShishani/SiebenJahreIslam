@@ -1,11 +1,14 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
+import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { changeLanguage } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { ensurePushSubscription } from '../lib/pushNotifications';
 
 export const Layout = () => {
+  const { t, i18n } = useTranslation();
   const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -106,13 +109,21 @@ export const Layout = () => {
           <h1 className="text-2xl font-bold font-serif">Nuruna</h1>
           <div className="flex items-center gap-1">
             <button
+              onClick={() => changeLanguage(i18n.language === 'en' ? 'de' : 'en')}
+              className="flex items-center gap-1 px-2 py-1.5 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-lg transition-colors font-medium text-sm"
+              title={i18n.language === 'en' ? 'Deutsch' : 'English'}
+            >
+              <Globe size={18} />
+              <span>{i18n.language === 'de' ? 'DE' : 'EN'}</span>
+            </button>
+            <button
               onClick={toggleTheme}
               className="p-2 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-full transition-colors"
-              title={theme === 'dark' ? 'Hell' : 'Dunkel'}
+              title={theme === 'dark' ? t('common.light') : t('common.dark')}
             >
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button onClick={signOut} className="p-2 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-full" title="Abmelden">
+            <button onClick={signOut} className="p-2 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-full" title={t('common.logout')}>
               <LogOut size={20} />
             </button>
           </div>
@@ -134,7 +145,7 @@ export const Layout = () => {
                 }`}
               >
                 <BookOpen size={24} />
-                <span className="text-xs mt-1">Hatim</span>
+                <span className="text-xs mt-1">{t('nav.hatim')}</span>
               </Link>
             </li>
             <li>
@@ -145,7 +156,7 @@ export const Layout = () => {
                 }`}
               >
                 <BookText size={24} />
-                <span className="text-xs mt-1">Quran</span>
+                <span className="text-xs mt-1">{t('nav.quran')}</span>
               </Link>
             </li>
             <li>
@@ -156,7 +167,7 @@ export const Layout = () => {
                 }`}
               >
                 <GraduationCap size={24} />
-                <span className="text-xs mt-1">Lernen</span>
+                <span className="text-xs mt-1">{t('nav.learn')}</span>
               </Link>
             </li>
             <li>
@@ -167,7 +178,7 @@ export const Layout = () => {
                 }`}
               >
                 <User size={24} />
-                <span className="text-xs mt-1">Profil</span>
+                <span className="text-xs mt-1">{t('nav.profile')}</span>
               </Link>
             </li>
           </ul>

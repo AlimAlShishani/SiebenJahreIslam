@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { ChevronDown, ChevronUp, Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward, Send } from 'lucide-react';
 
@@ -65,6 +66,7 @@ function SingleAudioPlayer({
   deleting,
   compact = false,
 }: { url: string; canDelete: boolean; onDelete: () => void; deleting?: boolean; compact?: boolean }) {
+  const { t } = useTranslation();
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -131,7 +133,7 @@ function SingleAudioPlayer({
     <div className={`flex flex-col ${boxClass} bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700`}>
       <audio ref={audioRef} src={url} preload="metadata" className="hidden" />
       <div className="flex items-center gap-1.5 flex-wrap">
-        <button type="button" onClick={togglePlay} className={`flex items-center justify-center ${btnClass} bg-emerald-600 hover:bg-emerald-700 text-white shrink-0`} title={isPlaying ? 'Pause' : 'Abspielen'}>
+        <button type="button" onClick={togglePlay} className={`flex items-center justify-center ${btnClass} bg-emerald-600 hover:bg-emerald-700 text-white shrink-0`} title={isPlaying ? t('audio.pause') : t('audio.play')}>
           {isPlaying ? <Pause size={playSize} /> : <Play size={playSize} className="ml-0.5" />}
         </button>
         <button type="button" onClick={() => seek(-10)} className={`flex items-center justify-center ${seekBtnClass} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 shrink-0`} title="-10 s">
@@ -146,7 +148,7 @@ function SingleAudioPlayer({
         {canDelete && (
           <button type="button" onClick={onDelete} disabled={deleting} className={`flex items-center gap-1 rounded bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-medium hover:bg-rose-200 dark:hover:bg-rose-900/60 disabled:opacity-50 ml-auto ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-sm'}`}>
             {deleting ? <Loader2 size={compact ? 10 : 14} className="animate-spin" /> : <Trash2 size={compact ? 10 : 14} />}
-            Löschen
+            {t('audio.delete')}
           </button>
         )}
       </div>
@@ -172,6 +174,7 @@ export function ReadingAudioCell({
   onToggleMobileAudio,
   onRecordingChange,
 }: ReadingAudioCellProps) {
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
@@ -363,7 +366,7 @@ export function ReadingAudioCell({
 
   const deleteOneAudio = async (url: string) => {
     if (!onDeleted) return;
-    if (!window.confirm('Dieses Audio wirklich endgültig löschen?')) return;
+    if (!window.confirm(t('audio.confirmDelete'))) return;
     setDeletingUrl(url);
     try {
       const path = getStoragePathFromUrl(url);
@@ -413,7 +416,7 @@ export function ReadingAudioCell({
                     type="button"
                     onClick={toggleRecordingPause}
                     className="w-8 h-8 rounded-full inline-flex items-center justify-center bg-gray-700 text-gray-200 hover:bg-gray-600 shadow-md"
-                    aria-label={recordingPaused ? 'Fortsetzen' : 'Pause'}
+                    aria-label={recordingPaused ? t('audio.resume') : t('audio.pause')}
                   >
                     {recordingPaused ? <Play size={12} /> : <Pause size={12} />}
                   </button>
@@ -421,7 +424,7 @@ export function ReadingAudioCell({
                     type="button"
                     onClick={cancelRecording}
                     className="w-8 h-8 rounded-full inline-flex items-center justify-center bg-rose-900/80 text-rose-200 hover:bg-rose-900 shadow-md"
-                    aria-label="Aufnahme abbrechen"
+                    aria-label={t('audio.cancelRecording')}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -430,7 +433,7 @@ export function ReadingAudioCell({
                   type="button"
                   onClick={sendRecording}
                   className="w-12 h-12 rounded-full inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all transform hover:scale-105"
-                  aria-label="Aufnahme senden"
+                  aria-label={t('audio.sendRecording')}
                 >
                   <Send size={20} />
                 </button>
@@ -441,7 +444,7 @@ export function ReadingAudioCell({
                   type="button"
                   onClick={onToggleMobileAudio}
                   className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Aufnahmen anzeigen"
+                  aria-label={t('audio.showRecordings')}
                 >
                   {mobileAudioOpen ? <ChevronDown size={24} /> : <ChevronUp size={24} />}
                 </button>
@@ -450,7 +453,7 @@ export function ReadingAudioCell({
                   onClick={startRecording}
                   disabled={uploading}
                   className="w-12 h-12 rounded-full inline-flex items-center justify-center bg-gray-700 hover:bg-gray-600 text-gray-200 shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Aufnahme starten"
+                  aria-label={t('audio.startRecording')}
                 >
                   {uploading ? <Loader2 size={20} className="animate-spin" /> : <Mic size={20} />}
                 </button>
@@ -460,15 +463,15 @@ export function ReadingAudioCell({
             <>
               {!compact && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Aufnahme läuft – Tab offen lassen, dann bleibt die Aufnahme erhalten.
+                  {t('audio.recordingInProgress')}
                 </p>
               )}
               <div className={`flex items-center gap-2 flex-wrap ${gapClass}`}>
                 <button type="button" onClick={toggleRecordingPause} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 ${btnClass}`}>
-                  {recordingPaused ? <><Play size={iconSize} /> Fortsetzen</> : <><Pause size={iconSize} /> Pause</>}
+                  {recordingPaused ? <><Play size={iconSize} /> {t('audio.resume')}</> : <><Pause size={iconSize} /> {t('audio.pause')}</>}
                 </button>
                 <button type="button" onClick={sendRecording} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 text-white font-medium hover:bg-emerald-700 ${btnClass}`}>
-                  <Send size={iconSize} /> Senden
+                  <Send size={iconSize} /> {t('audio.sendRecording')}
                 </button>
               </div>
             </>
@@ -476,11 +479,11 @@ export function ReadingAudioCell({
             <div className={`flex items-center gap-2 flex-wrap ${gapClass}`}>
               <button type="button" onClick={startRecording} disabled={uploading} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 ${btnClass}`}>
                 {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <Mic size={iconSize} />}
-                Aufnehmen
+                {t('audio.record')}
               </button>
               <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 ${btnClass}`}>
                 {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <Upload size={iconSize} />}
-                Hochladen
+                {t('audio.upload')}
               </button>
             </div>
           )}

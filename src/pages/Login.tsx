@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Login() {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,19 +57,19 @@ export default function Login() {
         type="button"
         onClick={toggleTheme}
         className="absolute top-4 right-4 p-2 rounded-full bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-        title={theme === 'dark' ? 'Hell' : 'Dunkel'}
+        title={theme === 'dark' ? t('common.light') : t('common.dark')}
       >
         {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
       </button>
       <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-        <h2 className="text-3xl font-bold text-center text-emerald-800 dark:text-emerald-300">Willkommen</h2>
-        <p className="text-center text-gray-500 dark:text-gray-400">Melde dich an oder registriere dich</p>
+        <h2 className="text-3xl font-bold text-center text-emerald-800 dark:text-emerald-300">{t('login.welcome')}</h2>
+        <p className="text-center text-gray-500 dark:text-gray-400">{t('login.signInOrRegister')}</p>
         
         {error && <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded-lg">{error}</div>}
 
         <form className="space-y-4" onSubmit={handleLogin}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.email')}</label>
             <input
               type="email"
               required
@@ -77,7 +79,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Passwort</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('login.password')}</label>
             <input
               type="password"
               required
@@ -93,7 +95,7 @@ export default function Login() {
               disabled={loading}
               className="w-full px-4 py-2 text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
             >
-              {loading ? 'Laden...' : 'Anmelden'}
+              {loading ? t('common.loading') : t('login.signIn')}
             </button>
             <button
               type="button"
@@ -101,14 +103,14 @@ export default function Login() {
               disabled={loading}
               className="w-full px-4 py-2 text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/60 disabled:opacity-50"
             >
-              Registrieren
+              {t('login.register')}
             </button>
           </div>
         </form>
 
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
           <Link to="/datenschutz" className="text-emerald-600 dark:text-emerald-400 hover:underline">
-            Datenschutzerklärung
+            {t('login.privacyPolicy')}
           </Link>
         </p>
       </div>

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource/scheherazade-new/400.css'
 import '@fontsource/scheherazade-new/700.css'
 import './index.css'
+import './i18n'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 

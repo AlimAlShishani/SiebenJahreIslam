@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Type, Lock } from 'lucide-react';
 
 function LevelTitle({
@@ -93,6 +94,7 @@ const readLearnPageCache = (): LearnPageCache | null => {
 let learnPageCache: LearnPageCache | null = typeof window !== 'undefined' ? readLearnPageCache() : null;
 
 export default function Learn() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const cachedForUser = learnPageCache?.userId === (user?.id ?? null) ? learnPageCache : null;
@@ -165,12 +167,12 @@ export default function Learn() {
   }, [levelCompleted]);
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Laden...</div>;
+    return <div className="p-8 text-center text-gray-600 dark:text-gray-400">{t('learn.loading')}</div>;
   }
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-20">
-      <h2 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">Lernbereich</h2>
+      <h2 className="text-2xl font-bold text-center text-emerald-800 dark:text-emerald-200">{t('learn.title')}</h2>
 
       {/* Buchstaben-Übersicht (statische Seite) */}
       <div
@@ -181,14 +183,14 @@ export default function Learn() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold px-2 py-1 rounded-full">
-                Übersicht
+                {t('learn.overview')}
               </span>
               <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
-                Buchstaben – Schreibweisen
+                {t('learn.lettersWriting')}
               </h3>
             </div>
             <p className="text-gray-500 dark:text-gray-400">
-              Alle Buchstaben: alleine, Anfang, Mitte, Ende
+              {t('learn.lettersDesc')}
             </p>
           </div>
           <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-full group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 transition-colors">
@@ -219,7 +221,7 @@ export default function Learn() {
               >
                 {completed && (
                   <span className="absolute top-4 right-4 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                    ✓ geschafft
+                    ✓ {t('learn.completed')}
                   </span>
                 )}
                 <div className="flex-1 min-w-0 pr-16">
@@ -233,7 +235,7 @@ export default function Learn() {
                             : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                       }`}
                     >
-                      Stufe {level.level_number}
+                      {t('learn.level')} {level.level_number}
                     </span>
                     <LevelTitle title={level.title} unlocked={unlocked} />
                   </div>
@@ -242,7 +244,7 @@ export default function Learn() {
                   )}
                   {!unlocked && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Schließe zuerst Stufe {level.level_number - 1} ohne alle Leben zu verlieren ab.
+                      {t('learn.locked', { n: level.level_number - 1 })}
                     </p>
                   )}
                 </div>
