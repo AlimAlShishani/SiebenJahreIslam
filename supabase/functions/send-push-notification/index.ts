@@ -17,8 +17,8 @@ const corsHeaders = {
 };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const PUBLISHABLE_KEY = Deno.env.get('PUBLISHABLE_KEY') ?? '';
+const ADMIN_SECRET_KEY = Deno.env.get('ADMIN_SECRET_KEY') ?? '';
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? '';
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? '';
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com';
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  if (!SUPABASE_URL || !PUBLISHABLE_KEY || !ADMIN_SECRET_KEY || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     return new Response(JSON.stringify({ error: 'Missing required env vars.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     const authHeader = req.headers.get('Authorization') ?? '';
-    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    const authClient = createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
     const {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const admin = createClient(SUPABASE_URL, ADMIN_SECRET_KEY);
 
     let memberIds: string[];
     if (payload.group_id) {

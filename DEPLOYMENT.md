@@ -62,9 +62,11 @@ Damit der Login auf der neuen Seite geht:
    - `sql/31_reading_activity_logs_add_plan_updated_type.sql`
    - `sql/32_push_subscriptions.sql`
 2. VAPID Key-Paar erzeugen (einmalig), Public Key in Vercel als `VITE_VAPID_PUBLIC_KEY` setzen.
-3. Supabase Edge Function deployen:
-   - `supabase functions deploy send-push-notification`
-4. Edge Function Env Vars setzen:
+3. Edge Function Env Vars setzen (Supabase Dashboard → Edge Functions → Secrets oder per CLI):
+   - `PUBLISHABLE_KEY` (dein Publishable Key, gleicher Wert wie VITE_SUPABASE_ANON_KEY)
+   - `ADMIN_SECRET_KEY` (einen Secret Key erstellen unter Project Settings → API Keys)
    - `VAPID_PUBLIC_KEY`
    - `VAPID_PRIVATE_KEY`
    - `VAPID_SUBJECT` (z.B. `mailto:you@example.com`)
+4. Supabase Edge Function deployen (mit --no-verify-jwt, da wir Publishable/Secret Keys nutzen):
+   - `supabase functions deploy send-push-notification --no-verify-jwt`
