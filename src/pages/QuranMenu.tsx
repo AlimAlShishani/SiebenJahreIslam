@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, BookText, Moon, Sparkles, Plus, Trash2, Pencil, Hourglass } from 'lucide-react';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
+import { getKahfWindow, isKahfWindowActiveSync, getKahfRemainingMsSync } from '../lib/maghrib';
 
 const CUSTOM_SLOTS_STORAGE_KEY = 'quran-reader-custom-slots';
 const FREE_LABEL_STORAGE_KEY = 'quran-reader-free-label';
@@ -78,6 +79,15 @@ function getLastLocation(slotId: string): LastLocation | null {
   }
 }
 
+function clearKahfLastLocation() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(`${LAST_LOCATION_PREFIX}kahf`);
+  } catch {
+    // ignore
+  }
+}
+
 function getFreeLabel(): string {
   if (typeof window === 'undefined') return 'Quran lesen (frei)';
   return window.localStorage.getItem(FREE_LABEL_STORAGE_KEY) || 'Quran lesen (frei)';
@@ -101,6 +111,19 @@ function formatRemaining(expiresAt: number | null): string {
   const hours = totalHours - totalDays * 24;
   const minutes = totalMinutes - totalHours * 60;
   if (totalDays >= 1) return `${months}m ${days}t ${hours}st`;
+  if (totalHours >= 1) return `${totalHours}st ${minutes}m`;
+  if (totalMinutes >= 1) return `${totalMinutes}m`;
+  return '<1m';
+}
+
+/** Verbleibende Zeit nur in Stunden und Minuten (für Kahf). */
+function formatRemainingKahf(expiresAt: number | null): string {
+  if (expiresAt === null) return 'Unendlich';
+  const ms = expiresAt - Date.now();
+  if (ms <= 0) return 'Abgelaufen';
+  const totalMinutes = Math.floor(ms / 60000);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes - totalHours * 60;
   if (totalHours >= 1) return `${totalHours}st ${minutes}m`;
   if (totalMinutes >= 1) return `${totalMinutes}m`;
   return '<1m';
@@ -153,6 +176,7 @@ export default function QuranMenu() {
   }, [freeTheme]);
 
   const lastFree = getLastLocation('free');
+  const lastKahf = getLastLocation('kahf');
   const surahName = (surahNum: number) => surahs.find((s) => s.number === surahNum)?.englishName ?? `Sure ${surahNum}`;
 
   const removeSlot = (id: string) => {
@@ -220,6 +244,24 @@ export default function QuranMenu() {
     return { left, right };
   };
 
+  const [kahfActive, setKahfActive] = useState(false);
+  const [kahfWindow, setKahfWindow] = useState<{ startDay: number; startTime: string; endDay: number; endTime: string } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      const cfg = await getKahfWindow();
+      if (!mounted) return;
+      const active = isKahfWindowActiveSync(cfg);
+      setKahfWindow(cfg);
+      setKahfActive(active);
+      if (!active) clearKahfLastLocation();
+    };
+    void check();
+    const t = setInterval(check, 60_000);
+    return () => { mounted = false; clearInterval(t); };
+  }, []);
+
   const ThemeIcon = ({ theme, className = 'w-12 h-12 opacity-25' }: { theme: InstanceTheme; className?: string }) => {
     switch (theme) {
       case 'green':
@@ -254,6 +296,65 @@ export default function QuranMenu() {
               <p className="text-sm text-white/90 mt-0.5">Öffnet direkt deinen Part an der Startseite (speichert getrennt)</p>
             </div>
           </Link>
+
+          {/* Surah Kahf Licht – VON bis BIS aus Admin */}
+          {kahfActive && (
+            <Link
+              to="/quran/read?slot=kahf&startPage=293&endPage=317"
+              className="block relative overflow-hidden rounded-2xl shadow-lg border border-emerald-900/50"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950 pointer-events-none" />
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(12)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute w-2 h-2 rounded-full bg-emerald-300/70 animate-kahf-float"
+                    style={{
+                      left: `${5 + (i % 7) * 14}%`,
+                      top: `${8 + (i % 6) * 16}%`,
+                      animationDelay: `${i * 0.25}s`,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="relative p-6 text-white">
+                <h2 className="font-bold text-xl drop-shadow-sm">Surah Kahf Licht</h2>
+                <p className="text-sm text-emerald-200/90 mt-0.5">Abu Sa&apos;id al-Khudri berichtete: Der Prophet ﷺ sagte: „Wer Sure al-Kahf am Freitag rezitiert, wird ein Licht zwischen diesem Freitag und dem nächsten haben.“</p>
+                {lastKahf?.surah === 18 && lastKahf?.ayah ? (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between items-baseline gap-2 text-sm text-emerald-100/95">
+                      <span>{lastKahf.ayah === 110 ? 'Erledigt' : `Al-Kahf : ${lastKahf.ayah}`}</span>
+                      <span className="shrink-0">Seite {lastKahf.page ?? '?'}</span>
+                    </div>
+                    {kahfWindow && (() => {
+                      const remaining = getKahfRemainingMsSync(kahfWindow);
+                      if (remaining === null) return null;
+                      return (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1">
+                          <Hourglass size={12} />
+                          {formatRemainingKahf(Date.now() + remaining)}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center gap-2 mt-2">
+                    {kahfWindow && (() => {
+                      const remaining = getKahfRemainingMsSync(kahfWindow);
+                      if (remaining === null) return null;
+                      return (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1 shrink-0">
+                          <Hourglass size={12} />
+                          {formatRemainingKahf(Date.now() + remaining)}
+                        </span>
+                      );
+                    })()}
+                    <p className="text-sm text-emerald-200/80 ml-auto">Noch nicht gelesen</p>
+                  </div>
+                )}
+              </div>
+            </Link>
+          )}
 
           {/* Free slot – wählbares Design */}
           <div className="relative overflow-hidden rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600">

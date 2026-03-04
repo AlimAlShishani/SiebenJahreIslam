@@ -1425,7 +1425,7 @@ export default function Quran() {
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
 
   return (
-    <div className="space-y-8 pb-20 min-w-0 max-w-full overflow-x-hidden">
+    <div className="pt-6 md:pt-8 space-y-8 pb-20 min-w-0 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="bg-emerald-600 dark:bg-emerald-800 text-white p-8 rounded-3xl shadow-lg relative overflow-hidden">
         <div className="relative z-10">

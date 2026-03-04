@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Loader2, Mic, Settings } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, CheckCircle, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
@@ -20,6 +20,7 @@ import {
   type TranslationEdition,
 } from '../lib/quranApi';
 import { triggerPushForActivity } from '../lib/pushNotifications';
+import { getKahfWindow, isKahfWindowActiveSync } from '../lib/maghrib';
 
 interface AssignmentForReader {
   id: string;
@@ -264,6 +265,12 @@ export default function QuranReader() {
   const slot = searchParams.get('slot') ?? (assignmentId ? 'hatim' : 'free');
   const lastLocationKey = `${LAST_LOCATION_STORAGE_KEY_PREFIX}-${slot}`;
 
+  const isKahfSlot = slot === 'kahf';
+  const KAHF_START_PAGE = 293;
+  const KAHF_END_PAGE = 317;
+  const effectiveStartPage = isKahfSlot ? KAHF_START_PAGE : (assignmentId ? assignmentStartPage : 1);
+  const effectiveEndPage = isKahfSlot ? KAHF_END_PAGE : (assignmentId ? assignmentEndPage : 604);
+
   const [mode, setMode] = useState<ReaderMode>('arabic');
   const [quranTextType, setQuranTextType] = useState<QuranTextEdition>(() => {
     if (typeof window === 'undefined') return getDefaultQuranTextEdition();
@@ -318,7 +325,7 @@ export default function QuranReader() {
   const [verseIndexInPage, setVerseIndexInPage] = useState(0);
   const [versePageTransition, setVersePageTransition] = useState<'idle' | 'changing'>('idle');
   const [pageInput, setPageInput] = useState(() => {
-    const fallback = Math.max(1, Math.min(604, assignmentStartPage || 1));
+    const fallback = Math.max(effectiveStartPage, Math.min(effectiveEndPage, assignmentStartPage || effectiveStartPage));
     if (typeof window === 'undefined') return String(fallback);
     if (assignmentId) return String(fallback);
     // Wenn explizit surah/ayah in der URL stehen (z. B. aus dem Profil),
@@ -330,7 +337,7 @@ export default function QuranReader() {
       const parsed = JSON.parse(raw) as { page?: number };
       const p = Number(parsed.page);
       if (Number.isFinite(p)) {
-        const clamped = Math.max(1, Math.min(604, Math.round(p)));
+        const clamped = Math.max(effectiveStartPage, Math.min(effectiveEndPage, Math.round(p)));
         return String(clamped);
       }
     } catch {
@@ -345,6 +352,15 @@ export default function QuranReader() {
   const [selectedSurah, setSelectedSurah] = useState(() => {
     if (typeof window === 'undefined' || assignmentId) return 1;
     const raw = window.localStorage.getItem(lastLocationKey);
+    if (isKahfSlot) {
+      if (!raw) return 18;
+      try {
+        JSON.parse(raw);
+        return 18;
+      } catch {
+        return 18;
+      }
+    }
     if (!raw) return 1;
     try {
       const parsed = JSON.parse(raw) as { surah?: number };
@@ -358,6 +374,17 @@ export default function QuranReader() {
   const [selectedAyah, setSelectedAyah] = useState(() => {
     if (typeof window === 'undefined' || assignmentId) return 1;
     const raw = window.localStorage.getItem(lastLocationKey);
+    if (isKahfSlot) {
+      if (!raw) return 1;
+      try {
+        const parsed = JSON.parse(raw) as { ayah?: number };
+        const a = Number(parsed.ayah);
+        if (Number.isFinite(a) && a >= 1) return Math.max(1, Math.min(110, Math.floor(a)));
+      } catch {
+        // ignore
+      }
+      return 1;
+    }
     if (!raw) return 1;
     try {
       const parsed = JSON.parse(raw) as { ayah?: number };
@@ -384,7 +411,7 @@ export default function QuranReader() {
   });
   const [pendingVerseSelection, setPendingVerseSelection] = useState<'first' | 'last' | null>(null);
   const [currentPage, setCurrentPage] = useState(() => {
-    const fallback = Math.max(1, Math.min(604, assignmentStartPage || 1));
+    const fallback = Math.max(effectiveStartPage, Math.min(effectiveEndPage, assignmentStartPage || effectiveStartPage));
     if (typeof window === 'undefined') return fallback;
     if (assignmentId) return fallback;
     // Wenn explizit surah/ayah in der URL stehen (z. B. aus dem Profil),
@@ -396,7 +423,7 @@ export default function QuranReader() {
       const parsed = JSON.parse(raw) as { page?: number };
       const p = Number(parsed.page);
       if (Number.isFinite(p)) {
-        return Math.max(1, Math.min(604, Math.round(p)));
+        return Math.max(effectiveStartPage, Math.min(effectiveEndPage, Math.round(p)));
       }
     } catch {
       // ignore
@@ -418,6 +445,9 @@ export default function QuranReader() {
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
   const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
+  const isVerseAllowedInCurrentSlot = (v: QuranVerse) =>
+    v.ayahNumber !== 0 &&
+    (!isKahfSlot || (v.surahNumber === 18 && v.ayahNumber >= 1 && v.ayahNumber <= 110));
 
   const ayahCountForSelectedSurah = useMemo(() => {
     const surah = surahs.find((s) => s.number === selectedSurah);
@@ -619,6 +649,10 @@ export default function QuranReader() {
   }, [currentPage, translationEdition, quranTextType]);
 
   useEffect(() => {
+    if (isKahfSlot) {
+      setSelectedJuzRange({ start: KAHF_START_PAGE, end: KAHF_END_PAGE });
+      return;
+    }
     let cancelled = false;
     const resolveJuzRange = async () => {
       try {
@@ -635,16 +669,43 @@ export default function QuranReader() {
     return () => {
       cancelled = true;
     };
-  }, [selectedJuz]);
+  }, [selectedJuz, isKahfSlot]);
 
   useEffect(() => {
-    const visibleVerses = pageData?.verses.filter((v) => v.ayahNumber !== 0) ?? [];
+    let cancelled = false;
+    const check = async () => {
+      const cfg = await getKahfWindow();
+      if (cancelled) return;
+      if (!isKahfWindowActiveSync(cfg)) {
+        try {
+          window.localStorage.removeItem(`${LAST_LOCATION_STORAGE_KEY_PREFIX}-kahf`);
+        } catch {
+          // ignore
+        }
+        if (isKahfSlot) {
+          setCurrentPage(KAHF_START_PAGE);
+          setPageInput(String(KAHF_START_PAGE));
+          setSelectedSurah(18);
+          setSelectedAyah(1);
+          setSelectedVerseKey(null);
+          setVerseIndexInPage(0);
+        }
+      }
+    };
+    void check();
+    const t = setInterval(check, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [isKahfSlot]);
+
+  useEffect(() => {
+    const visibleVerses = pageData?.verses.filter((v) => isVerseAllowedInCurrentSlot(v)) ?? [];
     if (!visibleVerses.length) {
       setSelectedVerseKey(null);
       return;
     }
     let verseToSelect = visibleVerses[0];
     if (
+      !isKahfSlot &&
       initialSurahParam &&
       initialAyahParam &&
       !pendingVerseSelection &&
@@ -653,6 +714,10 @@ export default function QuranReader() {
       const target = visibleVerses.find(
         (v) => v.surahNumber === initialSurahParam && v.ayahNumber === initialAyahParam
       );
+      if (target) verseToSelect = target;
+    } else if (isKahfSlot && !pendingVerseSelection && !selectedVerseKey) {
+      const targetAyah = Math.max(1, Math.min(110, selectedAyah || 1));
+      const target = visibleVerses.find((v) => v.surahNumber === 18 && v.ayahNumber === targetAyah);
       if (target) verseToSelect = target;
     } else if (pendingVerseSelection === 'last') {
       verseToSelect = visibleVerses[visibleVerses.length - 1];
@@ -664,7 +729,7 @@ export default function QuranReader() {
     setSelectedSurah(verseToSelect.surahNumber);
     setSelectedAyah(verseToSelect.ayahNumber);
     if (pendingVerseSelection) setPendingVerseSelection(null);
-  }, [pageData, pendingVerseSelection, selectedVerseKey, initialSurahParam, initialAyahParam]);
+  }, [pageData, pendingVerseSelection, selectedVerseKey, initialSurahParam, initialAyahParam, isKahfSlot, selectedAyah]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
@@ -705,11 +770,11 @@ export default function QuranReader() {
 
   useEffect(() => {
     if (viewLayout !== 'verse' || !pageData) return;
-    const visible = pageData.verses.filter((v) => v.ayahNumber !== 0);
+    const visible = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
     if (!visible.length) return;
     const idx = selectedVerseKey ? visible.findIndex((v) => v.key === selectedVerseKey) : -1;
     if (idx >= 0) setVerseIndexInPage(idx);
-  }, [viewLayout, pageData?.pageNumber, selectedVerseKey]);
+  }, [viewLayout, pageData?.pageNumber, selectedVerseKey, isKahfSlot]);
 
   useEffect(() => {
     if (viewLayout !== 'flow' || !selectedVerseKey) return;
@@ -767,7 +832,7 @@ export default function QuranReader() {
         tag === 'button';
       if (isEditable || loadingPage || loadingJump || pendingVerseSelection || !pageData?.verses?.length) return;
 
-      const verses = pageData.verses.filter((v) => v.ayahNumber !== 0);
+      const verses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
       if (!verses.length) return;
       const selectedIndex = selectedVerseKey ? verses.findIndex((v) => v.key === selectedVerseKey) : -1;
 
@@ -790,9 +855,11 @@ export default function QuranReader() {
           setVerseIndexInPage(nextIdx);
           return;
         }
-        if (currentPage < 604) {
+        const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
+        if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
+        if (currentPage < effectiveEndPage) {
           setPendingVerseSelection('first');
-          setCurrentPage((prev) => Math.min(604, prev + 1));
+          setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
         }
         return;
       }
@@ -816,9 +883,9 @@ export default function QuranReader() {
           setVerseIndexInPage(prevIdx);
           return;
         }
-        if (currentPage > 1) {
+        if (currentPage > effectiveStartPage) {
           setPendingVerseSelection('last');
-          setCurrentPage((prev) => Math.max(1, prev - 1));
+          setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
         }
         return;
       }
@@ -844,16 +911,18 @@ export default function QuranReader() {
             setVerseIndexInPage(nextIdx);
             return;
           }
-          if (currentPage < 604) {
+          const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
+          if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
+          if (currentPage < effectiveEndPage) {
             setPendingVerseSelection('first');
-            setCurrentPage((prev) => Math.min(604, prev + 1));
+            setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           }
         } else {
           // Fließtext: Seitenwechsel wie bisher (arabisch rückwärts, Übersetzung vorwärts)
           if (mode === 'arabic') {
-            setCurrentPage((prev) => Math.max(1, prev - 1));
+            setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           } else {
-            setCurrentPage((prev) => Math.min(604, prev + 1));
+            setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           }
         }
         return;
@@ -880,16 +949,16 @@ export default function QuranReader() {
             setVerseIndexInPage(prevIdx);
             return;
           }
-          if (currentPage > 1) {
+          if (currentPage > effectiveStartPage) {
             setPendingVerseSelection('last');
-            setCurrentPage((prev) => Math.max(1, prev - 1));
+            setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           }
         } else {
           // Fließtext: Seitenwechsel wie bisher (arabisch vorwärts, Übersetzung rückwärts)
           if (mode === 'arabic') {
-            setCurrentPage((prev) => Math.min(604, prev + 1));
+            setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           } else {
-            setCurrentPage((prev) => Math.max(1, prev - 1));
+            setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           }
         }
       }
@@ -897,23 +966,26 @@ export default function QuranReader() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentPage, loadingJump, loadingPage, mode, pageData, selectedVerseKey, viewLayout]);
+  }, [currentPage, effectiveEndPage, effectiveStartPage, loadingJump, loadingPage, mode, pageData, selectedVerseKey, viewLayout, isKahfSlot]);
 
   const jumpToJuz = async (juzNumber: number) => {
     setLoadingJump(true);
     try {
       const page = await getJuzStartPage(juzNumber);
-      setCurrentPage(page);
+      const clamped = Math.max(effectiveStartPage, Math.min(effectiveEndPage, page));
+      setCurrentPage(clamped);
     } finally {
       setLoadingJump(false);
     }
   };
 
   const jumpToSurahAyah = async (surahNumber: number, ayahNumber: number) => {
+    if (isKahfSlot && (surahNumber !== 18 || ayahNumber > 110)) return;
     setLoadingJump(true);
     try {
       const position = await getAyahPosition(surahNumber, ayahNumber);
-      setCurrentPage(position.pageNumber);
+      const clamped = Math.max(effectiveStartPage, Math.min(effectiveEndPage, position.pageNumber));
+      setCurrentPage(clamped);
     } finally {
       setLoadingJump(false);
     }
@@ -925,7 +997,7 @@ export default function QuranReader() {
       setPageInput(String(currentPage));
       return;
     }
-    const next = Math.max(1, Math.min(604, Math.round(parsed)));
+    const next = Math.max(effectiveStartPage, Math.min(effectiveEndPage, Math.round(parsed)));
     setCurrentPage(next);
     setPageInput(String(next));
   };
@@ -1010,8 +1082,8 @@ export default function QuranReader() {
   };
 
   const visibleVerses = useMemo(
-    () => pageData?.verses.filter((v) => v.ayahNumber !== 0) ?? [],
-    [pageData]
+    () => pageData?.verses.filter((v) => isVerseAllowedInCurrentSlot(v)) ?? [],
+    [pageData, isKahfSlot]
   );
   const totalVersesInPage = visibleVerses.length;
   const selectedVerseIndex = selectedVerseKey
@@ -1057,9 +1129,9 @@ export default function QuranReader() {
   const goToPreviousVerse = () => {
     if (!visibleVerses.length) return;
     if (activeVerseIndex <= 0) {
-      if (currentPage > 1) {
+      if (currentPage > effectiveStartPage) {
         setPendingVerseSelection('last');
-        setCurrentPage((p) => Math.max(1, p - 1));
+        setCurrentPage((p) => Math.max(effectiveStartPage, p - 1));
       }
       return;
     }
@@ -1075,10 +1147,12 @@ export default function QuranReader() {
 
   const goToNextVerse = () => {
     if (!visibleVerses.length) return;
+    const active = visibleVerses[activeVerseIndex];
+    if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
     if (activeVerseIndex >= visibleVerses.length - 1) {
-      if (currentPage < 604) {
+      if (currentPage < effectiveEndPage) {
         setPendingVerseSelection('first');
-        setCurrentPage((p) => Math.min(604, p + 1));
+        setCurrentPage((p) => Math.min(effectiveEndPage, p + 1));
       }
       return;
     }
@@ -1093,13 +1167,13 @@ export default function QuranReader() {
   };
 
   const goToPrevPageByMode = () => {
-    if (mode === 'arabic') setCurrentPage((prev) => Math.max(1, prev - 1));
-    else setCurrentPage((prev) => Math.min(604, prev + 1));
+    if (mode === 'arabic') setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
+    else setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
   };
 
   const goToNextPageByMode = () => {
-    if (mode === 'arabic') setCurrentPage((prev) => Math.min(604, prev + 1));
-    else setCurrentPage((prev) => Math.max(1, prev - 1));
+    if (mode === 'arabic') setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+    else setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -1134,7 +1208,8 @@ export default function QuranReader() {
   return (
     <div className="relative md:space-y-4 max-md:h-[100dvh] max-md:overflow-hidden max-md:bg-gray-50 dark:max-md:bg-gray-900">
       <div className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 gap-3 ${isKahfSlot ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
+          {!isKahfSlot && (
           <label className="text-sm text-gray-600 dark:text-gray-300">
             Juz
             <select
@@ -1153,10 +1228,11 @@ export default function QuranReader() {
               ))}
             </select>
           </label>
+          )}
           <label className="text-sm text-gray-600 dark:text-gray-300">
             Surah
             <select
-              value={selectedSurah}
+              value={isKahfSlot ? 18 : selectedSurah}
               onChange={(e) => {
                 const surah = Number(e.target.value);
                 setSelectedSurah(surah);
@@ -1165,7 +1241,7 @@ export default function QuranReader() {
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
             >
-              {surahs.map((s) => (
+              {(isKahfSlot ? surahs.filter((s) => s.number === 18) : surahs).map((s) => (
                 <option key={s.number} value={s.number}>
                   {s.number}. {s.englishName}
                 </option>
@@ -1183,7 +1259,7 @@ export default function QuranReader() {
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
             >
-              {Array.from({ length: ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
+              {Array.from({ length: isKahfSlot ? 110 : ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
                 <option key={ayah} value={ayah}>
                   Vers {ayah}
                 </option>
@@ -1197,9 +1273,9 @@ export default function QuranReader() {
             <>
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.min(604, prev + 1))}
+                onClick={() => setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1))}
                 className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
-                disabled={currentPage >= 604 || loadingJump}
+                disabled={currentPage >= effectiveEndPage || loadingJump}
               >
                 <span className="inline-flex items-center gap-1">
                   Weiter <ArrowLeft size={14} />
@@ -1207,8 +1283,8 @@ export default function QuranReader() {
               </button>
               <input
                 type="number"
-                min={1}
-                max={604}
+                min={effectiveStartPage}
+                max={effectiveEndPage}
                 value={pageInput}
                 onChange={(e) => setPageInput(e.target.value)}
                 onBlur={submitPageInput}
@@ -1220,9 +1296,9 @@ export default function QuranReader() {
               />
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                onClick={() => setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1))}
                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
-                disabled={currentPage <= 1 || loadingJump}
+                disabled={currentPage <= effectiveStartPage || loadingJump}
               >
                 <span className="inline-flex items-center gap-1">
                   <ArrowRight size={14} /> Zurück
@@ -1233,9 +1309,9 @@ export default function QuranReader() {
             <>
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                onClick={() => setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1))}
                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
-                disabled={currentPage <= 1 || loadingJump}
+                disabled={currentPage <= effectiveStartPage || loadingJump}
               >
                 <span className="inline-flex items-center gap-1">
                   <ArrowLeft size={14} /> Zurück
@@ -1243,8 +1319,8 @@ export default function QuranReader() {
               </button>
               <input
                 type="number"
-                min={1}
-                max={604}
+                min={effectiveStartPage}
+                max={effectiveEndPage}
                 value={pageInput}
                 onChange={(e) => setPageInput(e.target.value)}
                 onBlur={submitPageInput}
@@ -1256,9 +1332,9 @@ export default function QuranReader() {
               />
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.min(604, prev + 1))}
+                onClick={() => setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1))}
                 className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
-                disabled={currentPage >= 604 || loadingJump}
+                disabled={currentPage >= effectiveEndPage || loadingJump}
               >
                 <span className="inline-flex items-center gap-1">
                   Weiter <ArrowRight size={14} />
@@ -1320,7 +1396,7 @@ export default function QuranReader() {
           <div className="mt-2">
             <div className="grid grid-cols-[1fr_auto_1fr] gap-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 overflow-hidden">
               <select
-                value={selectedSurah}
+                value={isKahfSlot ? 18 : selectedSurah}
                 onChange={(e) => {
                   const surah = Number(e.target.value);
                   setSelectedSurah(surah);
@@ -1329,7 +1405,7 @@ export default function QuranReader() {
                 }}
                 className="h-8 bg-transparent px-2 text-xs text-gray-900 dark:text-gray-100 border-r border-gray-300 dark:border-gray-600"
               >
-                {surahs.map((s) => (
+                {(isKahfSlot ? surahs.filter((s) => s.number === 18) : surahs).map((s) => (
                   <option key={s.number} value={s.number}>
                     {s.number}. {s.englishName}
                   </option>
@@ -1337,8 +1413,8 @@ export default function QuranReader() {
               </select>
               <input
                 type="number"
-                min={1}
-                max={604}
+                min={effectiveStartPage}
+                max={effectiveEndPage}
                 value={pageInput}
                 onChange={(e) => setPageInput(e.target.value)}
                 onBlur={submitPageInput}
@@ -1353,11 +1429,11 @@ export default function QuranReader() {
                 onChange={(e) => {
                   const ayah = Number(e.target.value);
                   setSelectedAyah(ayah);
-                  void jumpToSurahAyah(selectedSurah, ayah);
+                  void jumpToSurahAyah(isKahfSlot ? 18 : selectedSurah, ayah);
                 }}
                 className="h-8 bg-transparent px-2 text-xs text-gray-900 dark:text-gray-100 text-right"
               >
-                {Array.from({ length: ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
+                {Array.from({ length: isKahfSlot ? 110 : ayahCountForSelectedSurah }, (_, i) => i + 1).map((ayah) => (
                   <option key={ayah} value={ayah}>
                     Vers {ayah}
                   </option>
@@ -1479,7 +1555,7 @@ export default function QuranReader() {
                 const segments: Segment[] = [];
                 let current: Segment | null = null;
                 for (const v of pageData.verses) {
-                  if (v.ayahNumber === 0) continue;
+                  if (!isVerseAllowedInCurrentSlot(v)) continue;
                   if (!current || current.surahNumber !== v.surahNumber) {
                     current = {
                       surahNumber: v.surahNumber,
@@ -1568,7 +1644,7 @@ export default function QuranReader() {
                   </div>
                 );
               })() : (() => {
-                const visibleVerses = pageData.verses.filter((v) => v.ayahNumber !== 0);
+                const visibleVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
                 const totalVerses = visibleVerses.length;
                 const selectedIdx = selectedVerseKey
                   ? visibleVerses.findIndex((v) => v.key === selectedVerseKey)
@@ -1583,9 +1659,9 @@ export default function QuranReader() {
                 const atLastVerse = safeIndex >= totalVerses - 1;
 
                 const goPrev = () => {
-                  if (atFirstVerse && currentPage > 1) {
+                  if (atFirstVerse && currentPage > effectiveStartPage) {
                     setPendingVerseSelection('last');
-                    setCurrentPage((p) => Math.max(1, p - 1));
+                    setCurrentPage((p) => Math.max(effectiveStartPage, p - 1));
                     return;
                   }
                   const prevIdx = Math.max(0, safeIndex - 1);
@@ -1598,9 +1674,10 @@ export default function QuranReader() {
                   }
                 };
                 const goNext = () => {
-                  if (atLastVerse && currentPage < 604) {
+                  if (isKahfSlot && currentVerse?.surahNumber === 18 && currentVerse?.ayahNumber === 110) return;
+                  if (atLastVerse && currentPage < effectiveEndPage) {
                     setPendingVerseSelection('first');
-                    setCurrentPage((p) => Math.min(604, p + 1));
+                    setCurrentPage((p) => Math.min(effectiveEndPage, p + 1));
                     return;
                   }
                   const nextIdx = Math.min(totalVerses - 1, safeIndex + 1);
@@ -1623,6 +1700,8 @@ export default function QuranReader() {
                 const translationText = shouldShowSurahBismillah(currentVerse.surahNumber, currentVerse.ayahNumber)
                   ? getFirstVerseTranslationOnly(currentVerse.translationText)
                   : (currentVerse.translationText || '');
+                const isKahfCompleted =
+                  isKahfSlot && currentVerse.surahNumber === 18 && currentVerse.ayahNumber === 110;
 
                 const currentVerseId = `${currentVerse.surahNumber}:${currentVerse.ayahNumber}`;
                 const isBookmarked = savedVerses.some((v) => v.id === currentVerseId);
@@ -1649,6 +1728,21 @@ export default function QuranReader() {
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                               {currentVerse.surahNumber}:{currentVerse.ayahNumber}
                             </p>
+                            {isKahfCompleted && (
+                              <div className="mt-3 flex flex-col items-center gap-2">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-sm font-medium">
+                                  <CheckCircle size={16} />
+                                  Geschafft
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate('/quran')}
+                                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold shadow-sm"
+                                >
+                                  Zurück zu Quran Instanzen
+                                </button>
+                              </div>
+                            )}
                           </div>
                           <div className="flex-1 flex items-center justify-center border-t border-gray-200 dark:border-gray-600 pt-4 mt-2">
                             <p
@@ -1730,15 +1824,15 @@ export default function QuranReader() {
                         <button
                           type="button"
                           onClick={goPrev}
-                          disabled={atFirstVerse && currentPage <= 1}
-                          title={atFirstVerse && currentPage > 1 ? 'Vorherige Seite' : 'Vorheriger Vers'}
+                          disabled={atFirstVerse && currentPage <= effectiveStartPage}
+                          title={atFirstVerse && currentPage > effectiveStartPage ? 'Vorherige Seite' : 'Vorheriger Vers'}
                           className={`px-2 py-1.5 text-xs rounded-lg font-medium min-w-0 md:px-4 md:py-2 md:text-base ${
-                            atFirstVerse && currentPage > 1
+                            atFirstVerse && currentPage > effectiveStartPage
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:pointer-events-none'
                           }`}
                         >
-                          {atFirstVerse && currentPage > 1 ? (
+                          {atFirstVerse && currentPage > effectiveStartPage ? (
                             <><span className="md:hidden">← Seite</span><span className="hidden md:inline">← Vorherige Seite</span></>
                           ) : (
                             <><span className="md:hidden">←</span><span className="hidden md:inline">← Vorheriger</span></>
@@ -1750,15 +1844,15 @@ export default function QuranReader() {
                         <button
                           type="button"
                           onClick={goNext}
-                          disabled={atLastVerse && currentPage >= 604}
-                          title={atLastVerse && currentPage < 604 ? 'Nächste Seite' : 'Nächster Vers'}
+                          disabled={(atLastVerse && currentPage >= effectiveEndPage) || isKahfCompleted}
+                          title={atLastVerse && currentPage < effectiveEndPage ? 'Nächste Seite' : 'Nächster Vers'}
                           className={`px-2 py-1.5 text-xs rounded-lg font-medium min-w-0 md:px-4 md:py-2 md:text-base ${
-                            atLastVerse && currentPage < 604
+                            atLastVerse && currentPage < effectiveEndPage
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:pointer-events-none'
                           }`}
                         >
-                          {atLastVerse && currentPage < 604 ? (
+                          {atLastVerse && currentPage < effectiveEndPage ? (
                             <><span className="md:hidden">Seite →</span><span className="hidden md:inline">Nächste Seite →</span></>
                           ) : (
                             <><span className="md:hidden">→</span><span className="hidden md:inline">Nächster →</span></>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { VideoInput } from '../components/VideoInput';
 import { AudioInput } from '../components/AudioInput';
 import { Edit2, ChevronDown, ChevronUp, Save, X, Trash2 } from 'lucide-react';
+import { getKahfWindow, setKahfWindow, type KahfWindowConfig } from '../lib/maghrib';
 import { ClickableArabicVerse } from '../components/ClickableArabicVerse';
 
 function isYouTubeUrl(url: string | null): boolean {
@@ -39,6 +40,8 @@ interface LearningItem {
   options?: Option[] | MaddClickOptions | null;
 }
 
+const KAHF_LAST_LOCATION_STORAGE_KEY = 'quran-reader-last-location-kahf';
+
 export default function Admin() {
   const [message, setMessage] = useState('');
   const [levels, setLevels] = useState<LearningLevel[]>([]);
@@ -49,6 +52,13 @@ export default function Admin() {
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [savingVideo, setSavingVideo] = useState<number | null>(null);
   const [youtubeUrlDraft, setYoutubeUrlDraft] = useState<Record<number, string>>({});
+  const [kahfWindow, setKahfWindowState] = useState<KahfWindowConfig>({
+    startDay: 4,
+    startTime: '19:30',
+    endDay: 5,
+    endTime: '19:30',
+  });
+  const [kahfSaving, setKahfSaving] = useState(false);
 
   const itemsByLevel = useMemo(() => {
     const map: Record<number, LearningItem[]> = {};
@@ -61,15 +71,28 @@ export default function Admin() {
   }, [items]);
 
   const fetchData = async () => {
-    const [levelsRes, itemsRes] = await Promise.all([
+    const [levelsRes, itemsRes, kahf] = await Promise.all([
       supabase.from('learning_levels').select('id, level_number, title, description, intro_video_url').order('level_number'),
       supabase.from('learning_items').select('id, level_id, content, transliteration, order_index, options').order('level_id').order('order_index'),
+      getKahfWindow(),
     ]);
     if (levelsRes.error) console.error('Error fetching levels:', levelsRes.error);
     else setLevels(levelsRes.data || []);
     if (itemsRes.error) console.error('Error fetching items:', itemsRes.error);
     else setItems(itemsRes.data || []);
+    setKahfWindowState(kahf);
     setLoading(false);
+  };
+
+  const handleKahfSave = async () => {
+    setKahfSaving(true);
+    const { error } = await setKahfWindow(kahfWindow);
+    setKahfSaving(false);
+    if (error) setMessage('Fehler: ' + error);
+    else {
+      setMessage('Kahf-Fenster gespeichert.');
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
   useEffect(() => {
@@ -112,6 +135,17 @@ export default function Admin() {
     const { error } = await supabase.from('user_progress').delete().eq('user_id', user.id);
     if (error) setMessage('Fehler beim Zurücksetzen: ' + error.message);
     else setMessage('Dein Fortschritt wurde zurückgesetzt.');
+  };
+
+  const resetKahfStatus = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem(KAHF_LAST_LOCATION_STORAGE_KEY);
+      setMessage('Kahf Status wurde zurückgesetzt.');
+      setTimeout(() => setMessage(''), 3000);
+    } catch {
+      setMessage('Fehler: Kahf Status konnte nicht zurückgesetzt werden.');
+    }
   };
 
   return (
@@ -267,6 +301,66 @@ export default function Admin() {
             })}
           </ul>
         )}
+      </section>
+
+      <section className="mb-8">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Surah Kahf Licht</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          Zeitfenster, in dem die Kahf-Instanz automatisch sichtbar ist.
+        </p>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">VON</span>
+            <select
+              value={kahfWindow.startDay}
+              onChange={(e) => setKahfWindowState((k) => ({ ...k, startDay: Number(e.target.value) }))}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              {['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'].map((d, i) => (
+                <option key={i} value={i}>{d}</option>
+              ))}
+            </select>
+            <input
+              type="time"
+              value={kahfWindow.startTime}
+              onChange={(e) => setKahfWindowState((k) => ({ ...k, startTime: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">BIS</span>
+            <select
+              value={kahfWindow.endDay}
+              onChange={(e) => setKahfWindowState((k) => ({ ...k, endDay: Number(e.target.value) }))}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              {['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'].map((d, i) => (
+                <option key={i} value={i}>{d}</option>
+              ))}
+            </select>
+            <input
+              type="time"
+              value={kahfWindow.endTime}
+              onChange={(e) => setKahfWindowState((k) => ({ ...k, endTime: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleKahfSave}
+            disabled={kahfSaving}
+            className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {kahfSaving ? 'Speichern…' : 'Speichern'}
+          </button>
+          <button
+            type="button"
+            onClick={resetKahfStatus}
+            className="ml-2 px-4 py-2 rounded-lg border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+          >
+            Kahf Status zurücksetzen
+          </button>
+        </div>
       </section>
 
       {editingItem && (
