@@ -6,6 +6,14 @@
 # Supabase
 supabase/.temp/
 
+# Android / TWA
+android.keystore
+*.apk
+*.aab
+*.idsig
+.gradle/
+build/
+
 # Logs
 logs
 *.log
