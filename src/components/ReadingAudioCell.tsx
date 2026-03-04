@@ -7,6 +7,8 @@ const AUDIO_BITS_PER_SECOND = 48000;
 
 export interface ReadingAudioCellProps {
   assignmentId: string;
+  /** user_id des Assignments – für sichere Storage-Pfade (RLS) */
+  assignmentUserId: string;
   audioUrls: string[];
   canEdit: boolean;
   onSaved: (url: string) => void;
@@ -37,10 +39,16 @@ function formatDuration(seconds: number): string {
   return formatTime(seconds);
 }
 
+/** Extrahiert den Storage-Pfad aus der Public-URL (vollständiger Pfad nach Bucket). */
 function getStoragePathFromUrl(url: string): string | null {
   if (!url?.trim()) return null;
   try {
     const pathname = new URL(url).pathname;
+    const bucketSegment = pathname.split('/').findIndex((s) => s === BUCKET);
+    if (bucketSegment >= 0 && bucketSegment < pathname.split('/').length - 1) {
+      const afterBucket = pathname.split('/').slice(bucketSegment + 1).join('/').split('?')[0];
+      return afterBucket || null;
+    }
     const segments = pathname.split('/');
     const name = segments[segments.length - 1]?.split('?')[0];
     return name || null;
@@ -151,6 +159,7 @@ function SingleAudioPlayer({
 
 export function ReadingAudioCell({
   assignmentId,
+  assignmentUserId,
   audioUrls,
   canEdit,
   onSaved,
@@ -253,7 +262,7 @@ export function ReadingAudioCell({
   const startRecording = async () => {
     try {
       cancelRecordingRef.current = false;
-      recordingPathRef.current = `${assignmentId}_${Date.now()}.webm`;
+      recordingPathRef.current = `${assignmentUserId}/${assignmentId}_${Date.now()}.webm`;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const options: MediaRecorderOptions = { audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
@@ -337,7 +346,7 @@ export function ReadingAudioCell({
     setUploading(true);
     try {
       for (let i = 0; i < files.length; i++) {
-        const path = `${assignmentId}_${Date.now()}_${i}.webm`;
+        const path = `${assignmentUserId}/${assignmentId}_${Date.now()}_${i}.webm`;
         const file = files[i];
         const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
         if (error) throw error;

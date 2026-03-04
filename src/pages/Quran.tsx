@@ -1444,7 +1444,19 @@ export default function Quran() {
                 </option>
               ))}
             </select>
-            {isToday && <span className="text-emerald-200 text-sm">(heute)</span>}
+            {isToday ? (
+              <span className="text-emerald-200 text-sm">(heute)</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSelectedRamadanDay(islamicMonthInfo.currentDay)}
+                className="text-sm font-medium text-white bg-emerald-500/80 hover:bg-emerald-500 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                title="Zum heutigen Tag wechseln"
+              >
+                <Calendar size={14} />
+                Heute
+              </button>
+            )}
           </div>
           <h1 className="text-4xl font-bold mb-2">Juz {selectedRamadanDay}</h1>
           <p className="text-emerald-100 max-w-md">
@@ -1645,29 +1657,11 @@ export default function Quran() {
 
         {visibleAssignments.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-600">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-gray-500 dark:text-gray-400">
               {isInGroup
                 ? (isToday ? 'Noch kein Leseplan für heute.' : `Noch kein Leseplan für ${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}.`)
                 : (isToday ? 'Noch kein Leseplan für dich.' : `Noch kein Leseplan für dich (${islamicMonthInfo.monthName} Tag ${selectedRamadanDay}).`)}
             </p>
-            {isGroupOwner && isInGroup && (
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button
-                  onClick={openPlanFromVotesOrModal}
-                  disabled={generating}
-                  className="bg-amber-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-amber-700 transition-colors shadow-md"
-                >
-                  Plan aus Votes erzeugen
-                </button>
-                <button
-                  onClick={openDistributeModal}
-                  disabled={generating}
-                  className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
-                >
-                  Jetzt generieren
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           <>
@@ -1732,6 +1726,7 @@ export default function Quran() {
                             )}
                             <ReadingAudioCell
                               assignmentId={assignment.id}
+                              assignmentUserId={assignment.user_id}
                               audioUrls={assignment.audio_urls ?? (assignment.audio_url ? [assignment.audio_url] : [])}
                               canEdit={isMe || isGroupOwner}
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}

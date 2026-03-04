@@ -3,7 +3,9 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import Login from './pages/Login';
+import Datenschutz from './pages/Datenschutz';
 import Quran from './pages/Quran';
 import QuranMenu from './pages/QuranMenu';
 import QuranReader from './pages/QuranReader';
@@ -11,7 +13,6 @@ import Learn from './pages/Learn';
 import BuchstabenUebersicht from './pages/BuchstabenUebersicht';
 import LearnLevel from './pages/LearnLevel';
 import Profile from './pages/Profile';
-import Admin from './pages/Admin';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/datenschutz" element={<Datenschutz />} />
           
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
@@ -31,7 +33,7 @@ function App() {
               <Route path="/learn/alphabet" element={<BuchstabenUebersicht />} />
               <Route path="/learn/:levelId" element={<LearnLevel />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin" element={<AdminRoute />} />
             </Route>
           </Route>
         </Routes>

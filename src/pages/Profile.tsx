@@ -289,6 +289,12 @@ export default function Profile() {
             </div>
           </div>
           
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+            <Link to="/datenschutz" className="text-emerald-600 dark:text-emerald-400 hover:underline">
+              Datenschutzerklärung
+            </Link>
+          </p>
+
           <button 
             onClick={() => signOut()}
             className="w-full mt-4 px-4 py-3 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors font-semibold flex items-center justify-center gap-2"

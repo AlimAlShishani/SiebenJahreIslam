@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
@@ -104,6 +105,12 @@ export default function Login() {
             </button>
           </div>
         </form>
+
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+          <Link to="/datenschutz" className="text-emerald-600 dark:text-emerald-400 hover:underline">
+            Datenschutzerklärung
+          </Link>
+        </p>
       </div>
     </div>
   );
