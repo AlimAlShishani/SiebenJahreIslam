@@ -9,6 +9,7 @@ supabase/.temp/
 # Android / TWA
 android.keystore
 *.apk
+!app-release-signed.apk
 *.aab
 *.idsig
 .gradle/
