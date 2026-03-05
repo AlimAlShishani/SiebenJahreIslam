@@ -86,7 +86,7 @@ export default function Admin() {
     else setItems(itemsRes.data || []);
     setKahfWindowState(kahf);
     if (feedbackRes.error) console.error('Error fetching feedback:', feedbackRes.error);
-    else setFeedbackList((feedbackRes.data || []) as typeof feedbackList);
+    else setFeedbackList((feedbackRes.data || []) as unknown as typeof feedbackList);
     setLoading(false);
   };
 
