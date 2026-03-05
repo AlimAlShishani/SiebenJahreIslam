@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
-import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy, ChevronDown } from 'lucide-react';
+import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy, ChevronDown, MessageSquare } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type SavedVerse = {
@@ -140,6 +140,13 @@ export default function Profile() {
               <Shield size={20} /> {t('profile.toAdmin')}
             </Link>
           )}
+
+          <Link
+            to="/feedback"
+            className="w-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 py-3 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex items-center justify-center gap-2 font-bold border border-emerald-200 dark:border-emerald-800"
+          >
+            <MessageSquare size={20} /> {t('profile.toFeedback')}
+          </Link>
 
           <form onSubmit={updateProfile} className="space-y-4">
             <div>

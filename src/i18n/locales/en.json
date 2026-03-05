@@ -73,7 +73,18 @@
     "logout": "Log out",
     "toAdmin": "To Admin Dashboard",
     "errorSaving": "Error saving:",
-    "successSaved": "Profile updated successfully!"
+    "successSaved": "Profile updated successfully!",
+    "toFeedback": "Give feedback"
+  },
+  "feedback": {
+    "title": "Tester Feedback",
+    "subtitle": "Share your experience, ideas, or issues with us.",
+    "label": "Your feedback",
+    "placeholder": "What works well? What's missing? What would you change?",
+    "send": "Submit",
+    "sending": "Sending...",
+    "thankYou": "Thank you for your feedback!",
+    "sendAnother": "Send another feedback"
   },
   "quran": {
     "day": "Day",
@@ -520,6 +531,9 @@
     "loading": "Loading..."
   },
   "admin": {
+    "testerFeedback": "Tester Feedback",
+    "testerFeedbackDesc": "Feedback from testers using the app.",
+    "noFeedback": "No feedback yet.",
     "surahKahf": "Surah Kahf Instance",
     "kahfWindowDesc": "Time window in which the Kahf instance is automatically visible.",
     "error": "Error: {{msg}}",

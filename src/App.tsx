@@ -16,6 +16,7 @@ import Learn from './pages/Learn';
 import BuchstabenUebersicht from './pages/BuchstabenUebersicht';
 import LearnLevel from './pages/LearnLevel';
 import Profile from './pages/Profile';
+import Feedback from './pages/Feedback';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
               <Route path="/learn/alphabet" element={<BuchstabenUebersicht />} />
               <Route path="/learn/:levelId" element={<LearnLevel />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/feedback" element={<Feedback />} />
               <Route path="/admin" element={<AdminRoute />} />
             </Route>
           </Route>

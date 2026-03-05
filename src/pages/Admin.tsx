@@ -61,6 +61,7 @@ export default function Admin() {
     endTime: '19:30',
   });
   const [kahfSaving, setKahfSaving] = useState(false);
+  const [feedbackList, setFeedbackList] = useState<Array<{ id: string; body: string; created_at: string; profiles: { full_name: string | null; email: string } | null }>>([]);
 
   const itemsByLevel = useMemo(() => {
     const map: Record<number, LearningItem[]> = {};
@@ -73,16 +74,19 @@ export default function Admin() {
   }, [items]);
 
   const fetchData = async () => {
-    const [levelsRes, itemsRes, kahf] = await Promise.all([
+    const [levelsRes, itemsRes, kahf, feedbackRes] = await Promise.all([
       supabase.from('learning_levels').select('id, level_number, title, description, intro_video_url').order('level_number'),
       supabase.from('learning_items').select('id, level_id, content, transliteration, order_index, options').order('level_id').order('order_index'),
       getKahfWindow(),
+      supabase.from('tester_feedback').select('id, body, created_at, profiles(full_name, email)').order('created_at', { ascending: false }),
     ]);
     if (levelsRes.error) console.error('Error fetching levels:', levelsRes.error);
     else setLevels(levelsRes.data || []);
     if (itemsRes.error) console.error('Error fetching items:', itemsRes.error);
     else setItems(itemsRes.data || []);
     setKahfWindowState(kahf);
+    if (feedbackRes.error) console.error('Error fetching feedback:', feedbackRes.error);
+    else setFeedbackList((feedbackRes.data || []) as typeof feedbackList);
     setLoading(false);
   };
 
@@ -301,6 +305,25 @@ export default function Admin() {
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">{t('admin.testerFeedback')}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('admin.testerFeedbackDesc')}</p>
+        {feedbackList.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.noFeedback')}</p>
+        ) : (
+          <ul className="space-y-3 max-h-80 overflow-y-auto">
+            {feedbackList.map((f) => (
+              <li key={f.id} className="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-4">
+                <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{f.body}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  {f.profiles?.full_name || f.profiles?.email || '?'} {f.profiles?.email && `(${f.profiles.email})`} • {new Date(f.created_at).toLocaleString()}
+                </p>
+              </li>
+            ))}
           </ul>
         )}
       </section>
