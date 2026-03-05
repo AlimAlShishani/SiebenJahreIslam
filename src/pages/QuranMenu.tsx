@@ -4,8 +4,33 @@ import { useTranslation } from 'react-i18next';
 import { BookOpen, BookText, Moon, Sparkles, Plus, Trash2, Pencil, Hourglass } from 'lucide-react';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
 import { getKahfWindow, isKahfWindowActiveSync, getKahfRemainingMsSync } from '../lib/maghrib';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { goalToPageRange, formatGoalLabel, calculatePageProgress, encodeAyaRef, type GoalRange, type GoalUnit } from '../lib/readingGoal';
 
 const CUSTOM_SLOTS_STORAGE_KEY = 'quran-reader-custom-slots';
+const GOAL_UNITS: { value: GoalUnit; labelKey: string }[] = [
+  { value: 'juz', labelKey: 'goalUnitJuz' },
+  { value: 'page', labelKey: 'goalUnitPage' },
+  { value: 'aya', labelKey: 'goalUnitAya' },
+];
+
+function toLocalDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getEffectiveToday(): Date {
+  const now = new Date();
+  if (now.getHours() < 2) {
+    const prev = new Date(now);
+    prev.setDate(prev.getDate() - 1);
+    return prev;
+  }
+  return now;
+}
 const FREE_LABEL_STORAGE_KEY = 'quran-reader-free-label';
 const FREE_THEME_STORAGE_KEY = 'quran-reader-free-theme';
 const LAST_LOCATION_PREFIX = 'quran-reader-last-location-';
@@ -26,6 +51,9 @@ export interface QuranReaderSlot {
   theme: InstanceTheme;
   createdAt: number;
   expiresAt: number | null;
+  goal?: GoalRange;
+  goalStartPage?: number;
+  goalEndPage?: number;
 }
 
 function loadCustomSlots(): QuranReaderSlot[] {
@@ -38,13 +66,21 @@ function loadCustomSlots(): QuranReaderSlot[] {
     const now = Date.now();
     const slots = parsed
       .filter((item: any) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.label === 'string')
-      .map((item: any) => ({
-        id: item.id,
-        label: item.label,
-        theme: THEMES.includes(item.theme) ? item.theme : 'green',
-        createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
-        expiresAt: typeof item.expiresAt === 'number' ? item.expiresAt : null,
-      }))
+      .map((item: any) => {
+        const goal = item.goal && typeof item.goal === 'object' && Number.isFinite(item.goal.from) && Number.isFinite(item.goal.to) && ['juz', 'page', 'aya'].includes(item.goal.unit)
+          ? { from: item.goal.from, to: item.goal.to, unit: item.goal.unit as GoalUnit }
+          : undefined;
+        return {
+          id: item.id,
+          label: item.label,
+          theme: THEMES.includes(item.theme) ? item.theme : 'green',
+          createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
+          expiresAt: typeof item.expiresAt === 'number' ? item.expiresAt : null,
+          goal,
+          goalStartPage: Number.isFinite(item.goalStartPage) ? item.goalStartPage : undefined,
+          goalEndPage: Number.isFinite(item.goalEndPage) ? item.goalEndPage : undefined,
+        };
+      })
       .filter((s) => s.expiresAt === null || s.expiresAt > now);
     if (slots.length < parsed.length) {
       try {
@@ -161,10 +197,59 @@ export default function QuranMenu() {
   const [newSlotDays, setNewSlotDays] = useState('');
   const [newSlotHours, setNewSlotHours] = useState('');
   const [newSlotInfinite, setNewSlotInfinite] = useState(true);
+  const [newSlotHasGoal, setNewSlotHasGoal] = useState(false);
+  const [newSlotGoalFrom, setNewSlotGoalFrom] = useState('');
+  const [newSlotGoalTo, setNewSlotGoalTo] = useState('');
+  const [newSlotGoalUnit, setNewSlotGoalUnit] = useState<GoalUnit>('juz');
+  const [newSlotGoalFromSurah, setNewSlotGoalFromSurah] = useState<number>(1);
+  const [newSlotGoalToSurah, setNewSlotGoalToSurah] = useState<number>(1);
+  const [newSlotGoalFromAyah, setNewSlotGoalFromAyah] = useState<number>(1);
+  const [newSlotGoalToAyah, setNewSlotGoalToAyah] = useState<number>(1);
+
+  const { user } = useAuth();
+  const todayStr = toLocalDateString(getEffectiveToday());
+  const [hatimAssignment, setHatimAssignment] = useState<{ start_page: number; end_page: number; juz_number: number } | null>(null);
 
   useEffect(() => {
     getSurahList().then(setSurahs).catch(() => setSurahs([]));
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setHatimAssignment(null);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      const { data: membership } = await supabase
+        .from('reading_group_members')
+        .select('group_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const gid = membership?.group_id;
+      if (!gid) {
+        if (mounted) setHatimAssignment(null);
+        return;
+      }
+      const { data: assignment } = await supabase
+        .from('daily_reading_status')
+        .select('start_page, end_page, juz_number')
+        .eq('group_id', gid)
+        .eq('user_id', user.id)
+        .eq('date', todayStr)
+        .maybeSingle();
+      if (mounted && assignment) {
+        setHatimAssignment({
+          start_page: assignment.start_page,
+          end_page: assignment.end_page,
+          juz_number: assignment.juz_number ?? 1,
+        });
+      } else if (mounted) {
+        setHatimAssignment(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [user?.id, todayStr]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -178,6 +263,7 @@ export default function QuranMenu() {
 
   const lastFree = getLastLocation('free');
   const lastKahf = getLastLocation('kahf');
+  const lastHatim = getLastLocation('hatim');
   const surahName = (surahNum: number) => surahs.find((s) => s.number === surahNum)?.englishName ?? `Sure ${surahNum}`;
 
   const removeSlot = (id: string) => {
@@ -199,7 +285,7 @@ export default function QuranMenu() {
     saveCustomSlots(updated);
   };
 
-  const saveNewSlot = () => {
+  const saveNewSlot = async () => {
     const label = (newSlotLabel || t('quranMenu.slotPlaceholder', { n: customSlots.length + 2 })).trim();
     let expiresAt: number | null = null;
     if (!newSlotInfinite) {
@@ -214,12 +300,44 @@ export default function QuranMenu() {
         hours * 60 * 60 * 1000;
       if (totalMs > 0) expiresAt = Date.now() + totalMs;
     }
+    let goal: GoalRange | undefined;
+    let goalStartPage: number | undefined;
+    let goalEndPage: number | undefined;
+    if (newSlotHasGoal) {
+      let from: number;
+      let to: number;
+      if (newSlotGoalUnit === 'aya') {
+        from = encodeAyaRef(newSlotGoalFromSurah, newSlotGoalFromAyah);
+        to = encodeAyaRef(newSlotGoalToSurah, newSlotGoalToAyah);
+      } else {
+        const fromNum = parseInt(newSlotGoalFrom, 10);
+        const toNum = parseInt(newSlotGoalTo, 10);
+        if (!Number.isFinite(fromNum) || !Number.isFinite(toNum) || fromNum > toNum) {
+          from = 0;
+          to = 0;
+        } else {
+          from = fromNum;
+          to = toNum;
+        }
+      }
+      if (from > 0 && to > 0 && from <= to) {
+        goal = { from, to, unit: newSlotGoalUnit };
+        const range = await goalToPageRange(goal);
+        if (range) {
+          goalStartPage = range.startPage;
+          goalEndPage = range.endPage;
+        }
+      }
+    }
     const next: QuranReaderSlot = {
       id: crypto.randomUUID(),
       label,
       theme: newSlotTheme,
       createdAt: Date.now(),
       expiresAt,
+      goal,
+      goalStartPage,
+      goalEndPage,
     };
     const updated = [...customSlots, next];
     setCustomSlots(updated);
@@ -232,7 +350,20 @@ export default function QuranMenu() {
     setNewSlotDays('');
     setNewSlotHours('');
     setNewSlotInfinite(true);
-    navigate(`/quran/read?slot=${encodeURIComponent(next.id)}`);
+    setNewSlotHasGoal(false);
+    setNewSlotGoalFrom('');
+    setNewSlotGoalTo('');
+    setNewSlotGoalUnit('juz');
+    setNewSlotGoalFromSurah(1);
+    setNewSlotGoalToSurah(1);
+    setNewSlotGoalFromAyah(1);
+    setNewSlotGoalToAyah(1);
+    const urlParams = new URLSearchParams({ slot: next.id });
+    if (goalStartPage != null && goalEndPage != null) {
+      urlParams.set('startPage', String(goalStartPage));
+      urlParams.set('endPage', String(goalEndPage));
+    }
+    navigate(`/quran/read?${urlParams.toString()}`);
   };
 
   const statusLine = (slotId: string) => {
@@ -295,6 +426,42 @@ export default function QuranMenu() {
             <div className="relative">
               <h2 className="font-bold text-xl text-white drop-shadow-sm">{t('quranMenu.hatimReader')}</h2>
               <p className="text-sm text-white/90 mt-0.5">{t('quranMenu.hatimDesc')}</p>
+              {hatimAssignment && (
+                <div className="mt-3 space-y-1.5">
+                  <div className="text-sm text-white/95 font-medium">
+                    {t('quranMenu.page')} {hatimAssignment.start_page}–{hatimAssignment.end_page}
+                  </div>
+                  {lastHatim?.page != null && (
+                    <div className="space-y-1">
+                      <div className="h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
+                        <div
+                          className="h-full bg-white rounded-full transition-all"
+                          style={{
+                            width: `${calculatePageProgress(
+                              lastHatim.page,
+                              hatimAssignment.start_page,
+                              hatimAssignment.end_page
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs text-white/90">
+                        {Math.round(
+                          calculatePageProgress(
+                            lastHatim.page,
+                            hatimAssignment.start_page,
+                            hatimAssignment.end_page
+                          )
+                        )}%
+                      </span>
+                    </div>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1">
+                    <Hourglass size={12} />
+                    {t('quranMenu.infinite')}
+                  </span>
+                </div>
+              )}
             </div>
           </Link>
 
@@ -322,11 +489,26 @@ export default function QuranMenu() {
                 <h2 className="font-bold text-xl drop-shadow-sm">Surah Kahf Licht</h2>
                 <p className="text-sm text-emerald-200/90 mt-0.5">Abu Sa&apos;id al-Khudri berichtete: Der Prophet ﷺ sagte: „Wer Sure al-Kahf am Freitag rezitiert, wird ein Licht zwischen diesem Freitag und dem nächsten haben.“</p>
                 {lastKahf?.surah === 18 && lastKahf?.ayah ? (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1.5">
                     <div className="flex justify-between items-baseline gap-2 text-sm text-emerald-100/95">
                       <span>{lastKahf.ayah === 110 ? t('quranMenu.completed') : `Al-Kahf : ${lastKahf.ayah}`}</span>
                       <span className="shrink-0">{t('quranMenu.page')} {lastKahf.page ?? '?'}</span>
                     </div>
+                    {lastKahf?.page != null && (
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
+                          <div
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{
+                              width: `${calculatePageProgress(lastKahf.page, 293, 317)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs text-emerald-100/90">
+                          {Math.round(calculatePageProgress(lastKahf.page, 293, 317))}%
+                        </span>
+                      </div>
+                    )}
                     {kahfWindow && (() => {
                       const remaining = getKahfRemainingMsSync(kahfWindow);
                       if (remaining === null) return null;
@@ -438,6 +620,9 @@ export default function QuranMenu() {
                 <div className="relative p-6 text-white">
                   <Link to={`/quran/read?slot=${encodeURIComponent(slot.id)}`} className="block">
                     <h2 className="font-bold text-xl drop-shadow-sm">{slot.label}</h2>
+                    {slot.goal && (
+                      <div className="text-sm text-white/90 mt-1">{formatGoalLabel(slot.goal)}</div>
+                    )}
                     {status ? (
                       <div className="flex justify-between items-baseline gap-2 mt-2 text-sm text-white/95">
                         <span>{status.left}</span>
@@ -446,6 +631,23 @@ export default function QuranMenu() {
                     ) : (
                       <p className="text-sm text-white/80 mt-1">{t('quranMenu.notReadYet')}</p>
                     )}
+                    {slot.goalStartPage != null && slot.goalEndPage != null && (() => {
+                      const loc = getLastLocation(slot.id);
+                      const page = loc?.page ?? 0;
+                      const pct = calculatePageProgress(page, slot.goalStartPage, slot.goalEndPage);
+                      if (pct <= 0) return null;
+                      return (
+                        <div className="mt-1.5 space-y-1">
+                          <div className="h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
+                            <div
+                              className="h-full bg-white rounded-full transition-all"
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-white/90">{Math.round(pct)}%</span>
+                        </div>
+                      );
+                    })()}
                     <span className="inline-flex items-center gap-1.5 text-xs text-white bg-black/80 rounded-lg px-2 py-1 mt-1">
                       <Hourglass size={12} />
                       {formatRemaining(slot.expiresAt, t)}
@@ -596,6 +798,127 @@ export default function QuranMenu() {
                   </span>
                 </div>
               )}
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 pt-2">{t('quranMenu.hasGoal')}</div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={!newSlotHasGoal}
+                  onChange={() => setNewSlotHasGoal(false)}
+                />
+                <span>{t('common.no')}</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={newSlotHasGoal}
+                  onChange={() => setNewSlotHasGoal(true)}
+                />
+                <span>{t('common.yes')}</span>
+              </label>
+              {newSlotHasGoal && (
+                <div className="space-y-3">
+                  <select
+                    value={newSlotGoalUnit}
+                    onChange={(e) => {
+                      const u = e.target.value as GoalUnit;
+                      setNewSlotGoalUnit(u);
+                      if (u === 'aya') {
+                        setNewSlotGoalFromSurah(1);
+                        setNewSlotGoalToSurah(1);
+                        setNewSlotGoalFromAyah(1);
+                        setNewSlotGoalToAyah(1);
+                      }
+                    }}
+                    className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+                  >
+                    {GOAL_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>{t(`quranMenu.${u.labelKey}`)}</option>
+                    ))}
+                  </select>
+                  {(newSlotGoalUnit === 'juz' || newSlotGoalUnit === 'page') && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newSlotGoalFrom}
+                        onChange={(e) => setNewSlotGoalFrom(e.target.value)}
+                        placeholder={t('quranMenu.goalFrom')}
+                        className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+                      />
+                      <span className="text-gray-500">–</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={newSlotGoalTo}
+                        onChange={(e) => setNewSlotGoalTo(e.target.value)}
+                        placeholder={t('quranMenu.goalTo')}
+                        className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+                      />
+                    </div>
+                  )}
+                  {newSlotGoalUnit === 'aya' && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-xs text-gray-500">{t('quranMenu.goalFrom')}:</span>
+                      <select
+                        value={newSlotGoalFromSurah}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          setNewSlotGoalFromSurah(n);
+                          const maxAyah = surahs.find((s) => s.number === n)?.ayahCount ?? 286;
+                          if (newSlotGoalFromAyah > maxAyah) setNewSlotGoalFromAyah(maxAyah);
+                        }}
+                        className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm min-w-[7rem]"
+                      >
+                        {surahs.length === 0 ? (
+                          <option value={1}>{t('common.loading')}</option>
+                        ) : (
+                          surahs.map((s) => (
+                            <option key={s.number} value={s.number}>{s.number}. {s.englishName}</option>
+                          ))
+                        )}
+                      </select>
+                      <select
+                        value={newSlotGoalFromAyah}
+                        onChange={(e) => setNewSlotGoalFromAyah(Number(e.target.value))}
+                        className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm w-16"
+                      >
+                        {Array.from({ length: surahs.find((s) => s.number === newSlotGoalFromSurah)?.ayahCount ?? 286 }, (_, i) => i + 1).map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                      <span className="text-gray-500">–</span>
+                      <span className="text-xs text-gray-500">{t('quranMenu.goalTo')}:</span>
+                      <select
+                        value={newSlotGoalToSurah}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          setNewSlotGoalToSurah(n);
+                          const maxAyah = surahs.find((s) => s.number === n)?.ayahCount ?? 286;
+                          if (newSlotGoalToAyah > maxAyah) setNewSlotGoalToAyah(maxAyah);
+                        }}
+                        className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm min-w-[7rem]"
+                      >
+                        {surahs.length === 0 ? (
+                          <option value={1}>{t('common.loading')}</option>
+                        ) : (
+                          surahs.map((s) => (
+                            <option key={s.number} value={s.number}>{s.number}. {s.englishName}</option>
+                          ))
+                        )}
+                      </select>
+                      <select
+                        value={newSlotGoalToAyah}
+                        onChange={(e) => setNewSlotGoalToAyah(Number(e.target.value))}
+                        className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm w-16"
+                      >
+                        {Array.from({ length: surahs.find((s) => s.number === newSlotGoalToSurah)?.ayahCount ?? 286 }, (_, i) => i + 1).map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -608,6 +931,14 @@ export default function QuranMenu() {
                     setNewSlotDays('');
                     setNewSlotHours('');
                     setNewSlotInfinite(true);
+                    setNewSlotHasGoal(false);
+                    setNewSlotGoalFrom('');
+                    setNewSlotGoalTo('');
+                    setNewSlotGoalUnit('juz');
+                    setNewSlotGoalFromSurah(1);
+                    setNewSlotGoalToSurah(1);
+                    setNewSlotGoalFromAyah(1);
+                    setNewSlotGoalToAyah(1);
                   }}
                   className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm"
                 >
@@ -615,7 +946,7 @@ export default function QuranMenu() {
                 </button>
                 <button
                   type="button"
-                  onClick={saveNewSlot}
+                  onClick={() => void saveNewSlot()}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm"
                 >
                   {t('quranMenu.createAndOpen')}

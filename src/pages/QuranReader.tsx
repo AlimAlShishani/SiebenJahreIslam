@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, CheckCircle, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useRecording } from '../context/RecordingContext';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 import {
   getAyahPosition,
@@ -21,6 +22,8 @@ import {
 } from '../lib/quranApi';
 import { triggerPushForActivity } from '../lib/pushNotifications';
 import { getKahfWindow, isKahfWindowActiveSync } from '../lib/maghrib';
+import { getSlotGoalConfig } from '../lib/slots';
+import { calculatePageProgress } from '../lib/readingGoal';
 
 interface AssignmentForReader {
   id: string;
@@ -410,6 +413,7 @@ export default function QuranReader() {
     return null;
   });
   const [pendingVerseSelection, setPendingVerseSelection] = useState<'first' | 'last' | null>(null);
+  const [pendingVerseKey, setPendingVerseKey] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(() => {
     const fallback = Math.max(effectiveStartPage, Math.min(effectiveEndPage, assignmentStartPage || effectiveStartPage));
     if (typeof window === 'undefined') return fallback;
@@ -439,6 +443,7 @@ export default function QuranReader() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedJuzRange, setSelectedJuzRange] = useState<{ start: number; end: number }>({ start: 1, end: 604 });
   const [mobileRecording, setMobileRecording] = useState(false);
+  const { setRecording: setRecordingContext } = useRecording();
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const selectedVerseRef = useRef<HTMLSpanElement | null>(null);
@@ -704,7 +709,17 @@ export default function QuranReader() {
       return;
     }
     let verseToSelect = visibleVerses[0];
-    if (
+
+    // Sprung zur Sura: Zielvers erst setzen, wenn er auf der geladenen Seite ist
+    if (pendingVerseKey) {
+      const target = visibleVerses.find((v) => v.key === pendingVerseKey);
+      if (target) {
+        verseToSelect = target;
+        setPendingVerseKey(null);
+      } else {
+        return; // Vers noch nicht auf dieser Seite – warten bis neue Seite geladen ist
+      }
+    } else if (
       !isKahfSlot &&
       initialSurahParam &&
       initialAyahParam &&
@@ -729,7 +744,7 @@ export default function QuranReader() {
     setSelectedSurah(verseToSelect.surahNumber);
     setSelectedAyah(verseToSelect.ayahNumber);
     if (pendingVerseSelection) setPendingVerseSelection(null);
-  }, [pageData, pendingVerseSelection, selectedVerseKey, initialSurahParam, initialAyahParam, isKahfSlot, selectedAyah]);
+  }, [pageData, pendingVerseSelection, selectedVerseKey, pendingVerseKey, initialSurahParam, initialAyahParam, isKahfSlot, selectedAyah]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
@@ -1011,10 +1026,11 @@ export default function QuranReader() {
       .update({
         audio_urls: next,
         audio_url: next[0] ?? null,
+        is_completed: true,
       })
       .eq('id', assignment.id);
     if (!error) {
-      setAssignment((old) => (old ? { ...old, audio_urls: next, audio_url: next[0] ?? null } : old));
+      setAssignment((old) => (old ? { ...old, audio_urls: next, audio_url: next[0] ?? null, is_completed: true } : old));
       if (user?.id) {
         const logDate = assignment.date || assignmentDate || null;
         const logJuz = assignment.juz_number ?? selectedJuz;
@@ -1125,6 +1141,31 @@ export default function QuranReader() {
     activeVerseIndex,
     totalVersesInPage,
   ]);
+
+  const goalConfig = useMemo(() => {
+    if (assignment && hasAssignmentContext) {
+      return {
+        goalStartPage: assignment.start_page,
+        goalEndPage: assignment.end_page,
+        goalLabel: `Seite ${assignment.start_page}–${assignment.end_page}`,
+      };
+    }
+    if (isKahfSlot) {
+      return { goalStartPage: KAHF_START_PAGE, goalEndPage: KAHF_END_PAGE, goalLabel: 'Seite 293–317' };
+    }
+    return getSlotGoalConfig(slot);
+  }, [assignment, hasAssignmentContext, isKahfSlot, slot]);
+
+  const goalProgressPct = useMemo(() => {
+    if (!goalConfig) return 0;
+    const verseFraction = totalVersesInPage > 0 ? (activeVerseIndex + 1) / totalVersesInPage : 0;
+    return calculatePageProgress(
+      currentPage,
+      goalConfig.goalStartPage,
+      goalConfig.goalEndPage,
+      verseFraction
+    );
+  }, [goalConfig, currentPage, activeVerseIndex, totalVersesInPage]);
 
   const goToPreviousVerse = () => {
     if (!visibleVerses.length) return;
@@ -1238,6 +1279,7 @@ export default function QuranReader() {
                 const surah = Number(e.target.value);
                 setSelectedSurah(surah);
                 setSelectedAyah(1);
+                setPendingVerseKey(`${surah}:1`);
                 void jumpToSurahAyah(surah, 1);
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
@@ -1348,50 +1390,63 @@ export default function QuranReader() {
 
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="px-3 pt-2 pb-2">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => navigate(assignmentId ? '/hatim' : '/quran')}
-              className="h-8 w-8 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
+              className="h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
               aria-label="Zurück"
             >
               <ArrowLeft size={16} />
             </button>
-            <label className="min-w-[7.5rem] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-center">
-              <select
-                value={selectedJuz}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  setSelectedJuz(next);
-                  void jumpToJuz(next);
-                }}
-                className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 text-center"
-              >
-                {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
-                  <option key={j} value={j}>
-                    Juz {j}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">{juzProgressPct.toFixed(1)}%</p>
-            </label>
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <div className="flex-1 min-w-0 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1">
+                <select
+                  value={selectedJuz}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setSelectedJuz(next);
+                    void jumpToJuz(next);
+                  }}
+                  className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 text-center"
+                >
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
+                    <option key={j} value={j}>
+                      Juz {j}
+                    </option>
+                  ))}
+                </select>
+                <div className="h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mt-0.5">
+                  <div
+                    className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-300"
+                    style={{ width: `${juzProgressPct}%` }}
+                  />
+                </div>
+              </div>
+              {goalConfig ? (
+                <div className="flex-1 min-w-0 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-2 py-1">
+                  <p className="text-[10px] font-medium text-gray-700 dark:text-gray-300 truncate text-center" title={goalConfig.goalLabel}>
+                    {goalConfig.goalLabel}
+                  </p>
+                  <div className="h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mt-0.5">
+                    <div
+                      className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-300"
+                      style={{ width: `${goalProgressPct}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 min-w-0" />
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setMobileSettingsOpen((v) => !v)}
-              className="h-8 w-8 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
+              className="h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
               aria-label="Einstellungen"
             >
               <Settings size={15} />
             </button>
-          </div>
-
-          <div className="mt-2">
-            <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-300"
-                style={{ width: `${juzProgressPct}%` }}
-              />
-            </div>
           </div>
 
           <div className="mt-2">
@@ -1402,6 +1457,7 @@ export default function QuranReader() {
                   const surah = Number(e.target.value);
                   setSelectedSurah(surah);
                   setSelectedAyah(1);
+                  setPendingVerseKey(`${surah}:1`);
                   void jumpToSurahAyah(surah, 1);
                 }}
                 className="h-8 bg-transparent px-2 text-xs text-gray-900 dark:text-gray-100 border-r border-gray-300 dark:border-gray-600"
@@ -1487,6 +1543,7 @@ export default function QuranReader() {
                 onDeleted={removeAssignmentAudio}
                 showUploadControls
                 compact
+                onRecordingChange={(active) => setRecordingContext(active)}
               />
             ) : (
               <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
@@ -1968,7 +2025,10 @@ export default function QuranReader() {
                 mobileBar
                 mobileAudioOpen={mobileAudioOpen}
                 onToggleMobileAudio={() => setMobileAudioOpen((v) => !v)}
-                onRecordingChange={(active) => setMobileRecording(active)}
+                onRecordingChange={(active) => {
+                setMobileRecording(active);
+                setRecordingContext(active);
+              }}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-end pb-2 gap-2 opacity-50">

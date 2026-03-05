@@ -1,6 +1,8 @@
 {
   "common": {
     "back": "Back",
+    "yes": "Yes",
+    "no": "No",
     "cancel": "Cancel",
     "save": "Save",
     "loading": "Loading...",
@@ -108,7 +110,9 @@
     "finished": "Finished",
     "page": "Page",
     "to": "to",
-    "tapToOpen": "Tap to open"
+    "tapToOpen": "Tap to open",
+    "partsWithoutAudio": "Parts without audio",
+    "noPartsWithoutAudio": "All parts have audio"
   },
   "quranMenu": {
     "title": "Quran instances",
@@ -139,7 +143,14 @@
     "page": "Page",
     "juz": "Juz",
     "edit": "Edit",
-    "remove": "Remove"
+    "remove": "Remove",
+    "hasGoal": "Has a goal?",
+    "goalFrom": "From",
+    "goalTo": "To",
+    "goalUnitJuz": "Juz",
+    "goalUnitPage": "Page",
+    "goalUnitSura": "Sura",
+    "goalUnitAya": "Aya"
   },
   "levelModal": {
     "understood": "Got it, let's go!",
@@ -391,7 +402,15 @@
     "s7_6": "Object to processing (Art. 21 GDPR)",
     "s7_7": "Complain to a supervisory authority",
     "s8Title": "8. Contact",
-    "s8Text": "For questions about data protection, please contact:"
+    "s8Text": "For questions about data protection, please contact:",
+    "s9Title": "9. Account deletion",
+    "s9Intro": "You can request deletion of your Nuruna account and associated data at any time. Here is how:",
+    "s9Step1": "Send an email to alimalshishani@gmail.com with the subject \"Account deletion\" and your email address registered with Nuruna.",
+    "s9Step2": "We will confirm receipt of your request and delete your account and all associated data within 30 days.",
+    "s9DataTitle": "What data will be deleted?",
+    "s9DataText": "Account data (email, password), profile (display name), learning progress, reading plan progress, group memberships and audio recordings.",
+    "s9RetentionTitle": "Retention",
+    "s9RetentionText": "Unless legal retention obligations apply, all data will be fully removed within 30 days of your request."
   },
   "entwickler": {
     "title": "About the developer",
@@ -486,7 +505,8 @@
     "recordingInProgress": "Recording in progress – keep tab open to preserve it.",
     "record": "Record",
     "upload": "Upload",
-    "confirmDelete": "Really delete this audio permanently?"
+    "confirmDelete": "Really delete this audio permanently?",
+    "confirmLeaveRecording": "Recording will be cancelled. Continue?"
   },
   "quranReader": {
     "settings": "Reader settings",

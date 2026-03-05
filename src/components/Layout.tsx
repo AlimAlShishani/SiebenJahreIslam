@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useRecording } from '../context/RecordingContext';
 import { changeLanguage } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { ensurePushSubscription } from '../lib/pushNotifications';
@@ -10,6 +11,8 @@ import { ensurePushSubscription } from '../lib/pushNotifications';
 export const Layout = () => {
   const { t, i18n } = useTranslation();
   const { signOut, user } = useAuth();
+  const { isRecording } = useRecording();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const keepAliveCtxRef = useRef<AudioContext | null>(null);
@@ -17,6 +20,14 @@ export const Layout = () => {
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
   const hideMobileChromeForReader = location.pathname.startsWith('/quran/read');
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, to: string) => {
+    if (!isRecording) return;
+    e.preventDefault();
+    if (window.confirm(t('audio.confirmLeaveRecording'))) {
+      navigate(to);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -140,6 +151,7 @@ export const Layout = () => {
             <li>
               <Link
                 to="/hatim"
+                onClick={(e) => handleNavClick(e as React.MouseEvent<HTMLAnchorElement>, '/hatim')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
                   isActive('/hatim') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
                 }`}
@@ -151,6 +163,7 @@ export const Layout = () => {
             <li>
               <Link
                 to="/quran"
+                onClick={(e) => handleNavClick(e as React.MouseEvent<HTMLAnchorElement>, '/quran')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
                   isActive('/quran') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
                 }`}
@@ -162,6 +175,7 @@ export const Layout = () => {
             <li>
               <Link
                 to="/learn"
+                onClick={(e) => handleNavClick(e as React.MouseEvent<HTMLAnchorElement>, '/learn')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
                   isActive('/learn') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
                 }`}
@@ -173,6 +187,7 @@ export const Layout = () => {
             <li>
               <Link
                 to="/profile"
+                onClick={(e) => handleNavClick(e as React.MouseEvent<HTMLAnchorElement>, '/profile')}
                 className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
                   isActive('/profile') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40' : 'text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
                 }`}

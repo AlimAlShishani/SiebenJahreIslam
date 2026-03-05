@@ -1,6 +1,8 @@
 {
   "common": {
     "back": "Zurück",
+    "yes": "Ja",
+    "no": "Nein",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "loading": "Laden...",
@@ -108,7 +110,9 @@
     "finished": "Fertig",
     "page": "Seite",
     "to": "bis",
-    "tapToOpen": "Tippen zum Öffnen"
+    "tapToOpen": "Tippen zum Öffnen",
+    "partsWithoutAudio": "Parts ohne Audio",
+    "noPartsWithoutAudio": "Alle Parts haben Audio"
   },
   "quranMenu": {
     "title": "Quran Instanzen",
@@ -139,7 +143,14 @@
     "page": "Seite",
     "juz": "Juz",
     "edit": "Bearbeiten",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "hasGoal": "Hat ein Ziel?",
+    "goalFrom": "Von",
+    "goalTo": "Bis",
+    "goalUnitJuz": "Juz",
+    "goalUnitPage": "Seite",
+    "goalUnitSura": "Sura",
+    "goalUnitAya": "Aya"
   },
   "levelModal": {
     "understood": "Verstanden, los geht's!",
@@ -363,7 +374,15 @@
     "s7_6": "Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)",
     "s7_7": "Beschwerde bei einer Aufsichtsbehörde",
     "s8Title": "8. Kontakt",
-    "s8Text": "Für Fragen zum Datenschutz wenden Sie sich bitte an:"
+    "s8Text": "Für Fragen zum Datenschutz wenden Sie sich bitte an:",
+    "s9Title": "9. Kontolöschung",
+    "s9Intro": "Sie können jederzeit die Löschung Ihres Nuruna-Kontos und der zugehörigen Daten anfordern. So gehen Sie vor:",
+    "s9Step1": "Senden Sie eine E-Mail an alimalshishani@gmail.com mit dem Betreff „Kontolöschung“ und Ihrer bei Nuruna registrierten E-Mail-Adresse.",
+    "s9Step2": "Wir bestätigen den Eingang Ihrer Anfrage und löschen Ihr Konto sowie alle zugehörigen Daten innerhalb von 30 Tagen.",
+    "s9DataTitle": "Welche Daten werden gelöscht?",
+    "s9DataText": "Kontodaten (E-Mail, Passwort), Profil (Anzeigename), Lernfortschritt, Leseplan-Fortschritt, Gruppenmitgliedschaften und Audio-Aufnahmen.",
+    "s9RetentionTitle": "Aufbewahrung",
+    "s9RetentionText": "Sofern keine gesetzlichen Aufbewahrungspflichten bestehen, werden die Daten innerhalb von 30 Tagen nach Ihrer Anfrage vollständig entfernt."
   },
   "level5Intro": {
     "title": "Neue Regel: Die Verlängerung (Madd)",
@@ -470,7 +489,8 @@
     "recordingInProgress": "Aufnahme läuft – Tab offen lassen, dann bleibt die Aufnahme erhalten.",
     "record": "Aufnehmen",
     "upload": "Hochladen",
-    "confirmDelete": "Dieses Audio wirklich endgültig löschen?"
+    "confirmDelete": "Dieses Audio wirklich endgültig löschen?",
+    "confirmLeaveRecording": "Aufnahme wird abgebrochen. Fortfahren?"
   },
   "quranReader": {
     "settings": "Reader Einstellungen",

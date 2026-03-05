@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut, List } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
 const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
@@ -216,6 +216,9 @@ export default function Quran() {
   const [searchingGroup, setSearchingGroup] = useState(false);
   const [pendingInviteUserIds, setPendingInviteUserIds] = useState<Set<string>>(new Set());
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
+  const [showPartsWithoutAudioModal, setShowPartsWithoutAudioModal] = useState(false);
+  const [partsWithoutAudio, setPartsWithoutAudio] = useState<number[]>([]);
+  const [loadingPartsWithoutAudio, setLoadingPartsWithoutAudio] = useState(false);
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
@@ -1292,10 +1295,10 @@ export default function Quran() {
     try {
       const { error } = await supabase
         .from('daily_reading_status')
-        .update({ audio_urls: next })
+        .update({ audio_urls: next, is_completed: true })
         .eq('id', assignmentId);
       if (error) throw error;
-      setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: null } : x)));
+      setAssignments(prev => prev.map(x => (x.id === assignmentId ? { ...x, audio_urls: next, audio_url: null, is_completed: true } : x)));
       if (user?.id && currentGroupId) {
         const logPayload = {
           group_id: currentGroupId,
@@ -1415,6 +1418,45 @@ export default function Quran() {
     }
   };
 
+  const fetchPartsWithoutAudio = async () => {
+    if (!currentGroupId || !user?.id) return;
+    setLoadingPartsWithoutAudio(true);
+    try {
+      const datesInMonth: string[] = [];
+      for (let i = 1; i <= islamicMonthInfo.monthLength; i++) {
+        const d = new Date(islamicMonthInfo.monthStartDate);
+        d.setDate(islamicMonthInfo.monthStartDate.getDate() + i - 1);
+        datesInMonth.push(toLocalDateString(d));
+      }
+      const { data, error } = await supabase
+        .from('daily_reading_status')
+        .select('id, date, juz_number, audio_urls')
+        .eq('group_id', currentGroupId)
+        .eq('user_id', user.id)
+        .in('date', datesInMonth);
+      if (error) throw error;
+      const withoutAudio = (data || [])
+        .filter((a: { audio_urls?: string[] | null }) => {
+          const urls = a.audio_urls;
+          return !urls || (Array.isArray(urls) && urls.length === 0);
+        })
+        .map((a: { juz_number: number }) => a.juz_number);
+      const unique = [...new Set(withoutAudio)].sort((a, b) => a - b);
+      setPartsWithoutAudio(unique);
+    } catch (e) {
+      console.error(e);
+      setPartsWithoutAudio([]);
+    } finally {
+      setLoadingPartsWithoutAudio(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showPartsWithoutAudioModal && isInGroup && currentGroupId && user?.id) {
+      fetchPartsWithoutAudio();
+    }
+  }, [showPartsWithoutAudioModal, isInGroup, currentGroupId, user?.id, islamicMonthInfo.monthLength, islamicMonthInfo.monthStartDate]);
+
   // In Gruppe: Aufteilung der Gruppe; sonst: nur eigene Aufteilung (Einzelnutzer)
   const visibleAssignments = useMemo(() => {
     const list = isInGroup
@@ -1457,6 +1499,17 @@ export default function Quran() {
               >
                 <Calendar size={14} />
                 {t('quran.today')}
+              </button>
+            )}
+            {isInGroup && (
+              <button
+                type="button"
+                onClick={() => setShowPartsWithoutAudioModal(true)}
+                className="text-sm font-medium text-white bg-emerald-500/60 hover:bg-emerald-500/80 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                title={t('quran.partsWithoutAudio')}
+              >
+                <List size={14} />
+                {t('quran.partsWithoutAudio')}
               </button>
             )}
           </div>
@@ -1774,6 +1827,51 @@ export default function Quran() {
           </>
         )}
       </div>
+
+      {/* Modal: Parts ohne Audio */}
+      {showPartsWithoutAudioModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                {t('quran.partsWithoutAudio')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPartsWithoutAudioModal(false)}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              {loadingPartsWithoutAudio ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 size={32} className="animate-spin text-emerald-600 dark:text-emerald-400" />
+                </div>
+              ) : partsWithoutAudio.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-400">{t('quran.noPartsWithoutAudio')}</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {partsWithoutAudio.map((juz) => (
+                    <button
+                      key={juz}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRamadanDay(juz);
+                        setShowPartsWithoutAudioModal(false);
+                      }}
+                      className="px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/70 transition-colors"
+                    >
+                      Juz {juz}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Seitenanzahl pro Person beim Neuverteilen */}
       {isGroupOwner && isInGroup && showDistributeModal && (

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { RecordingProvider } from './context/RecordingContext';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -20,6 +21,7 @@ function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
+      <RecordingProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -42,6 +44,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </RecordingProvider>
       </ThemeProvider>
     </AuthProvider>
   );

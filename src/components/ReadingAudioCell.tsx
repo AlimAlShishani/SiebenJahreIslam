@@ -473,6 +473,9 @@ export function ReadingAudioCell({
                 <button type="button" onClick={sendRecording} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 text-white font-medium hover:bg-emerald-700 ${btnClass}`}>
                   <Send size={iconSize} /> {t('audio.sendRecording')}
                 </button>
+                <button type="button" onClick={cancelRecording} className={`flex-1 inline-flex items-center justify-center gap-1.5 bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-medium hover:bg-rose-200 dark:hover:bg-rose-900/60 ${btnClass}`}>
+                  <Trash2 size={iconSize} /> {t('audio.cancelRecording')}
+                </button>
               </div>
             </>
           ) : (

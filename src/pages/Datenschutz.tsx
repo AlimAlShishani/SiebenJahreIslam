@@ -83,6 +83,19 @@ export default function Datenschutz() {
               </a>
             </p>
           </section>
+
+          <section id="konto-loeschen">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-2">{t('datenschutz.s9Title')}</h2>
+            <p className="mb-3">{t('datenschutz.s9Intro')}</p>
+            <ol className="list-decimal pl-6 space-y-2 mb-4">
+              <li>{t('datenschutz.s9Step1')}</li>
+              <li>{t('datenschutz.s9Step2')}</li>
+            </ol>
+            <p className="font-semibold mb-1">{t('datenschutz.s9DataTitle')}</p>
+            <p className="mb-3">{t('datenschutz.s9DataText')}</p>
+            <p className="font-semibold mb-1">{t('datenschutz.s9RetentionTitle')}</p>
+            <p>{t('datenschutz.s9RetentionText')}</p>
+          </section>
         </div>
 
         <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
