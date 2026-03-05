@@ -118,7 +118,7 @@
     "title": "Quran instances",
     "hatimReader": "Hatim Reader",
     "hatimDesc": "Opens your part directly from the home page (saves separately)",
-    "surahKahf": "Surah Kahf Light",
+    "surahKahf": "Surah Kahf Instance",
     "kahfHadith": "Abu Sa'id al-Khudri reported: The Prophet ﷺ said: \"Whoever recites Surah al-Kahf on Friday will have a light between this Friday and the next.\"",
     "notReadYet": "Not read yet",
     "completed": "Completed",
@@ -520,6 +520,8 @@
     "loading": "Loading..."
   },
   "admin": {
+    "surahKahf": "Surah Kahf Instance",
+    "kahfWindowDesc": "Time window in which the Kahf instance is automatically visible.",
     "error": "Error: {{msg}}",
     "kahfSaved": "Kahf window saved.",
     "videoSaveError": "Error saving video: {{msg}}",

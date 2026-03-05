@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { VideoInput } from '../components/VideoInput';
 import { AudioInput } from '../components/AudioInput';
@@ -43,6 +44,7 @@ interface LearningItem {
 const KAHF_LAST_LOCATION_STORAGE_KEY = 'quran-reader-last-location-kahf';
 
 export default function Admin() {
+  const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [levels, setLevels] = useState<LearningLevel[]>([]);
   const [items, setItems] = useState<LearningItem[]>([]);
@@ -304,9 +306,9 @@ export default function Admin() {
       </section>
 
       <section className="mb-8">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Surah Kahf Licht</h3>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">{t('admin.surahKahf')}</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-          Zeitfenster, in dem die Kahf-Instanz automatisch sichtbar ist.
+          {t('admin.kahfWindowDesc')}
         </p>
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">

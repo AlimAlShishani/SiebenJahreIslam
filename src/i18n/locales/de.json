@@ -118,7 +118,7 @@
     "title": "Quran Instanzen",
     "hatimReader": "Hatim Reader",
     "hatimDesc": "Öffnet direkt deinen Part an der Startseite (speichert getrennt)",
-    "surahKahf": "Surah Kahf Licht",
+    "surahKahf": "Surah Kahf Instanz",
     "kahfHadith": "Abu Sa'id al-Khudri berichtete: Der Prophet ﷺ sagte: „Wer Sure al-Kahf am Freitag rezitiert, wird ein Licht zwischen diesem Freitag und dem nächsten haben.“",
     "notReadYet": "Noch nicht gelesen",
     "completed": "Erledigt",
@@ -504,6 +504,8 @@
     "loading": "Laden..."
   },
   "admin": {
+    "surahKahf": "Surah Kahf Instanz",
+    "kahfWindowDesc": "Zeitfenster, in dem die Kahf-Instanz automatisch sichtbar ist.",
     "error": "Fehler: {{msg}}",
     "kahfSaved": "Kahf-Fenster gespeichert.",
     "videoSaveError": "Fehler beim Speichern des Videos: {{msg}}",

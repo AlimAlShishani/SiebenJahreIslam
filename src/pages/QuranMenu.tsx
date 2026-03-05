@@ -486,7 +486,7 @@ export default function QuranMenu() {
                 ))}
               </div>
               <div className="relative p-6 text-white">
-                <h2 className="font-bold text-xl drop-shadow-sm">Surah Kahf Licht</h2>
+                <h2 className="font-bold text-xl drop-shadow-sm">{t('quranMenu.surahKahf')}</h2>
                 <p className="text-sm text-emerald-200/90 mt-0.5">Abu Sa&apos;id al-Khudri berichtete: Der Prophet ﷺ sagte: „Wer Sure al-Kahf am Freitag rezitiert, wird ein Licht zwischen diesem Freitag und dem nächsten haben.“</p>
                 {lastKahf?.surah === 18 && lastKahf?.ayah ? (
                   <div className="mt-2 space-y-1.5">
