@@ -1,0 +1,17 @@
+---
+description: When user says "neue version" - bump version and output changelog
+alwaysApply: false
+---
+
+# Neue Version Workflow
+
+When the user says "neue version" (or similar):
+
+1. **Bump version** in `package.json` (e.g. 1.0.1 → 1.0.2 for patch, 1.1.0 for minor)
+2. **Update** `public/version.json` to match
+3. **Update Bubblewrap/Android build** – in `app/build.gradle` and `twa-manifest.json`:
+   - `versionCode`: immer um 1 erhöhen (z.B. 6 → 7) – Pflicht für Play Store
+   - `versionName` / `appVersionName` / `appVersion`: gleiche Version wie package.json (z.B. "1.0.1")
+4. **Write changelog** in English: list all changes since the last version
+5. **Output changelog ONLY in the chat** – NEVER create or edit CHANGELOG.md or any changelog file. User copies the text themselves.
+6. Use semantic versioning: patch (bugfixes), minor (features), major (breaking)

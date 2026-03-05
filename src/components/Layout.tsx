@@ -1,13 +1,12 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun, Globe } from 'lucide-react';
+import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useRecording } from '../context/RecordingContext';
 import { changeLanguage } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { ensurePushSubscription } from '../lib/pushNotifications';
-
 export const Layout = () => {
   const { t, i18n } = useTranslation();
   const { signOut, user } = useAuth();
@@ -119,14 +118,17 @@ export const Layout = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold font-serif">Nuruna</h1>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => changeLanguage(i18n.language === 'en' ? 'de' : 'en')}
-              className="flex items-center gap-1 px-2 py-1.5 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-lg transition-colors font-medium text-sm"
-              title={i18n.language === 'en' ? 'Deutsch' : 'English'}
+            <select
+              value={i18n.language}
+              onChange={(e) => changeLanguage(e.target.value as 'de' | 'en' | 'ru' | 'tr')}
+              className="flex items-center gap-1 px-2 py-1.5 bg-transparent hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-lg transition-colors font-medium text-sm cursor-pointer border border-emerald-500/50"
+              title="Sprache"
             >
-              <Globe size={18} />
-              <span>{i18n.language === 'de' ? 'DE' : 'EN'}</span>
-            </button>
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+              <option value="ru">Русский</option>
+              <option value="tr">Türkçe</option>
+            </select>
             <button
               onClick={toggleTheme}
               className="p-2 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-full transition-colors"

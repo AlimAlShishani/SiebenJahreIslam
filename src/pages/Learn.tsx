@@ -237,10 +237,10 @@ export default function Learn() {
                     >
                       {t('learn.level')} {level.level_number}
                     </span>
-                    <LevelTitle title={level.title} unlocked={unlocked} />
+                    <LevelTitle title={t(`levelDisplayNames.${level.level_number}`, { defaultValue: level.title })} unlocked={unlocked} />
                   </div>
-                  {level.description && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{level.description}</p>
+                  {t(`levelDisplayDescriptions.${level.level_number}`, { defaultValue: level.description }) && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t(`levelDisplayDescriptions.${level.level_number}`, { defaultValue: level.description })}</p>
                   )}
                   {!unlocked && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

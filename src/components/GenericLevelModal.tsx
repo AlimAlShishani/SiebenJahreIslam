@@ -55,8 +55,8 @@ export function GenericLevelModal({ isOpen, onClose, onStart, levelNumber, level
   const { t } = useTranslation();
   if (!isOpen) return null;
 
-  const title = levelFromDb?.title ?? t(`levels.${levelNumber}.title`, { defaultValue: `Level ${levelNumber}` }) ?? `Level ${levelNumber}`;
-  const description = levelFromDb?.description ?? t(`levels.${levelNumber}.description`, { defaultValue: '' }) ?? '';
+  const title = t(`levelDisplayNames.${levelNumber}`, { defaultValue: levelFromDb?.title ?? `Level ${levelNumber}` });
+  const description = t(`levelDisplayDescriptions.${levelNumber}`, { defaultValue: levelFromDb?.description ?? '' });
   const useDbContent = levelFromDb?.modal_content != null && levelFromDb.modal_content.trim() !== '';
   const audioUrls: string[] = levelFromDb?.modal_audio_urls?.length
     ? levelFromDb.modal_audio_urls

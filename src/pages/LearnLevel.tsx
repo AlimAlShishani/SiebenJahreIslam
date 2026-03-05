@@ -555,9 +555,9 @@ export default function LearnLevel() {
               <>
             {/* Stufe 7 (Tanween): Frage = Transliteration, Antworten = Arabisch */}
             {levelNum === 7 ? (
-              <h1 className="text-5xl md:text-6xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 leading-tight" dir="ltr">{currentItem.transliteration}</h1>
+              <h1 className="text-5xl md:text-6xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 leading-tight" dir="ltr" translate="no">{currentItem.transliteration}</h1>
             ) : (
-              <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl">{currentItem.content}</h1>
+              <h1 className="text-8xl font-bold text-emerald-900 dark:text-emerald-200 mb-6 font-quran leading-tight" dir="rtl" lang="ar" translate="no">{currentItem.content}</h1>
             )}
             
             <div className="flex flex-wrap gap-3 justify-center mb-6">
@@ -620,7 +620,7 @@ export default function LearnLevel() {
                     disabled={selectedOptionId !== null}
                     className={btnClass}
                   >
-                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined}>{translateOptionText(option.text, i18n.language)}</span>
+                    <span className={`flex-grow text-center ${levelNum === 7 ? 'font-quran text-3xl md:text-4xl' : ''}`} dir={levelNum === 7 ? 'rtl' : undefined} lang={levelNum === 7 ? 'ar' : undefined} translate="no">{translateOptionText(option.text, i18n.language)}</span>
                     
                     {option.audio_url && (
                       <div 

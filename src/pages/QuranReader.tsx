@@ -447,6 +447,7 @@ export default function QuranReader() {
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const selectedVerseRef = useRef<HTMLSpanElement | null>(null);
+  const verseModeScrollRef = useRef<HTMLDivElement | null>(null);
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
   const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
@@ -799,6 +800,13 @@ export default function QuranReader() {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
     return () => cancelAnimationFrame(id);
+  }, [viewLayout, selectedVerseKey]);
+
+  useEffect(() => {
+    if (viewLayout !== 'verse') return;
+    const el = verseModeScrollRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
   }, [viewLayout, selectedVerseKey]);
 
   useEffect(() => {
@@ -1774,7 +1782,7 @@ export default function QuranReader() {
                     }`}
                   >
                     <div className="flex-1 min-w-0 pr-4 flex flex-col min-h-0">
-                      <div className="flex-1 min-h-0 overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0">
+                      <div ref={verseModeScrollRef} className="flex-1 min-h-0 overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0">
                         <div className="h-full flex flex-col">
                           <div className="flex-1 flex flex-col items-center justify-center text-center">
                             <p

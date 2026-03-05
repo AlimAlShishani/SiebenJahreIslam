@@ -78,6 +78,8 @@ export function ClickableArabicVerse({
         ref={textRef}
         className="font-quran text-3xl md:text-4xl leading-loose text-center text-emerald-900 dark:text-emerald-200 select-none pointer-events-none"
         dir="rtl"
+        lang="ar"
+        translate="no"
       >
         {content}
       </div>

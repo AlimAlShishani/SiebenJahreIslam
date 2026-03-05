@@ -246,12 +246,12 @@ export default function Quran() {
   const formatActivityMessage = (log: ReadingActivityLog) => {
     const actor = getActorName(log);
     if (log.activity_type === 'plan_updated') {
-      return `JUZ ${log.juz_number} | ${t('activity.planUpdated', { actor })}`;
+      return `${t('quran.juzShort')} ${log.juz_number} | ${t('activity.planUpdated', { actor })}`;
     }
     if (log.activity_type === 'plan_cleared') {
-      return `JUZ ${log.juz_number} | ${t('activity.planCleared', { actor })}`;
+      return `${t('quran.juzShort')} ${log.juz_number} | ${t('activity.planCleared', { actor })}`;
     }
-    return `JUZ ${log.juz_number} | ${t('activity.audioUploaded', { actor })}`;
+    return `${t('quran.juzShort')} ${log.juz_number} | ${t('activity.audioUploaded', { actor })}`;
   };
 
   const getEarliestVote = (votes: VoteValue[]): VoteValue | null => {
@@ -546,10 +546,10 @@ export default function Quran() {
           const actorName = actor?.full_name || actor?.email || 'Jemand';
           const message =
             row.activity_type === 'plan_updated'
-              ? `JUZ ${row.juz_number} | ${t('activity.planUpdated', { actor: actorName })}`
+              ? `${t('quran.juzShort')} ${row.juz_number} | ${t('activity.planUpdated', { actor: actorName })}`
               : row.activity_type === 'plan_cleared'
-                ? `JUZ ${row.juz_number} | ${t('activity.planCleared', { actor: actorName })}`
-                : `JUZ ${row.juz_number} | ${actorName} hat ein Audio hochgeladen`;
+                ? `${t('quran.juzShort')} ${row.juz_number} | ${t('activity.planCleared', { actor: actorName })}`
+                : `${t('quran.juzShort')} ${row.juz_number} | ${t('activity.audioUploaded', { actor: actorName })}`;
           setActivityToast({ id: row.id, message, juzNumber: row.juz_number });
 
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -1513,7 +1513,7 @@ export default function Quran() {
               </button>
             )}
           </div>
-          <h1 className="text-4xl font-bold mb-2">Juz {selectedRamadanDay}</h1>
+          <h1 className="text-4xl font-bold mb-2">{t('quran.juz')} {selectedRamadanDay}</h1>
           <p className="text-emerald-100 max-w-md">
             {isToday
               ? t('quran.readToday')
@@ -1601,7 +1601,7 @@ export default function Quran() {
                       type="button"
                       onClick={() => jumpToActivityDay(log.juz_number)}
                       className="block flex-1 text-left text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded px-1.5 py-1 transition-colors"
-                      title={`Zu Juz ${log.juz_number} springen`}
+                      title={t('group.jumpToJuzTitle', { n: log.juz_number })}
                     >
                       {formatActivityMessage(log)}
                       <span className="text-gray-400 dark:text-gray-500"> ({formatActivityTime(log.created_at)})</span>
@@ -1863,7 +1863,7 @@ export default function Quran() {
                       }}
                       className="px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/70 transition-colors"
                     >
-                      Juz {juz}
+                      {t('quran.juz')} {juz}
                     </button>
                   ))}
                 </div>

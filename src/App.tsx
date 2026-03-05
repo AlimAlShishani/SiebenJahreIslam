@@ -3,6 +3,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RecordingProvider } from './context/RecordingContext';
 import { Layout } from './components/Layout';
+import { useVersionCheck } from './hooks/useVersionCheck';
+import { VersionCheckModal } from './components/VersionCheckModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import Login from './pages/Login';
@@ -18,9 +20,19 @@ import LearnLevel from './pages/LearnLevel';
 import Profile from './pages/Profile';
 import Feedback from './pages/Feedback';
 
-function App() {
+function AppContent() {
+  const { updateAvailable, latestVersion, dismiss, reload } = useVersionCheck();
+
   return (
-    <AuthProvider>
+    <>
+      {updateAvailable && (
+        <VersionCheckModal
+          latestVersion={latestVersion}
+          onDismiss={dismiss}
+          onReload={reload}
+        />
+      )}
+      <AuthProvider>
       <ThemeProvider>
       <RecordingProvider>
       <BrowserRouter>
@@ -49,7 +61,12 @@ function App() {
       </RecordingProvider>
       </ThemeProvider>
     </AuthProvider>
+    </>
   );
+}
+
+function App() {
+  return <AppContent />;
 }
 
 export default App;

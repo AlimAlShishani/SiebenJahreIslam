@@ -1,4 +1,11 @@
 {
+  "versionCheck": {
+    "title": "New version available",
+    "versionAvailable": "Version {{version}} is available",
+    "description": "A new version of Nuruna is ready. Reload the page to get the latest features.",
+    "later": "Later",
+    "reload": "Reload"
+  },
   "common": {
     "back": "Back",
     "yes": "Yes",
@@ -123,7 +130,9 @@
     "to": "to",
     "tapToOpen": "Tap to open",
     "partsWithoutAudio": "Parts without audio",
-    "noPartsWithoutAudio": "All parts have audio"
+    "noPartsWithoutAudio": "All parts have audio",
+    "juz": "Juz",
+    "juzShort": "JUZ"
   },
   "quranMenu": {
     "title": "Quran instances",
@@ -166,6 +175,52 @@
   "levelModal": {
     "understood": "Got it, let's go!",
     "playAudio": "Play audio"
+  },
+  "levelDisplayNames": {
+    "1": "Alphabet 1",
+    "2": "Alphabet 2",
+    "3": "Alphabet 3",
+    "4": "Alphabet 4",
+    "5": "Vowels (Fathah/Dommah/Kasrah) & Sukoon",
+    "6": "Shaddah",
+    "7": "Tanween (an/un/in)",
+    "8": "Long vowels/Natural Madd",
+    "9": "Alphabet 5 Special letters",
+    "10": "Letter combinations",
+    "11": "Quran symbols",
+    "12": "Pauses/Stopping",
+    "13": "Madd Muttassil/Mufassil (Connected/Separate)",
+    "14": "Connecting Madd & Madd Lazim",
+    "15": "Hamzat al-Wasl/al-Qat'",
+    "16": "Pronouncing \"Allah\" correctly",
+    "17": "Noon sakinah",
+    "18": "Meem sakinah",
+    "19": "Pronouncing Ra",
+    "20": "Qalqalah (Echo letters)",
+    "21": "Heavy letters/Light letters"
+  },
+  "levelDisplayDescriptions": {
+    "1": "First 7 letters of the Arabic alphabet (Alif, Bā, Tā, Thā, Jīm, Ḥā, Khā) in all 4 forms (initial, medial, final, isolated).",
+    "2": "Second 8 letters: Dāl, Dhāl, Rā, Zāy (2 forms each), Sīn, Shīn, Ṣād, Ḍād (initial, medial, final, isolated).",
+    "3": "Third 7 letters: Ṭā, Ẓā, ʿAyn, Ghayn, Fā, Qāf, Kāf – 4 forms each (isolated, initial, medial, final).",
+    "4": "Fourth 6 letters: Lām, Mīm, Nūn, Hā (4 forms each), Wāw (2 forms), Yā (4 forms).",
+    "5": "10× single letters with tashkīl, 20× short words (Fatha/Damma/Kasra/Sukūn ۡ) – no Madd, no Shaddah.",
+    "6": "Recognise and correctly transliterate words with Shaddah (ّ). No Madd.",
+    "7": "Transliteration given → choose the correct word in Arabic. Write Tanwīn fatḥah (an) with Alif at the end.",
+    "8": "Read a Quran passage and mark natural Madd. Only natural Madd; no verses with „الله“.",
+    "9": "Hamza (ء، أ، إ، ئ، ؤ) and Tāʾ marbūṭa (ة): recognise and transliterate. No Tanwīn, no Madd.",
+    "10": "Recognise and correctly transliterate words with آ، لا/لأ، ىٰ.",
+    "11": "Recognise and apply Quran symbols.",
+    "12": "Pause and stop signs in the Quran.",
+    "13": "Distinguish and read Madd Muttassil (connected) and Madd Mufassil (separate).",
+    "14": "Recognise and read connecting Madd and Madd Lazim.",
+    "15": "Distinguish Hamzat al-Waṣl and Hamzat al-Qaṭʿ and pronounce correctly.",
+    "16": "Read the word \"Allah\" with correct Tafkhīm/Tarqīq.",
+    "17": "Nūn Sakinah and Tanwīn: Iẓhār, Idghām, Iqlāb, Ikhfāʾ.",
+    "18": "Mīm Sakinah: Iẓhār Shafawī, Idghām Shafawī, Ikhfāʾ Shafawī.",
+    "19": "Rā rules: when thick (Tafkhīm), when thin (Tarqīq).",
+    "20": "Recognise and read Qalqalah with ق ط ب ج د.",
+    "21": "Distinguish heavy (tafkhīm) and light (tarqīq) letters."
   },
   "levels": {
     "1": {
@@ -496,7 +551,8 @@
     "errorVotes": "Error generating plan from votes.",
     "confirmLeave": "Really leave group? You will lose access to the shared plan.",
     "confirmTransfer": "Transfer group ownership to {{name}}?",
-    "deleteLogEntry": "Delete this activity log entry?"
+    "deleteLogEntry": "Delete this activity log entry?",
+    "jumpToJuzTitle": "Jump to Juz {{n}}"
   },
   "activity": {
     "planUpdated": "{{actor}} redistributed the plan",
