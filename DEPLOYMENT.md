@@ -104,3 +104,24 @@ https://nuruna.net/.well-known/assetlinks.json
 ### 4. APK neu bauen und installieren
 
 Nach dem Deploy die APK neu bauen (`bubblewrap build`) und auf dem Gerät neu installieren. Danach sollte die App ohne Browser-Leiste starten.
+
+### 5. Play Store: Zusätzlicher Fingerprint nötig
+
+**Problem:** Bei lokaler APK-Installation funktioniert TWA, aber bei Installation über den Play Store (interner Test etc.) erscheint die Browser-Leiste und Benachrichtigungen kommen vom Browser.
+
+**Ursache:** Google signiert die App im Play Store mit dem **Play App Signing Key** neu. Chrome prüft diesen Fingerprint – nicht den deines Upload-Keystores.
+
+**Lösung:**
+
+1. **Play Console** öffnen → deine App → **Release** → **Setup** → **App-Integrität** (oder **App signing**)
+2. Unter **„App-Signaturschlüssel-Zertifikat“** den **SHA-256-Zertifikatsfingerabdruck** kopieren
+3. In `public/.well-known/assetlinks.json` diesen Fingerprint **zusätzlich** in das Array `sha256_cert_fingerprints` eintragen (beide Fingerprints behalten – lokaler + Play-Signing):
+   ```json
+   "sha256_cert_fingerprints": [
+     "DEIN_LOKALER_FINGERPRINT",
+     "PLAY_APP_SIGNING_FINGERPRINT_HIER"
+   ]
+   ```
+4. Vercel deployen
+
+Danach sollte die App auch aus dem Play Store ohne Browser-Leiste und mit korrekten App-Benachrichtigungen laufen.

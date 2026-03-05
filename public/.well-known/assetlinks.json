@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "net.nuruna.twa",
       "sha256_cert_fingerprints": [
-        "37:2F:4C:55:B6:FC:BC:08:0B:69:F1:93:4A:60:84:AA:34:81:DF:95:A5:AD:CD:6E:26:93:13:DD:52:01:56:61"
+        "37:2F:4C:55:B6:FC:BC:08:0B:69:F1:93:4A:60:84:AA:34:81:DF:95:A5:AD:CD:6E:26:93:13:DD:52:01:56:61",
+        "36:F2:C2:2A:AD:26:0E:15:BA:F1:54:04:E0:3A:46:77:56:2D:71:3B:9E:4F:64:49:EE:7F:8B:06:BF:7E:B9:4E"
       ]
     }
   }
