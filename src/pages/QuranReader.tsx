@@ -270,7 +270,7 @@ export default function QuranReader() {
 
   const isKahfSlot = slot === 'kahf';
   const KAHF_START_PAGE = 293;
-  const KAHF_END_PAGE = 317;
+  const KAHF_END_PAGE = 304; // Surah Kahf endet S.304, S.305 ist bereits Maryam
   const effectiveStartPage = isKahfSlot ? KAHF_START_PAGE : (assignmentId ? assignmentStartPage : 1);
   const effectiveEndPage = isKahfSlot ? KAHF_END_PAGE : (assignmentId ? assignmentEndPage : 604);
 
@@ -1159,7 +1159,7 @@ export default function QuranReader() {
       };
     }
     if (isKahfSlot) {
-      return { goalStartPage: KAHF_START_PAGE, goalEndPage: KAHF_END_PAGE, goalLabel: 'Seite 293–317' };
+      return { goalStartPage: KAHF_START_PAGE, goalEndPage: KAHF_END_PAGE, goalLabel: `Seite ${KAHF_START_PAGE}–${KAHF_END_PAGE}` };
     }
     return getSlotGoalConfig(slot);
   }, [assignment, hasAssignmentContext, isKahfSlot, slot]);
@@ -1432,8 +1432,8 @@ export default function QuranReader() {
                 </div>
               </div>
               {goalConfig ? (
-                <div className="flex-1 min-w-0 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-2 py-1">
-                  <p className="text-[10px] font-medium text-gray-700 dark:text-gray-300 truncate text-center" title={goalConfig.goalLabel}>
+                <div className="flex-1 min-w-[5.5rem] rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-2 py-1">
+                  <p className="text-[10px] font-medium text-gray-700 dark:text-gray-300 tabular-nums truncate text-center" title={goalConfig.goalLabel}>
                     {goalConfig.goalLabel}
                   </p>
                   <div className="h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mt-0.5">

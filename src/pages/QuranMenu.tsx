@@ -6,7 +6,7 @@ import { getSurahList, type SurahMeta } from '../lib/quranApi';
 import { getKahfWindow, isKahfWindowActiveSync, getKahfRemainingMsSync } from '../lib/maghrib';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { goalToPageRange, formatGoalLabel, calculatePageProgress, encodeAyaRef, type GoalRange, type GoalUnit } from '../lib/readingGoal';
+import { goalToPageRange, formatGoalLabel, calculatePageProgress, calculateKahfProgress, encodeAyaRef, type GoalRange, type GoalUnit } from '../lib/readingGoal';
 
 const CUSTOM_SLOTS_STORAGE_KEY = 'quran-reader-custom-slots';
 const GOAL_UNITS: { value: GoalUnit; labelKey: string }[] = [
@@ -468,7 +468,7 @@ export default function QuranMenu() {
           {/* Surah Kahf Licht – VON bis BIS aus Admin */}
           {kahfActive && (
             <Link
-              to="/quran/read?slot=kahf&startPage=293&endPage=317"
+              to="/quran/read?slot=kahf&startPage=293&endPage=304"
               className="block relative overflow-hidden rounded-2xl shadow-lg border border-emerald-900/50"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950 pointer-events-none" />
@@ -494,21 +494,19 @@ export default function QuranMenu() {
                       <span>{lastKahf.ayah === 110 ? t('quranMenu.completed') : `Al-Kahf : ${lastKahf.ayah}`}</span>
                       <span className="shrink-0">{t('quranMenu.page')} {lastKahf.page ?? '?'}</span>
                     </div>
-                    {lastKahf?.page != null && (
-                      <div className="space-y-1">
-                        <div className="h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
-                          <div
-                            className="h-full bg-white rounded-full transition-all"
-                            style={{
-                              width: `${calculatePageProgress(lastKahf.page, 293, 317)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-emerald-100/90">
-                          {Math.round(calculatePageProgress(lastKahf.page, 293, 317))}%
-                        </span>
+                    <div className="space-y-1">
+                      <div className="h-1.5 w-full rounded-full bg-white/30 overflow-hidden">
+                        <div
+                          className="h-full bg-white rounded-full transition-all"
+                          style={{
+                            width: `${calculateKahfProgress(lastKahf.ayah)}%`,
+                          }}
+                        />
                       </div>
-                    )}
+                      <span className="text-xs text-emerald-100/90">
+                        {Math.round(calculateKahfProgress(lastKahf.ayah))}%
+                      </span>
+                    </div>
                     {kahfWindow && (() => {
                       const remaining = getKahfRemainingMsSync(kahfWindow);
                       if (remaining === null) return null;

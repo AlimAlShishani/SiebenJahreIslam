@@ -85,3 +85,10 @@ export function calculatePageProgress(
   const pagesRead = currentPage - startPage + verseFractionInPage;
   return Math.min(100, Math.max(0, (pagesRead / totalPages) * 100));
 }
+
+/** Fortschritt für Surah Kahf (1–110) basierend auf Versnummer. */
+export function calculateKahfProgress(ayah: number): number {
+  if (!Number.isFinite(ayah) || ayah < 1) return 0;
+  if (ayah >= 110) return 100;
+  return Math.min(100, Math.max(0, (ayah / 110) * 100));
+}
