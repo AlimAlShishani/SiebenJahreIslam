@@ -117,7 +117,8 @@ function flushBufferWithIqlabSpans(
     SMALL_HIGH_MEEM_ALT,
     SMALL_HIGH_MEEM_ALT2,
   ]);
-  const checkIqlab = (c: string) => iqlabChars.has(c) || isIqlabChar(c);
+  // U+06E1 (QURANIC_SUKOON) nicht als Iqlab – wird als Sukoon im Buffer angezeigt
+  const checkIqlab = (c: string) => (c !== QURANIC_SUKOON && iqlabChars.has(c)) || isIqlabChar(c);
   const parts: ReactNode[] = [];
   let current = '';
   let keyIdx = 0;
@@ -214,6 +215,9 @@ function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean, preve
             {ch}
           </span>
         );
+      } else if (ch === QURANIC_SUKOON) {
+        // U+06E1 = Quranic Sukoon (nicht Iqlab) – anzeigen statt überspringen
+        buffer += ch;
       }
       continue;
     }
