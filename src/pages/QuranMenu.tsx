@@ -7,6 +7,7 @@ import { getKahfWindow, isKahfWindowActiveSync, getKahfRemainingMsSync } from '.
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { goalToPageRange, formatGoalLabel, calculatePageProgress, calculateKahfProgress, encodeAyaRef, type GoalRange, type GoalUnit } from '../lib/readingGoal';
+import { getInstanceTrackingStats, type TrackingPeriod } from '../lib/instanceTracking';
 
 const CUSTOM_SLOTS_STORAGE_KEY = 'quran-reader-custom-slots';
 const GOAL_UNITS: { value: GoalUnit; labelKey: string }[] = [
@@ -45,6 +46,8 @@ type LastLocation = {
   juz?: number;
 };
 
+type TrackingScope = 'all' | 'hatim' | 'free' | 'kahf' | 'saved' | string;
+
 export interface QuranReaderSlot {
   id: string;
   label: string;
@@ -56,6 +59,24 @@ export interface QuranReaderSlot {
   goalEndPage?: number;
 }
 
+function parseRawSlot(item: unknown): QuranReaderSlot | null {
+  if (!item || typeof item !== 'object' || typeof (item as any).id !== 'string' || typeof (item as any).label !== 'string') return null;
+  const i = item as any;
+  const goal = i.goal && typeof i.goal === 'object' && Number.isFinite(i.goal.from) && Number.isFinite(i.goal.to) && ['juz', 'page', 'aya'].includes(i.goal.unit)
+    ? { from: i.goal.from, to: i.goal.to, unit: i.goal.unit as GoalUnit }
+    : undefined;
+  return {
+    id: i.id,
+    label: i.label,
+    theme: THEMES.includes(i.theme) ? i.theme : 'green',
+    createdAt: typeof i.createdAt === 'number' ? i.createdAt : typeof i.created_at === 'number' ? i.created_at : 0,
+    expiresAt: typeof i.expiresAt === 'number' ? i.expiresAt : typeof i.expires_at === 'number' ? i.expires_at : null,
+    goal,
+    goalStartPage: Number.isFinite(i.goalStartPage) ? i.goalStartPage : Number.isFinite(i.goal_start_page) ? i.goal_start_page : undefined,
+    goalEndPage: Number.isFinite(i.goalEndPage) ? i.goalEndPage : Number.isFinite(i.goal_end_page) ? i.goal_end_page : undefined,
+  };
+}
+
 function loadCustomSlots(): QuranReaderSlot[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -65,22 +86,8 @@ function loadCustomSlots(): QuranReaderSlot[] {
     if (!Array.isArray(parsed)) return [];
     const now = Date.now();
     const slots = parsed
-      .filter((item: any) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.label === 'string')
-      .map((item: any) => {
-        const goal = item.goal && typeof item.goal === 'object' && Number.isFinite(item.goal.from) && Number.isFinite(item.goal.to) && ['juz', 'page', 'aya'].includes(item.goal.unit)
-          ? { from: item.goal.from, to: item.goal.to, unit: item.goal.unit as GoalUnit }
-          : undefined;
-        return {
-          id: item.id,
-          label: item.label,
-          theme: THEMES.includes(item.theme) ? item.theme : 'green',
-          createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
-          expiresAt: typeof item.expiresAt === 'number' ? item.expiresAt : null,
-          goal,
-          goalStartPage: Number.isFinite(item.goalStartPage) ? item.goalStartPage : undefined,
-          goalEndPage: Number.isFinite(item.goalEndPage) ? item.goalEndPage : undefined,
-        };
-      })
+      .map((item: unknown) => parseRawSlot(item))
+      .filter((s): s is QuranReaderSlot => s !== null)
       .filter((s) => s.expiresAt === null || s.expiresAt > now);
     if (slots.length < parsed.length) {
       try {
@@ -93,6 +100,50 @@ function loadCustomSlots(): QuranReaderSlot[] {
   } catch {
     return [];
   }
+}
+
+async function loadSlotsFromSupabase(userId: string): Promise<QuranReaderSlot[]> {
+  const { data, error } = await supabase
+    .from('user_quran_slots')
+    .select('slot_id, label, theme, created_at, expires_at, goal, goal_start_page, goal_end_page')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+  if (error) return [];
+  const now = Date.now();
+  return (data || [])
+    .map((row) => parseRawSlot({
+      id: row.slot_id,
+      label: row.label,
+      theme: row.theme,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      goal: row.goal,
+      goalStartPage: row.goal_start_page,
+      goalEndPage: row.goal_end_page,
+    }))
+    .filter((s): s is QuranReaderSlot => s !== null)
+    .filter((s) => s.expiresAt === null || s.expiresAt > now);
+}
+
+async function upsertSlotToSupabase(userId: string, slot: QuranReaderSlot): Promise<void> {
+  await supabase.from('user_quran_slots').upsert(
+    {
+      user_id: userId,
+      slot_id: slot.id,
+      label: slot.label,
+      theme: slot.theme,
+      created_at: slot.createdAt,
+      expires_at: slot.expiresAt,
+      goal: slot.goal ?? null,
+      goal_start_page: slot.goalStartPage ?? null,
+      goal_end_page: slot.goalEndPage ?? null,
+    },
+    { onConflict: 'user_id,slot_id' }
+  );
+}
+
+async function deleteSlotFromSupabase(userId: string, slotId: string): Promise<void> {
+  await supabase.from('user_quran_slots').delete().eq('user_id', userId).eq('slot_id', slotId);
 }
 
 function saveCustomSlots(slots: QuranReaderSlot[]) {
@@ -162,6 +213,15 @@ function formatRemainingKahf(expiresAt: number | null, t: (k: string) => string)
   return '<1m';
 }
 
+function formatDurationCompact(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return '<1m';
+}
+
 function themeGradient(theme: InstanceTheme): string {
   switch (theme) {
     case 'green':
@@ -209,10 +269,40 @@ export default function QuranMenu() {
   const { user } = useAuth();
   const todayStr = toLocalDateString(getEffectiveToday());
   const [hatimAssignment, setHatimAssignment] = useState<{ start_page: number; end_page: number; juz_number: number } | null>(null);
+  const [slotsSyncLoading, setSlotsSyncLoading] = useState(false);
 
   useEffect(() => {
     getSurahList().then(setSurahs).catch(() => setSurahs([]));
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setCustomSlots(loadCustomSlots());
+      setSlotsSyncLoading(false);
+      return;
+    }
+    let mounted = true;
+    setSlotsSyncLoading(true);
+    (async () => {
+      const [remote, local] = await Promise.all([
+        loadSlotsFromSupabase(user.id),
+        Promise.resolve(loadCustomSlots()),
+      ]);
+      if (!mounted) return;
+      const remoteIds = new Set(remote.map((s) => s.id));
+      const localOnly = local.filter((s) => !remoteIds.has(s.id));
+      const merged = [...remote];
+      for (const slot of localOnly) {
+        await upsertSlotToSupabase(user.id, slot);
+        merged.push(slot);
+      }
+      merged.sort((a, b) => a.createdAt - b.createdAt);
+      setCustomSlots(merged);
+      saveCustomSlots(merged);
+      setSlotsSyncLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -270,6 +360,7 @@ export default function QuranMenu() {
     const updated = customSlots.filter((s) => s.id !== id);
     setCustomSlots(updated);
     saveCustomSlots(updated);
+    if (user?.id) void deleteSlotFromSupabase(user.id, id);
   };
 
   const updateSlotLabel = (id: string, label: string) => {
@@ -277,12 +368,16 @@ export default function QuranMenu() {
     setCustomSlots(updated);
     saveCustomSlots(updated);
     setEditingLabelId(null);
+    const slot = updated.find((s) => s.id === id);
+    if (user?.id && slot) void upsertSlotToSupabase(user.id, slot);
   };
 
   const updateSlotTheme = (id: string, theme: InstanceTheme) => {
     const updated = customSlots.map((s) => (s.id === id ? { ...s, theme } : s));
     setCustomSlots(updated);
     saveCustomSlots(updated);
+    const slot = updated.find((s) => s.id === id);
+    if (user?.id && slot) void upsertSlotToSupabase(user.id, slot);
   };
 
   const saveNewSlot = async () => {
@@ -342,6 +437,7 @@ export default function QuranMenu() {
     const updated = [...customSlots, next];
     setCustomSlots(updated);
     saveCustomSlots(updated);
+    if (user?.id) void upsertSlotToSupabase(user.id, next);
     setShowAddForm(false);
     setNewSlotLabel('');
     setNewSlotTheme('green');
@@ -378,6 +474,14 @@ export default function QuranMenu() {
 
   const [kahfActive, setKahfActive] = useState(false);
   const [kahfWindow, setKahfWindow] = useState<{ startDay: number; startTime: string; endDay: number; endTime: string } | null>(null);
+  const [trackingScope, setTrackingScope] = useState<TrackingScope>('all');
+  const [trackingPeriod, setTrackingPeriod] = useState<TrackingPeriod>('today');
+  const [trackingStats, setTrackingStats] = useState<{ pages: number; ayahs: number; durationMs: number }>({
+    pages: 0,
+    ayahs: 0,
+    durationMs: 0,
+  });
+  const [trackingLoading, setTrackingLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -394,6 +498,26 @@ export default function QuranMenu() {
     return () => { mounted = false; clearInterval(t); };
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) {
+      setTrackingStats({ pages: 0, ayahs: 0, durationMs: 0 });
+      setTrackingLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setTrackingLoading(true);
+    (async () => {
+      const stats = await getInstanceTrackingStats(user.id, trackingScope, trackingPeriod);
+      if (!cancelled) {
+        setTrackingStats(stats);
+        setTrackingLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, trackingScope, trackingPeriod]);
+
   const ThemeIcon = ({ theme, className = 'w-12 h-12 opacity-25' }: { theme: InstanceTheme; className?: string }) => {
     switch (theme) {
       case 'green':
@@ -408,6 +532,14 @@ export default function QuranMenu() {
         return <BookText className={className} size={48} />;
     }
   };
+
+  const trackingScopeOptions: { id: TrackingScope; label: string }[] = [
+    { id: 'all', label: t('quranMenu.trackingAll') },
+    { id: 'hatim', label: t('quranMenu.hatimReader') },
+    { id: 'free', label: freeLabel },
+    ...(kahfActive ? [{ id: 'kahf' as TrackingScope, label: t('quranMenu.surahKahf') }] : []),
+    ...customSlots.map((slot) => ({ id: slot.id, label: slot.label })),
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 md:p-6">
@@ -603,6 +735,9 @@ export default function QuranMenu() {
             )}
           </div>
 
+          {slotsSyncLoading && user && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">{t('quranMenu.syncing')}</p>
+          )}
           {customSlots.map((slot) => {
             const status = statusLine(slot.id);
             const isEditing = editingLabelId === slot.id;
@@ -707,6 +842,48 @@ export default function QuranMenu() {
               </div>
             );
           })}
+
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select
+                value={trackingScope}
+                onChange={(e) => setTrackingScope(e.target.value as TrackingScope)}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+              >
+                {trackingScopeOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+              <select
+                value={trackingPeriod}
+                onChange={(e) => setTrackingPeriod(e.target.value as TrackingPeriod)}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+              >
+                <option value="today">{t('quranMenu.trackingToday')}</option>
+                <option value="week">{t('quranMenu.trackingWeek')}</option>
+                <option value="month">{t('quranMenu.trackingMonth')}</option>
+                <option value="alltime">{t('quranMenu.trackingAlltime')}</option>
+              </select>
+            </div>
+            {trackingLoading ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('quranMenu.trackingPages')}</p>
+                  <p className="text-lg font-semibold">{trackingStats.pages}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('quranMenu.trackingAyahs')}</p>
+                  <p className="text-lg font-semibold">{trackingStats.ayahs}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('quranMenu.trackingTime')}</p>
+                  <p className="text-lg font-semibold">{formatDurationCompact(trackingStats.durationMs)}</p>
+                </div>
+              </div>
+            )}
+          </div>
 
           {showAddForm ? (
             <div className="rounded-xl border-2 border-dashed border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-800 p-4 space-y-3">

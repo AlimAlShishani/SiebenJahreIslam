@@ -173,6 +173,14 @@
     "goalUnitPage": "Sayfa",
     "goalUnitSura": "Sure",
     "goalUnitAya": "Ayet",
+    "trackingAll": "Tümü",
+    "trackingToday": "Bugün",
+    "trackingWeek": "Hafta",
+    "trackingMonth": "Ay",
+    "trackingAlltime": "Tüm zamanlar",
+    "trackingPages": "Sayfalar",
+    "trackingAyahs": "Ayetler",
+    "trackingTime": "Süre",
     "syncing": "Senkronize ediliyor…"
   },
   "levelModal": {

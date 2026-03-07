@@ -173,6 +173,14 @@
     "goalUnitPage": "Page",
     "goalUnitSura": "Sura",
     "goalUnitAya": "Aya",
+    "trackingAll": "All",
+    "trackingToday": "Today",
+    "trackingWeek": "Week",
+    "trackingMonth": "Month",
+    "trackingAlltime": "Alltime",
+    "trackingPages": "Pages",
+    "trackingAyahs": "Ayahs",
+    "trackingTime": "Time",
     "syncing": "Syncing…"
   },
   "levelModal": {

@@ -24,6 +24,7 @@ import { triggerPushForActivity } from '../lib/pushNotifications';
 import { getKahfWindow, isKahfWindowActiveSync } from '../lib/maghrib';
 import { getSlotGoalConfig } from '../lib/slots';
 import { calculatePageProgress } from '../lib/readingGoal';
+import { recordInstanceTrackingSession } from '../lib/instanceTracking';
 
 interface AssignmentForReader {
   id: string;
@@ -574,12 +575,40 @@ export default function QuranReader() {
   const touchStartYRef = useRef<number | null>(null);
   const selectedVerseRef = useRef<HTMLSpanElement | null>(null);
   const verseModeScrollRef = useRef<HTMLDivElement | null>(null);
+  const trackingStartMsRef = useRef<number>(Date.now());
+  const trackingVisitedPagesRef = useRef<Set<number>>(new Set());
+  const trackingVisitedVersesRef = useRef<Set<string>>(new Set());
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
   const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
   const isVerseAllowedInCurrentSlot = (v: QuranVerse) =>
     v.ayahNumber !== 0 &&
     (!isKahfSlot || (v.surahNumber === 18 && v.ayahNumber >= 1 && v.ayahNumber <= 110));
+
+  const flushInstanceTrackingSession = async (resetSession: boolean) => {
+    if (!user?.id) return;
+    const now = Date.now();
+    const startedMs = trackingStartMsRef.current;
+    const durationMs = Math.max(0, now - startedMs);
+    const pagesRead = trackingVisitedPagesRef.current.size;
+    const ayahsRead = trackingVisitedVersesRef.current.size;
+
+    if (durationMs > 0 && (pagesRead > 0 || ayahsRead > 0)) {
+      await recordInstanceTrackingSession(user.id, slot, {
+        startedAt: new Date(startedMs).toISOString(),
+        endedAt: new Date(now).toISOString(),
+        durationMs,
+        pagesRead,
+        ayahsRead,
+      });
+    }
+
+    if (resetSession) {
+      trackingStartMsRef.current = now;
+      trackingVisitedPagesRef.current = new Set();
+      trackingVisitedVersesRef.current = new Set();
+    }
+  };
 
   const ayahCountForSelectedSurah = useMemo(() => {
     const surah = surahs.find((s) => s.number === selectedSurah);
@@ -875,6 +904,40 @@ export default function QuranReader() {
   useEffect(() => {
     setPageInput(String(currentPage));
   }, [currentPage]);
+
+  useEffect(() => {
+    trackingVisitedPagesRef.current.add(currentPage);
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (selectedVerseKey) trackingVisitedVersesRef.current.add(selectedVerseKey);
+  }, [selectedVerseKey]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        void flushInstanceTrackingSession(true);
+      } else if (document.visibilityState === 'visible') {
+        trackingStartMsRef.current = Date.now();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [slot, user?.id]);
+
+  useEffect(() => {
+    trackingStartMsRef.current = Date.now();
+    trackingVisitedPagesRef.current = new Set([currentPage]);
+    trackingVisitedVersesRef.current = selectedVerseKey ? new Set([selectedVerseKey]) : new Set();
+  }, [slot, user?.id]);
+
+  useEffect(() => {
+    return () => {
+      void flushInstanceTrackingSession(false);
+    };
+  }, [slot, user?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

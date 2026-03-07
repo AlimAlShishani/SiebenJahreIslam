@@ -173,6 +173,14 @@
     "goalUnitPage": "Страница",
     "goalUnitSura": "Сура",
     "goalUnitAya": "Аят",
+    "trackingAll": "Все",
+    "trackingToday": "Сегодня",
+    "trackingWeek": "Неделя",
+    "trackingMonth": "Месяц",
+    "trackingAlltime": "За всё время",
+    "trackingPages": "Страницы",
+    "trackingAyahs": "Аяты",
+    "trackingTime": "Время",
     "syncing": "Синхронизация…"
   },
   "levelModal": {
