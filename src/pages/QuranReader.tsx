@@ -1427,6 +1427,7 @@ export default function QuranReader() {
               onChange={(e) => {
                 const ayah = Number(e.target.value);
                 setSelectedAyah(ayah);
+                setPendingVerseKey(`${selectedSurah}:${ayah}`);
                 void jumpToSurahAyah(selectedSurah, ayah);
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
@@ -1615,7 +1616,9 @@ export default function QuranReader() {
                 onChange={(e) => {
                   const ayah = Number(e.target.value);
                   setSelectedAyah(ayah);
-                  void jumpToSurahAyah(isKahfSlot ? 18 : selectedSurah, ayah);
+                  const surah = isKahfSlot ? 18 : selectedSurah;
+                  setPendingVerseKey(`${surah}:${ayah}`);
+                  void jumpToSurahAyah(surah, ayah);
                 }}
                 className="h-8 bg-transparent px-2 text-xs text-gray-900 dark:text-gray-100 text-right"
               >
