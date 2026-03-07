@@ -363,11 +363,8 @@ function toQuranicSukoon(text: string): string {
     }
 
     // Alle "normalen" Sukoon-Zeichen aus API als quranisches Sukoon rendern.
-    // Ausnahme: Auf أ إ آ (Alif mit Hamza) U+06DF nutzen – höher positioniert, vermeidet Überlappung (z. B. أَنَا Anbiya 25).
     if (ch === ARABIC_SUKOON) {
-      const prevBase = getPreviousBaseChar(text, i);
-      const alifWithHamza = prevBase && '\u0622\u0623\u0625'.includes(prevBase);
-      out += alifWithHamza ? SMALL_HIGH_ROUNDED_ZERO : QURANIC_SUKOON;
+      out += QURANIC_SUKOON;
       continue;
     }
 
