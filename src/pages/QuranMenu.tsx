@@ -870,15 +870,24 @@ export default function QuranMenu() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('quranMenu.trackingPages')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
+                    <BookOpen size={12} />
+                    {t('quranMenu.trackingPages')}
+                  </p>
                   <p className="text-lg font-semibold">{trackingStats.pages}</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('quranMenu.trackingAyahs')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
+                    <BookText size={12} />
+                    {t('quranMenu.trackingAyahs')}
+                  </p>
                   <p className="text-lg font-semibold">{trackingStats.ayahs}</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('quranMenu.trackingTime')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
+                    <Hourglass size={12} />
+                    {t('quranMenu.trackingTime')}
+                  </p>
                   <p className="text-lg font-semibold">{formatDurationCompact(trackingStats.durationMs)}</p>
                 </div>
               </div>

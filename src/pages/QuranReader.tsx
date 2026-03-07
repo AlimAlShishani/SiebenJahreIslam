@@ -578,6 +578,8 @@ export default function QuranReader() {
   const trackingStartMsRef = useRef<number>(Date.now());
   const trackingVisitedPagesRef = useRef<Set<number>>(new Set());
   const trackingVisitedVersesRef = useRef<Set<string>>(new Set());
+  const trackingBaselinePageRef = useRef<number | null>(null);
+  const trackingBaselineVerseRef = useRef<string | null>(null);
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
   const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
@@ -590,8 +592,16 @@ export default function QuranReader() {
     const now = Date.now();
     const startedMs = trackingStartMsRef.current;
     const durationMs = Math.max(0, now - startedMs);
-    const pagesRead = trackingVisitedPagesRef.current.size;
-    const ayahsRead = trackingVisitedVersesRef.current.size;
+    const basePage = trackingBaselinePageRef.current;
+    const baseVerse = trackingBaselineVerseRef.current;
+    const pagesRead = Math.max(
+      0,
+      trackingVisitedPagesRef.current.size - (basePage !== null && trackingVisitedPagesRef.current.has(basePage) ? 1 : 0)
+    );
+    const ayahsRead = Math.max(
+      0,
+      trackingVisitedVersesRef.current.size - (baseVerse && trackingVisitedVersesRef.current.has(baseVerse) ? 1 : 0)
+    );
 
     if (durationMs > 0 && (pagesRead > 0 || ayahsRead > 0)) {
       await recordInstanceTrackingSession(user.id, slot, {
@@ -607,6 +617,8 @@ export default function QuranReader() {
       trackingStartMsRef.current = now;
       trackingVisitedPagesRef.current = new Set();
       trackingVisitedVersesRef.current = new Set();
+      trackingBaselinePageRef.current = currentPage;
+      trackingBaselineVerseRef.current = selectedVerseKey;
     }
   };
 
@@ -910,7 +922,13 @@ export default function QuranReader() {
   }, [currentPage]);
 
   useEffect(() => {
-    if (selectedVerseKey) trackingVisitedVersesRef.current.add(selectedVerseKey);
+    if (!selectedVerseKey) return;
+    // Erster automatisch gesetzter Startvers zählt nicht als "gelesen".
+    if (!trackingBaselineVerseRef.current) {
+      trackingBaselineVerseRef.current = selectedVerseKey;
+      return;
+    }
+    trackingVisitedVersesRef.current.add(selectedVerseKey);
   }, [selectedVerseKey]);
 
   useEffect(() => {
@@ -929,8 +947,10 @@ export default function QuranReader() {
 
   useEffect(() => {
     trackingStartMsRef.current = Date.now();
-    trackingVisitedPagesRef.current = new Set([currentPage]);
-    trackingVisitedVersesRef.current = selectedVerseKey ? new Set([selectedVerseKey]) : new Set();
+    trackingBaselinePageRef.current = currentPage;
+    trackingBaselineVerseRef.current = selectedVerseKey;
+    trackingVisitedPagesRef.current = new Set();
+    trackingVisitedVersesRef.current = new Set();
   }, [slot, user?.id]);
 
   useEffect(() => {
