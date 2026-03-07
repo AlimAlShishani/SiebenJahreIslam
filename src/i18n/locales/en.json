@@ -131,6 +131,8 @@
     "tapToOpen": "Tap to open",
     "partsWithoutAudio": "Parts without audio",
     "noPartsWithoutAudio": "All parts have audio",
+    "openParts": "Open parts",
+    "allPartsCompleted": "All parts are completed",
     "juz": "Juz",
     "juzShort": "JUZ"
   },

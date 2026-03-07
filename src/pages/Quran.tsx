@@ -1419,7 +1419,7 @@ export default function Quran() {
     }
   };
 
-  const fetchPartsWithoutAudio = async () => {
+  const fetchOpenParts = async () => {
     if (!currentGroupId || !user?.id) return;
     setLoadingPartsWithoutAudio(true);
     try {
@@ -1431,18 +1431,15 @@ export default function Quran() {
       }
       const { data, error } = await supabase
         .from('daily_reading_status')
-        .select('id, date, juz_number, audio_urls')
+        .select('id, date, juz_number, is_completed')
         .eq('group_id', currentGroupId)
         .eq('user_id', user.id)
         .in('date', datesInMonth);
       if (error) throw error;
-      const withoutAudio = (data || [])
-        .filter((a: { audio_urls?: string[] | null }) => {
-          const urls = a.audio_urls;
-          return !urls || (Array.isArray(urls) && urls.length === 0);
-        })
+      const openParts = (data || [])
+        .filter((a: { is_completed?: boolean }) => !a.is_completed)
         .map((a: { juz_number: number }) => a.juz_number);
-      const unique = [...new Set(withoutAudio)].sort((a, b) => a - b);
+      const unique = [...new Set(openParts)].sort((a, b) => a - b);
       setPartsWithoutAudio(unique);
     } catch (e) {
       console.error(e);
@@ -1454,7 +1451,7 @@ export default function Quran() {
 
   useEffect(() => {
     if (showPartsWithoutAudioModal && isInGroup && currentGroupId && user?.id) {
-      fetchPartsWithoutAudio();
+      fetchOpenParts();
     }
   }, [showPartsWithoutAudioModal, isInGroup, currentGroupId, user?.id, islamicMonthInfo.monthLength, islamicMonthInfo.monthStartDate]);
 
@@ -1507,10 +1504,10 @@ export default function Quran() {
                 type="button"
                 onClick={() => setShowPartsWithoutAudioModal(true)}
                 className="text-sm font-medium text-white bg-emerald-500/60 hover:bg-emerald-500/80 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                title={t('quran.partsWithoutAudio')}
+                title={t('quran.openParts')}
               >
                 <List size={14} />
-                {t('quran.partsWithoutAudio')}
+                {t('quran.openParts')}
               </button>
             )}
           </div>
@@ -1848,13 +1845,13 @@ export default function Quran() {
         )}
       </div>
 
-      {/* Modal: Parts ohne Audio */}
+      {/* Modal: Offene Parts (noch nicht erledigt) */}
       {showPartsWithoutAudioModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                {t('quran.partsWithoutAudio')}
+                {t('quran.openParts')}
               </h3>
               <button
                 type="button"
@@ -1870,7 +1867,7 @@ export default function Quran() {
                   <Loader2 size={32} className="animate-spin text-emerald-600 dark:text-emerald-400" />
                 </div>
               ) : partsWithoutAudio.length === 0 ? (
-                <p className="text-gray-600 dark:text-gray-400">{t('quran.noPartsWithoutAudio')}</p>
+                <p className="text-gray-600 dark:text-gray-400">{t('quran.allPartsCompleted')}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {partsWithoutAudio.map((juz) => (

@@ -131,6 +131,8 @@
     "tapToOpen": "Açmak için dokunun",
     "partsWithoutAudio": "Ses olmayan bölümler",
     "noPartsWithoutAudio": "Tüm bölümlerde ses var",
+    "openParts": "Açık bölümler",
+    "allPartsCompleted": "Tüm bölümler tamamlandı",
     "juz": "Cüz",
     "juzShort": "CÜZ"
   },

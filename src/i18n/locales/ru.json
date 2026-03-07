@@ -131,6 +131,8 @@
     "tapToOpen": "Нажмите, чтобы открыть",
     "partsWithoutAudio": "Части без аудио",
     "noPartsWithoutAudio": "У всех частей есть аудио",
+    "openParts": "Открытые части",
+    "allPartsCompleted": "Все части выполнены",
     "juz": "Джуз",
     "juzShort": "ДЖУЗ"
   },
