@@ -7,9 +7,10 @@ import { useAuth } from '../context/AuthContext';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut, List } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
-const VOTE_OPTIONS = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'] as const;
+const VOTE_HOURS = ['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '0', '1', '2'] as const;
+const VOTE_OPTIONS = [...VOTE_HOURS, 'nachlesen', 'abgeben'] as const;
 type VoteValue = typeof VOTE_OPTIONS[number];
-const VOTE_ORDER: VoteValue[] = ['20', '21', '22', '23', '0', '1', 'nachlesen', 'abgeben'];
+const VOTE_ORDER: VoteValue[] = [...VOTE_HOURS, 'nachlesen', 'abgeben'];
 
 interface DailyReadingVote {
   id: string;
@@ -1630,22 +1631,41 @@ export default function Quran() {
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-3">
             {t('quran.whenCanYouRead', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })}
           </h3>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {VOTE_OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => saveVote(opt)}
-                disabled={savingVote}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  myVotes.includes(opt)
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                {formatVoteLabel(opt)}
-              </button>
-            ))}
+          <div className="space-y-2 mb-3">
+            <div className="flex flex-wrap gap-2">
+              {VOTE_HOURS.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => saveVote(opt)}
+                  disabled={savingVote}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    myVotes.includes(opt)
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {formatVoteLabel(opt)}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(['nachlesen', 'abgeben'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => saveVote(opt)}
+                  disabled={savingVote}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    myVotes.includes(opt)
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {formatVoteLabel(opt)}
+                </button>
+              ))}
+            </div>
           </div>
           {myVotes.length > 0 && (
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
