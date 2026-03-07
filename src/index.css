@@ -67,12 +67,15 @@
   font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
 }
 
-/* Quran-Pausenzeichen immer rot – !important gegen Font-/Parent-Override */
+/* Quran-Pausenzeichen immer rot – !important gegen Font-/Parent-Override.
+   Auf Mobile (WebKit/Safari) kann color ignoriert werden; -webkit-text-fill-color + rgb() helfen. */
 .quran-pause-mark {
-  color: #dc2626 !important;
+  color: rgb(220, 38, 38) !important;
+  -webkit-text-fill-color: rgb(220, 38, 38) !important;
 }
 html.dark .quran-pause-mark {
-  color: #f87171 !important;
+  color: rgb(248, 113, 113) !important;
+  -webkit-text-fill-color: rgb(248, 113, 113) !important;
 }
 
 /* Stoppzeichen nicht als erstes in Zeile: letztes Zeichen + Stopp bleiben zusammen */
