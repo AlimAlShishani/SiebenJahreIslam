@@ -918,14 +918,15 @@ export default function QuranReader() {
   }, [viewLayout, pageData?.pageNumber, selectedVerseKey, isKahfSlot]);
 
   useEffect(() => {
-    if (viewLayout !== 'flow' || !selectedVerseKey) return;
-    const el = selectedVerseRef.current;
-    if (!el) return;
+    if (viewLayout !== 'flow' || !selectedVerseKey || !pageData?.verses?.length) return;
     const id = requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      requestAnimationFrame(() => {
+        const el = selectedVerseRef.current;
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     });
     return () => cancelAnimationFrame(id);
-  }, [viewLayout, selectedVerseKey]);
+  }, [viewLayout, selectedVerseKey, pageData?.pageNumber]);
 
   useEffect(() => {
     if (viewLayout !== 'verse') return;
