@@ -238,7 +238,7 @@ function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean, preve
           rendered.push(
             <span key={`pause-${idx}`} className="quran-no-orphan">
               {lastGrapheme}
-              <span className="quran-pause-mark">{ch}</span>
+              <span className="quran-pause-mark">{'\u200C'}{ch}</span>
             </span>
           );
           buffer = '';
@@ -246,7 +246,7 @@ function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean, preve
           flushBuffer();
           rendered.push(
             <span key={`pause-${idx}`} className="quran-pause-mark">
-              {ch}
+              {'\u200C'}{ch}
             </span>
           );
         }

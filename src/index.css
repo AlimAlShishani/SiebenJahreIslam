@@ -67,10 +67,11 @@
   font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
 }
 
-/* Quran-Pausenzeichen immer rot – !important + -webkit-text-fill-color für mobile Browser */
+/* Quran-Pausenzeichen immer rot – ZWNJ bricht Glyph-Cluster, isolate erzwingt eigenen Text-Run */
 .quran-pause-mark {
   color: #dc2626 !important;
   -webkit-text-fill-color: #dc2626 !important;
+  unicode-bidi: isolate;
 }
 html.dark .quran-pause-mark {
   color: #f87171 !important;
