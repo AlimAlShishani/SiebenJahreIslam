@@ -350,13 +350,11 @@ function toQuranicSukoon(text: string): string {
     const ch = text[i];
 
     // Spezieller Mushaf-Fall: Madd-Buchstabe + U+06DF (۟)
-    // Auf ي ى: Arabisches Sukoon (U+0652) – Quranic Sukoon rendert falsch (z. B. أَفَإِيۡن Anbiya 34).
-    // Auf ا و: U+06DF (۟) beibehalten – arabisches Sukoon-Zero, nicht Quranic (z. B. كَفَرُوٓا۟ Anbiya 36).
+    // Überall U+0652 (Arabisches Sukoon) – U+06DF rendert in Uthmanic-Fonts als Kreis (z. B. كَفَرُوٓا۟ auf و/ا).
     if (ch === SMALL_HIGH_ROUNDED_ZERO) {
       const prevBase = getPreviousBaseChar(text, i);
       if (prevBase && MADD_LETTERS.has(prevBase)) {
-        const yaOrAlifMaksura = prevBase === '\u064A' || prevBase === '\u0649';
-        out += yaOrAlifMaksura ? ARABIC_SUKOON : SMALL_HIGH_ROUNDED_ZERO;
+        out += ARABIC_SUKOON;
         continue;
       }
       out += ch;
@@ -834,8 +832,7 @@ export default function QuranReader() {
   useEffect(() => {
     const visibleVerses = pageData?.verses.filter((v) => isVerseAllowedInCurrentSlot(v)) ?? [];
     if (!visibleVerses.length) {
-      setSelectedVerseKey(null);
-      return;
+      return; // Nicht selectedVerseKey löschen – Seite lädt noch, gespeicherter Vers bleibt erhalten
     }
     let verseToSelect = visibleVerses[0];
 
