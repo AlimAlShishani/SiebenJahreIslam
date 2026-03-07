@@ -98,9 +98,10 @@ function isConditionalMeemMark(ch: string): boolean {
 }
 
 /** Unicode-Bereich für Iqlab/kleine Annotationen (06E0–06EF, außer Pausenzeichen 06EA/06EC). */
+/** U+06E0 ausgenommen: Sukoon auf finalem Alif (z. B. أَنَا Anbiya 25) – kein Iqlab, kein Tatweel. */
 function isIqlabChar(ch: string): boolean {
   const cp = ch.codePointAt(0) ?? 0;
-  return cp >= 0x06E0 && cp <= 0x06EF && cp !== 0x06EA && cp !== 0x06EC;
+  return cp >= 0x06E0 && cp <= 0x06EF && cp !== 0x06E0 && cp !== 0x06EA && cp !== 0x06EC;
 }
 
 /** Splittet Buffer-Text und wrappt Iqlab-Zeichen in Spans (falls sie im Buffer landen). */
@@ -348,12 +349,13 @@ function toQuranicSukoon(text: string): string {
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
 
-    // Spezieller Mushaf-Fall: Madd-Buchstabe + U+06DF (۟)
-    // soll visuell als arabisches Sukoon erscheinen.
+    // Spezieller Mushaf-Fall: Madd-Buchstabe + U+06DF (۟) – z. B. أَنَا (Anbiya 25)
+    // U+06DF ist höher positioniert, um Überlappung mit Hamza auf أ zu vermeiden.
+    // Als Quranic Sukoon (U+06E1) rendern, nicht als U+0652 (überlappt auf Alif).
     if (ch === SMALL_HIGH_ROUNDED_ZERO) {
       const prevBase = getPreviousBaseChar(text, i);
       if (prevBase && MADD_LETTERS.has(prevBase)) {
-        out += ARABIC_SUKOON;
+        out += QURANIC_SUKOON;
         continue;
       }
       out += ch;
@@ -361,8 +363,11 @@ function toQuranicSukoon(text: string): string {
     }
 
     // Alle "normalen" Sukoon-Zeichen aus API als quranisches Sukoon rendern.
+    // Ausnahme: Auf أ إ آ (Alif mit Hamza) U+06DF nutzen – höher positioniert, vermeidet Überlappung (z. B. أَنَا Anbiya 25).
     if (ch === ARABIC_SUKOON) {
-      out += QURANIC_SUKOON;
+      const prevBase = getPreviousBaseChar(text, i);
+      const alifWithHamza = prevBase && '\u0622\u0623\u0625'.includes(prevBase);
+      out += alifWithHamza ? SMALL_HIGH_ROUNDED_ZERO : QURANIC_SUKOON;
       continue;
     }
 
