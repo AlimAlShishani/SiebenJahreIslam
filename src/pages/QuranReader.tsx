@@ -349,13 +349,14 @@ function toQuranicSukoon(text: string): string {
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
 
-    // Spezieller Mushaf-Fall: Madd-Buchstabe + U+06DF (۟) – z. B. أَنَا (Anbiya 25)
-    // U+06DF ist höher positioniert, um Überlappung mit Hamza auf أ zu vermeiden.
-    // Als Quranic Sukoon (U+06E1) rendern, nicht als U+0652 (überlappt auf Alif).
+    // Spezieller Mushaf-Fall: Madd-Buchstabe + U+06DF (۟)
+    // Auf ي ى: Arabisches Sukoon (U+0652) – Quranic Sukoon rendert falsch (z. B. أَفَإِيۡن Anbiya 34).
+    // Auf ا و: Quranic Sukoon (U+06E1) – höher positioniert, vermeidet Überlappung mit Hamza.
     if (ch === SMALL_HIGH_ROUNDED_ZERO) {
       const prevBase = getPreviousBaseChar(text, i);
       if (prevBase && MADD_LETTERS.has(prevBase)) {
-        out += QURANIC_SUKOON;
+        const yaOrAlifMaksura = prevBase === '\u064A' || prevBase === '\u0649';
+        out += yaOrAlifMaksura ? ARABIC_SUKOON : QURANIC_SUKOON;
         continue;
       }
       out += ch;
