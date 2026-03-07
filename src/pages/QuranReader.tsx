@@ -118,8 +118,8 @@ function flushBufferWithIqlabSpans(
     SMALL_HIGH_MEEM_ALT,
     SMALL_HIGH_MEEM_ALT2,
   ]);
-  // U+06E1 (QURANIC_SUKOON) nicht als Iqlab – wird als Sukoon im Buffer angezeigt
-  const checkIqlab = (c: string) => (c !== QURANIC_SUKOON && iqlabChars.has(c)) || isIqlabChar(c);
+  // U+06E1 (QURANIC_SUKOON) nie als Iqlab – sonst falsches Tatweel (z. B. كَفَرُوٓا۟ Anbiya 36)
+  const checkIqlab = (c: string) => c !== QURANIC_SUKOON && (iqlabChars.has(c) || isIqlabChar(c));
   const parts: ReactNode[] = [];
   let current = '';
   let keyIdx = 0;
@@ -351,12 +351,12 @@ function toQuranicSukoon(text: string): string {
 
     // Spezieller Mushaf-Fall: Madd-Buchstabe + U+06DF (۟)
     // Auf ي ى: Arabisches Sukoon (U+0652) – Quranic Sukoon rendert falsch (z. B. أَفَإِيۡن Anbiya 34).
-    // Auf ا و: Quranic Sukoon (U+06E1) – höher positioniert, vermeidet Überlappung mit Hamza.
+    // Auf ا و: U+06DF (۟) beibehalten – arabisches Sukoon-Zero, nicht Quranic (z. B. كَفَرُوٓا۟ Anbiya 36).
     if (ch === SMALL_HIGH_ROUNDED_ZERO) {
       const prevBase = getPreviousBaseChar(text, i);
       if (prevBase && MADD_LETTERS.has(prevBase)) {
         const yaOrAlifMaksura = prevBase === '\u064A' || prevBase === '\u0649';
-        out += yaOrAlifMaksura ? ARABIC_SUKOON : QURANIC_SUKOON;
+        out += yaOrAlifMaksura ? ARABIC_SUKOON : SMALL_HIGH_ROUNDED_ZERO;
         continue;
       }
       out += ch;
