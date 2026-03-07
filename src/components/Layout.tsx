@@ -1,12 +1,13 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun } from 'lucide-react';
+import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun, Flame } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useRecording } from '../context/RecordingContext';
 import { changeLanguage } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { ensurePushSubscription } from '../lib/pushNotifications';
+import { supabase } from '../lib/supabase';
 export const Layout = () => {
   const { t, i18n } = useTranslation();
   const { signOut, user } = useAuth();
@@ -16,6 +17,8 @@ export const Layout = () => {
   const location = useLocation();
   const keepAliveCtxRef = useRef<AudioContext | null>(null);
   const keepAliveSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [showStreakInfo, setShowStreakInfo] = useState(false);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
   const hideMobileChromeForReader = location.pathname.startsWith('/quran/read');
@@ -32,6 +35,72 @@ export const Layout = () => {
     if (!user?.id) return;
     void ensurePushSubscription(user.id);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setDailyStreak(0);
+      return;
+    }
+
+    const toLocalDateKey = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const effectiveDateFromTimestamp = (iso: string) => {
+      const dt = new Date(iso);
+      if (dt.getHours() < 2) {
+        dt.setDate(dt.getDate() - 1);
+      }
+      return dt;
+    };
+
+    const loadStreak = async () => {
+      const lookbackStart = new Date();
+      lookbackStart.setDate(lookbackStart.getDate() - 120);
+      lookbackStart.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from('quran_instance_tracking')
+        .select('started_at, ayahs_read')
+        .eq('user_id', user.id)
+        .gte('started_at', lookbackStart.toISOString());
+
+      if (error || !data) {
+        setDailyStreak(0);
+        return;
+      }
+
+      const ayahsByDay = new Map<string, number>();
+      for (const row of data as { started_at: string; ayahs_read: number | null }[]) {
+        const key = toLocalDateKey(effectiveDateFromTimestamp(row.started_at));
+        ayahsByDay.set(key, (ayahsByDay.get(key) ?? 0) + Math.max(0, row.ayahs_read ?? 0));
+      }
+
+      const now = new Date();
+      const effectiveToday = new Date(now);
+      if (effectiveToday.getHours() < 2) effectiveToday.setDate(effectiveToday.getDate() - 1);
+
+      const todayKey = toLocalDateKey(effectiveToday);
+      const todayDone = (ayahsByDay.get(todayKey) ?? 0) >= 3;
+
+      const cursor = new Date(effectiveToday);
+      if (!todayDone) cursor.setDate(cursor.getDate() - 1);
+
+      let streak = 0;
+      while (streak < 365) {
+        const key = toLocalDateKey(cursor);
+        if ((ayahsByDay.get(key) ?? 0) < 3) break;
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      setDailyStreak(streak);
+    };
+
+    void loadStreak();
+  }, [user?.id, location.pathname]);
 
   useEffect(() => {
     const startKeepAliveAudio = () => {
@@ -117,7 +186,22 @@ export const Layout = () => {
       <header className={`bg-emerald-600 dark:bg-emerald-800 text-white shadow-md ${hideMobileChromeForReader ? 'max-md:hidden' : ''}`}>
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold font-serif">Nuruna</h1>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 relative">
+            <button
+              type="button"
+              onClick={() => setShowStreakInfo((v) => !v)}
+              className="inline-flex items-center gap-1 px-2 py-1.5 bg-emerald-700/70 dark:bg-emerald-900/70 hover:bg-emerald-700 dark:hover:bg-emerald-900 rounded-lg transition-colors border border-emerald-500/50"
+              title={t('common.dailyStreakTitle')}
+            >
+              <Flame size={14} className="text-amber-300" />
+              <span className="text-sm font-semibold">{dailyStreak}</span>
+            </button>
+            {showStreakInfo && (
+              <div className="absolute right-0 top-full mt-2 w-64 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-lg border border-gray-200 dark:border-gray-700 p-3 z-50">
+                <p className="text-sm font-semibold">{t('common.dailyStreakTitle')}</p>
+                <p className="text-xs mt-1 text-gray-600 dark:text-gray-300">{t('common.dailyStreakInfo')}</p>
+              </div>
+            )}
             <select
               value={i18n.language}
               onChange={(e) => changeLanguage(e.target.value as 'de' | 'en' | 'ru' | 'tr')}

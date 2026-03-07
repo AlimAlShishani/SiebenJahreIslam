@@ -24,7 +24,9 @@
     "page": "Page",
     "pages": "Pages",
     "verse": "Verse",
-    "design": "Design"
+    "design": "Design",
+    "dailyStreakTitle": "Daily Streak",
+    "dailyStreakInfo": "Read at least 3 verses per day to keep your streak."
   },
   "nav": {
     "hatim": "Hatim",

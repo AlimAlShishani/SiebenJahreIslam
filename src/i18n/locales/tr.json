@@ -24,7 +24,9 @@
     "page": "Sayfa",
     "pages": "Sayfalar",
     "verse": "Ayet",
-    "design": "Tasarım"
+    "design": "Tasarım",
+    "dailyStreakTitle": "Günlük Seri",
+    "dailyStreakInfo": "Serinizi korumak için günde en az 3 ayet okuyun."
   },
   "nav": {
     "hatim": "Hatim",
