@@ -180,11 +180,6 @@ function shouldShowIqlabMark(text: string, fromIndex: number): boolean {
   return false;
 }
 
-function nextRelevantArabicLetter(text: string, fromIndex: number): string | null {
-  const r = nextRelevantArabicLetterAndIndex(text, fromIndex);
-  return r?.ch ?? null;
-}
-
 const NBSP = '\u00A0';
 
 function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean, preventOrphans = false): ReactNode[] {
