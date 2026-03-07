@@ -72,63 +72,189 @@ const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
   'quran-simple-clean',
 ];
 
-const PAUSE_MARKS = new Set([
-  '\u06D6', '\u06D7', '\u06D8', '\u06D9', '\u06DA', '\u06DB', '\u06DC',
-]);
+/** Unicode-Bereiche für Quran-Pausenzeichen (Waqf). 06E2/06ED = bedingtes Meem (Iqlab), ausgenommen. */
+function isQuranicPauseMark(ch: string): boolean {
+  const cp = ch.codePointAt(0) ?? 0;
+  if (cp >= 0x06D6 && cp <= 0x06DC) return true; // Kleine hohe Zeichen (Sad, Qaf, Meem, Lam Alef, Jeem, drei Punkte, Seen)
+  if (cp === 0x06EA) return true; // Arabic Center Stop Mark
+  if (cp === 0x06EC) return true; // Arabic Rounded High Stop with Filled Centre
+  return false;
+}
 const SMALL_HIGH_MEEM = '\u06E2';
 const SMALL_LOW_MEEM = '\u06ED';
+const SMALL_LOW_MEEM_ALT = '\u06E3';
+const SMALL_HIGH_MEEM_ALT = '\u06E1'; // Arabic Small High Meem (alternative)
+const SMALL_HIGH_MEEM_ALT2 = '\u06EB'; // Arabic Small High Meem (alternative 2)
+const ARABIC_TATWEEL = '\u0640'; // ـ (Kashida) – Platzhalter für Iqlab-Position
 
 function isConditionalMeemMark(ch: string): boolean {
-  return ch === SMALL_HIGH_MEEM || ch === SMALL_LOW_MEEM;
+  return (
+    ch === SMALL_HIGH_MEEM ||
+    ch === SMALL_LOW_MEEM ||
+    ch === SMALL_LOW_MEEM_ALT ||
+    ch === SMALL_HIGH_MEEM_ALT ||
+    ch === SMALL_HIGH_MEEM_ALT2
+  );
 }
 
-function nextRelevantArabicLetter(text: string, fromIndex: number): string | null {
+/** Unicode-Bereich für Iqlab/kleine Annotationen (06E0–06EF, außer Pausenzeichen 06EA/06EC). */
+function isIqlabChar(ch: string): boolean {
+  const cp = ch.codePointAt(0) ?? 0;
+  return cp >= 0x06E0 && cp <= 0x06EF && cp !== 0x06EA && cp !== 0x06EC;
+}
+
+/** Splittet Buffer-Text und wrappt Iqlab-Zeichen in Spans (falls sie im Buffer landen). */
+function flushBufferWithIqlabSpans(
+  buffer: string,
+  rendered: ReactNode[],
+  keyPrefix: string
+): void {
+  if (!buffer) return;
+  const iqlabChars = new Set([
+    SMALL_HIGH_MEEM,
+    SMALL_LOW_MEEM,
+    SMALL_LOW_MEEM_ALT,
+    SMALL_HIGH_MEEM_ALT,
+    SMALL_HIGH_MEEM_ALT2,
+  ]);
+  const checkIqlab = (c: string) => iqlabChars.has(c) || isIqlabChar(c);
+  const parts: ReactNode[] = [];
+  let current = '';
+  let keyIdx = 0;
+  for (const ch of buffer) {
+    if (checkIqlab(ch)) {
+      const beforeIqlab = current;
+      if (current) {
+        parts.push(current);
+        current = '';
+        keyIdx += 1;
+      }
+      const arr = Array.from(beforeIqlab);
+      const lastChar = arr[arr.length - 1] ?? '';
+      const secondLast = arr[arr.length - 2] ?? '';
+      const afterKasrah = lastChar === '\u064D';
+      const afterDamma = lastChar === '\u064C';
+      const afterFatha = lastChar === '\u0627' || lastChar === '\u064B' || secondLast === '\u064B';
+      // Abstand/ـ vor dem Meem: Meem rendert darüber statt über dem Tanween-Buchstaben
+      if (afterKasrah || afterDamma) {
+        parts.push('\u00A0'); // geschütztes Leerzeichen
+      } else if (afterFatha) {
+        parts.push(ARABIC_TATWEEL); // ـ zwischen Alif und Meem
+      }
+      parts.push(<span key={`${keyPrefix}-${keyIdx}`} className="iqlab-meem">{ch}</span>);
+      keyIdx += 1;
+    } else {
+      current += ch;
+    }
+  }
+  if (current) parts.push(current);
+  for (const p of parts) {
+    rendered.push(p);
+  }
+}
+
+/** Nächster relevanter arabischer Buchstabe und sein Index. */
+function nextRelevantArabicLetterAndIndex(text: string, fromIndex: number): { ch: string; index: number } | null {
   for (let i = fromIndex + 1; i < text.length; i++) {
     const ch = text[i];
     const cp = ch.codePointAt(0) ?? 0;
     if (ch.trim() === '') continue;
     if (isArabicCombiningMark(ch)) continue;
-    if (PAUSE_MARKS.has(ch)) continue;
+    if (isQuranicPauseMark(ch)) continue;
     if (isConditionalMeemMark(ch)) continue;
-    if ((cp >= 0x0621 && cp <= 0x063A) || (cp >= 0x0641 && cp <= 0x064A)) return ch;
+    if ((cp >= 0x0621 && cp <= 0x063A) || (cp >= 0x0641 && cp <= 0x064A)) return { ch, index: i };
   }
   return null;
 }
 
-function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean): ReactNode[] {
+/** Soll das Iqlab-Meem angezeigt werden? Bei Tanween Fatha steht Alif (ا) vor Ba (ب). */
+function shouldShowIqlabMark(text: string, fromIndex: number): boolean {
+  const first = nextRelevantArabicLetterAndIndex(text, fromIndex);
+  if (!first) return false;
+  if (first.ch === '\u0628') return true; // ب direkt
+  if (first.ch === '\u0627') {
+    // Tanween Fatha: Buchstabe + ـً + Alif + Ba – Alif ohne Tashkeel überspringen
+    const second = nextRelevantArabicLetterAndIndex(text, first.index);
+    return second?.ch === '\u0628';
+  }
+  return false;
+}
+
+function nextRelevantArabicLetter(text: string, fromIndex: number): string | null {
+  const r = nextRelevantArabicLetterAndIndex(text, fromIndex);
+  return r?.ch ?? null;
+}
+
+const NBSP = '\u00A0';
+
+function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean, preventOrphans = false): ReactNode[] {
+  const normalized = typeof text === 'string' ? text.normalize('NFC') : text;
+  const chars = Array.from(normalized);
   const rendered: ReactNode[] = [];
   let buffer = '';
+  let flushKey = 0;
   const flushBuffer = () => {
     if (!buffer) return;
-    rendered.push(buffer);
+    flushBufferWithIqlabSpans(buffer, rendered, `buf-${flushKey++}`);
     buffer = '';
   };
-  let idx = 0;
-  for (const ch of text) {
+  for (let idx = 0; idx < chars.length; idx++) {
+    const ch = chars[idx];
     if (isConditionalMeemMark(ch)) {
-      // Dieses Tajweed-Meem nur bei nächstem Buchstaben "ب" anzeigen (Iqlab).
-      const next = nextRelevantArabicLetter(text, idx);
-      if (next === 'ب') buffer += ch;
-      idx += 1;
-      continue;
-    }
-    if (PAUSE_MARKS.has(ch)) {
-      if (!hidePauseMarks) {
+      if (shouldShowIqlabMark(normalized, idx)) {
+        const prevChar = idx > 0 ? chars[idx - 1] : '';
+        const prevPrevChar = idx > 1 ? chars[idx - 2] : '';
+        const afterTanweenKasrah = prevChar === '\u064D';
+        const afterTanweenDamma = prevChar === '\u064C';
+        const afterTanweenFatha =
+          prevChar === '\u0627' || prevChar === '\u064B' || prevPrevChar === '\u064B';
         flushBuffer();
+        if (afterTanweenKasrah || afterTanweenDamma) {
+          rendered.push('\u00A0'); // geschütztes Leerzeichen vor Meem
+        } else if (afterTanweenFatha) {
+          rendered.push(ARABIC_TATWEEL); // ـ vor Meem
+        }
         rendered.push(
-          <span
-            key={`pause-${idx}`}
-            className="text-rose-600 dark:text-rose-400"
-            style={{ color: '#dc2626' }}
-          >
+          <span key={`iqlab-${idx}`} className="iqlab-meem">
             {ch}
           </span>
         );
       }
+      continue;
+    }
+    if (isQuranicPauseMark(ch)) {
+      if (!hidePauseMarks) {
+        if (preventOrphans && buffer.length > 0) {
+          const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter
+            ? new Intl.Segmenter('ar', { granularity: 'grapheme' })
+            : null;
+          const segments = segmenter ? [...segmenter.segment(buffer)] : null;
+          const lastGrapheme = segments?.length
+            ? segments[segments.length - 1].segment
+            : buffer.slice(-1);
+          const rest = segmenter && segments?.length
+            ? buffer.slice(0, buffer.length - lastGrapheme.length)
+            : buffer.slice(0, -1);
+          if (rest) rendered.push(rest);
+          rendered.push(
+            <span key={`pause-${idx}`} className="quran-no-orphan">
+              {lastGrapheme}
+              <span className="quran-pause-mark">{ch}</span>
+            </span>
+          );
+          buffer = '';
+        } else {
+          flushBuffer();
+          rendered.push(
+            <span key={`pause-${idx}`} className="quran-pause-mark">
+              {ch}
+            </span>
+          );
+        }
+      }
     } else {
       buffer += ch;
     }
-    idx += 1;
   }
   flushBuffer();
   return rendered;
@@ -1690,8 +1816,8 @@ export default function QuranReader() {
                                   className={`cursor-pointer ${isSelected ? 'bg-emerald-200/80 dark:bg-emerald-700/40 ring-1 ring-emerald-500/50 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
                                   aria-label={`Vers ${verse.ayahNumber}`}
                                 >
-                                  <span>{mode === 'arabic' ? renderArabicWithPauseMarks(text, hidePauseMarks) : text}</span>
-                                  {' '}
+                                  <span>{mode === 'arabic' ? renderArabicWithPauseMarks(text, hidePauseMarks, true) : text}</span>
+                                  {NBSP}
                                   <span
                                     className={mode === 'arabic'
                                       ? `font-verse-num inline align-middle text-emerald-700 dark:text-emerald-300 font-semibold mx-1.5 ${isSelected ? 'underline underline-offset-2' : ''}`
@@ -1790,7 +1916,7 @@ export default function QuranReader() {
                               dir="rtl"
                               style={{ fontSize: `${fontSize}px` }}
                             >
-                              {renderArabicWithPauseMarks(arabicText, hidePauseMarks)}
+                              {renderArabicWithPauseMarks(arabicText, hidePauseMarks, true)}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                               {currentVerse.surahNumber}:{currentVerse.ayahNumber}

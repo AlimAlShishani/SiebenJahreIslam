@@ -67,6 +67,24 @@
   font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
 }
 
+/* Quran-Pausenzeichen immer rot – !important gegen Font-/Parent-Override */
+.quran-pause-mark {
+  color: #dc2626 !important;
+}
+html.dark .quran-pause-mark {
+  color: #f87171 !important;
+}
+
+/* Stoppzeichen nicht als erstes in Zeile: letztes Zeichen + Stopp bleiben zusammen */
+.quran-no-orphan {
+  white-space: nowrap;
+}
+
+/* Iqlab-Meem: wird über Abstand/ـ gerendert (nicht über Tanween-Buchstabe) */
+.iqlab-meem {
+  display: inline;
+}
+
 /* Surah Kahf Licht – schwebende Lichter */
 @keyframes kahf-float {
   0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
