@@ -121,12 +121,13 @@ async function main() {
   await writeFile(join(baseDir, 'ayah-to-page.json'), JSON.stringify(ayahToPage), 'utf-8');
 
   const translationEditions = [
-    { identifier: 'de.aburida', language: 'de', name: 'Abu Rida', englishName: 'Abu Rida' },
+    { identifier: 'de.aburida', language: 'de', name: 'Abu Rida', englishName: 'Abu Rida', bundled: true },
+    { identifier: 'en.sahih', language: 'en', name: 'Sahih International', englishName: 'Sahih International', bundled: true },
+    { identifier: 'ru.kuliev', language: 'ru', name: 'Kuliev', englishName: 'Kuliev', bundled: true },
+    { identifier: 'tr.diyanet', language: 'tr', name: 'Diyanet', englishName: 'Diyanet', bundled: true },
     { identifier: 'de.bubenheim', language: 'de', name: 'Bubenheim', englishName: 'Bubenheim' },
     { identifier: 'de.khoury', language: 'de', name: 'Khoury', englishName: 'Khoury' },
-    { identifier: 'en.sahih', language: 'en', name: 'Sahih International', englishName: 'Sahih International' },
     { identifier: 'en.asad', language: 'en', name: 'Asad', englishName: 'Asad' },
-    { identifier: 'tr.diyanet', language: 'tr', name: 'Diyanet', englishName: 'Diyanet' },
   ];
   await writeFile(join(baseDir, 'translation-editions.json'), JSON.stringify(translationEditions), 'utf-8');
 

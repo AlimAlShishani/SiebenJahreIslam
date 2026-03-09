@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0] – 2026-02
+
+### Added
+- **Quran offline in APK** – Der gesamte Koran (604 Seiten) ist in der App enthalten. Kein Internet nötig zum Lesen.
+- **Vier Übersetzungen mitgeliefert** – Deutsch (Abu Rida), Englisch (Sahih International), Russisch (Kuliev) und Türkisch (Diyanet) sind in der APK enthalten und funktionieren offline.
+- **Weitere Übersetzungen online** – Zusätzliche Übersetzungen (z. B. Bubenheim, Asad) sind bei Internetverbindung verfügbar.
+- **Preload-Button** – Im Quran-Reader-Einstellungen: „Quran für Offline vorbereiten“ lädt alle Seiten in den Cache (für PWA/Browser).
+
+### Changed
+- **Quran-Reader** – Surah- und Vers-Dropdown funktionieren jetzt auch offline mit den gebündelten Daten.
+- **Vercel Build** – Prebuild überspringt API-Fetch, wenn Quran-Daten bereits vorhanden sind (vermeidet Rate-Limit 429).
+
+---
+
 ## [2.2] – 2025
 
 ### Added

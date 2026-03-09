@@ -55,6 +55,7 @@ export interface TranslationEdition {
   language: string;
   name: string;
   englishName: string;
+  bundled?: boolean;
 }
 
 const memoryCache = new Map<string, unknown>();
@@ -315,17 +316,25 @@ async function fetchPageWithEdition(pageNumber: number, edition: string) {
   return fetchJson<PageResponse>(`/page/${pageNumber}/${edition}`);
 }
 
-/** Versucht lokales Quran-Bundle (offline) zu laden. Nur für quran-uthmani + de.aburida. */
+/** Bundled editions (in APK/Build, kein Internet nötig). */
+const BUNDLED_EDITIONS: Record<string, string> = {
+  'de.aburida': 'pages',
+  'en.sahih': 'pages-en',
+  'ru.kuliev': 'pages-ru',
+  'tr.diyanet': 'pages-tr',
+};
+
+/** Versucht lokales Quran-Bundle (offline/APK) zu laden. */
 async function tryLoadLocalPage(
   pageNumber: number,
   translationEdition: string,
   arabicEdition: string
 ): Promise<QuranPageData | null> {
-  if (arabicEdition !== 'quran-uthmani' || translationEdition !== DEFAULT_TRANSLATION_EDITION) {
-    return null;
-  }
+  if (arabicEdition !== 'quran-uthmani') return null;
+  const subDir = BUNDLED_EDITIONS[translationEdition];
+  if (!subDir) return null;
   try {
-    const res = await fetch(`/quran-data/pages/${pageNumber}.json`);
+    const res = await fetch(`/quran-data/${subDir}/${pageNumber}.json`);
     if (!res.ok) return null;
     const data = (await res.json()) as QuranPageData;
     if (!data?.verses?.length) return null;
