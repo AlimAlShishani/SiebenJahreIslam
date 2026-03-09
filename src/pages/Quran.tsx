@@ -4,6 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
 import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
+import {
+  loadHatimDataFromCache,
+  saveHatimDataToCache,
+  queueHatimWrite,
+  syncHatimQueue,
+  getHatimCacheKey,
+} from '../lib/hatimOffline';
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut, List } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
@@ -164,6 +172,7 @@ export default function Quran() {
   const effectiveToday = getEffectiveToday();
   const todayLocalDate = toLocalDateString(effectiveToday);
   const { user } = useAuth();
+  useOffline(); // Offline-Kontext für Routing; navigator.onLine für Datenlogik
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const openReader = searchParams.get('openReader') === '1';
@@ -386,6 +395,29 @@ export default function Quran() {
     const shouldShowLoading = !!opts?.showLoading && !opts?.silent;
     if (shouldShowLoading) setLoading(true);
     try {
+      // Offline: aus IndexedDB-Cache laden
+      if (!navigator.onLine && user?.id) {
+        const cacheKey = getHatimCacheKey(user.id, selectedDateStr);
+        const cached = await loadHatimDataFromCache(cacheKey);
+        if (cached) {
+          setCurrentGroupId(cached.currentGroupId);
+          setIsInGroup(cached.isInGroup);
+          setIsAdmin(cached.isAdmin);
+          setGroupMemberIds(cached.groupMemberIds);
+          setUsers(cached.users as typeof users);
+          setAssignments(cached.assignments as typeof assignments);
+          setVotesForDay(cached.votesForDay as typeof votesForDay);
+          setActivityLogs(cached.activityLogs as typeof activityLogs);
+          setCurrentGroup(cached.currentGroup);
+          setIsGroupOwner(cached.isGroupOwner);
+          if (shouldShowLoading) setLoading(false);
+          loadedKeyRef.current = key;
+          firstLoadDoneRef.current = true;
+          if (quranPageCache) quranPageCache.loadedKey = key;
+          return;
+        }
+      }
+
       // 1. Meine Gruppe: reading_group_members wo user_id = ich
       const { data: myMembership } = await supabase
         .from('reading_group_members')
@@ -397,25 +429,33 @@ export default function Quran() {
       const userInGroup = !!gid && !!user?.id;
       setIsInGroup(userInGroup);
 
+      let groupRow: { id: string; name: string | null; owner_id: string } | null = null;
+      let memberIds: string[] = [];
+      let usersWithLang: { id: string; email: string; full_name: string | null; role: string; reader_language: string | null }[] = [];
+      let assignmentsData: any[] | null = null;
+      let votesData: any[] | null = null;
+      let activityData: any[] | null = null;
+
       if (!gid) {
         setGroupMemberIds([]);
         setUsers([]);
         setCurrentGroup(null);
         setIsGroupOwner(false);
       } else {
-        const { data: groupRow } = await supabase
+        const { data: gr } = await supabase
           .from('reading_groups')
           .select('id, name, owner_id')
           .eq('id', gid)
           .single();
-        setCurrentGroup(groupRow ?? null);
+        groupRow = gr ?? null;
+        setCurrentGroup(groupRow);
         setIsGroupOwner(!!(groupRow && user?.id && groupRow.owner_id === user.id));
 
         const { data: memberRows } = await supabase
           .from('reading_group_members')
           .select('user_id')
           .eq('group_id', gid);
-        const memberIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+        memberIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
         setGroupMemberIds(memberIds);
 
         const { data: usersData } = await supabase
@@ -428,7 +468,7 @@ export default function Quran() {
           .eq('group_id', gid)
           .in('user_id', memberIds);
         const settingsMap = new Map((settingsData || []).map((s: { user_id: string; reader_language: string | null }) => [s.user_id, s.reader_language]));
-        const usersWithLang = (usersData || []).map((u: { id: string; email: string; full_name: string | null; role: string }) => ({
+        usersWithLang = (usersData || []).map((u: { id: string; email: string; full_name: string | null; role: string }) => ({
           ...u,
           reader_language: settingsMap.get(u.id) ?? null
         }));
@@ -444,13 +484,14 @@ export default function Quran() {
 
       // 2. Assignments für selected day (und meine Gruppe)
       if (gid) {
-        const { data: assignmentsData, error } = await supabase
+        const { data: ad, error } = await supabase
           .from('daily_reading_status')
           .select(`*, profiles (full_name, email)`)
           .eq('group_id', gid)
           .eq('date', selectedDateStr);
         if (error) throw error;
-        setAssignments((assignmentsData || []).map((a: any) => ({
+        assignmentsData = ad || [];
+        setAssignments(assignmentsData.map((a: any) => ({
           ...a,
           audio_urls: Array.isArray(a.audio_urls) && a.audio_urls.length > 0 ? a.audio_urls : (a.audio_url ? [a.audio_url] : [])
         })));
@@ -459,25 +500,27 @@ export default function Quran() {
       }
 
       if (userInGroup && gid) {
-        const { data: votesData } = await supabase
+        const { data: vd } = await supabase
           .from('daily_reading_votes')
           .select('id, date, user_id, vote, profiles(full_name, email)')
           .eq('group_id', gid)
           .eq('date', selectedDateStr);
-        const normalizedVotes: DailyReadingVote[] = (votesData || []).map((v: any) => ({
+        votesData = vd || [];
+        const normalizedVotes: DailyReadingVote[] = votesData.map((v: any) => ({
           ...v,
           vote: normalizeVoteSelections(v.vote),
           profiles: Array.isArray(v.profiles) ? v.profiles[0] : v.profiles
         }));
         setVotesForDay(normalizedVotes);
 
-        const { data: activityData } = await supabase
+        const { data: actData } = await supabase
           .from('reading_activity_logs')
           .select('id, date, juz_number, activity_type, actor_user_id, assignment_user_id, created_at, profiles!reading_activity_logs_actor_user_id_fkey(full_name, email)')
           .eq('group_id', gid)
           .order('created_at', { ascending: false })
           .limit(200);
-        const normalizedActivity: ReadingActivityLog[] = (activityData || []).map((x: any) => ({
+        activityData = actData || [];
+        const normalizedActivity: ReadingActivityLog[] = activityData.map((x: any) => ({
           ...x,
           profiles: Array.isArray(x.profiles) ? x.profiles[0] : x.profiles
         }));
@@ -485,6 +528,37 @@ export default function Quran() {
       } else {
         setVotesForDay([]);
         setActivityLogs([]);
+      }
+
+      // Online: in IndexedDB cachen
+      if (navigator.onLine && user?.id) {
+        const assignmentsForCache = gid
+          ? (assignmentsData || []).map((a: any) => ({
+              ...a,
+              audio_urls: Array.isArray(a.audio_urls) && a.audio_urls.length > 0 ? a.audio_urls : (a.audio_url ? [a.audio_url] : []),
+            }))
+          : [];
+        const votesForCache = userInGroup && gid ? (votesData || []).map((v: any) => ({
+          ...v,
+          vote: normalizeVoteSelections(v.vote),
+          profiles: Array.isArray(v.profiles) ? v.profiles[0] : v.profiles,
+        })) : [];
+        const activityForCache = userInGroup && gid ? (activityData || []).map((x: any) => ({
+          ...x,
+          profiles: Array.isArray(x.profiles) ? x.profiles[0] : x.profiles,
+        })) : [];
+        await saveHatimDataToCache(user.id, selectedDateStr, {
+          currentGroupId: gid,
+          isInGroup: userInGroup,
+          isAdmin: meProfile?.role === 'admin',
+          groupMemberIds: memberIds ?? [],
+          users: usersWithLang ?? [],
+          assignments: assignmentsForCache,
+          votesForDay: votesForCache,
+          activityLogs: activityForCache,
+          currentGroup: groupRow ?? null,
+          isGroupOwner: !!(groupRow && user?.id && groupRow.owner_id === user.id),
+        });
       }
 
     } catch (error) {
@@ -515,6 +589,16 @@ export default function Quran() {
       console.error('Error deleting activity log entry:', e);
     }
   };
+
+  useEffect(() => {
+    const onOnline = () => {
+      syncHatimQueue().then(({ synced }) => {
+        if (synced > 0) void fetchData({ silent: true });
+      });
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [user?.id, selectedRamadanDay]);
 
   useEffect(() => {
     if (!isInGroup || !user?.id || !currentGroupId) return;
@@ -1235,27 +1319,38 @@ export default function Quran() {
       }
 
       if (!currentGroupId) return;
-      if (nextVotes.length === 0) {
-        const { error } = await supabase
-          .from('daily_reading_votes')
-          .delete()
-          .eq('group_id', currentGroupId)
-          .eq('date', selectedDateStr)
-          .eq('user_id', user.id);
-        if (error) throw error;
+
+      if (!navigator.onLine) {
+        await queueHatimWrite({
+          table: 'daily_reading_votes',
+          operation: nextVotes.length === 0 ? 'delete' : 'upsert',
+          payload: nextVotes.length === 0
+            ? { group_id: currentGroupId, date: selectedDateStr, user_id: user.id }
+            : { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: nextVotes },
+        });
       } else {
-        let error = (await supabase.from('daily_reading_votes').upsert(
-          { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: nextVotes, updated_at: new Date().toISOString() },
-          { onConflict: 'group_id,date,user_id' }
-        )).error;
-        if (error) {
-          const single = nextVotes[0];
-          error = (await supabase.from('daily_reading_votes').upsert(
-            { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: single, updated_at: new Date().toISOString() },
+        if (nextVotes.length === 0) {
+          const { error } = await supabase
+            .from('daily_reading_votes')
+            .delete()
+            .eq('group_id', currentGroupId)
+            .eq('date', selectedDateStr)
+            .eq('user_id', user.id);
+          if (error) throw error;
+        } else {
+          let error = (await supabase.from('daily_reading_votes').upsert(
+            { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: nextVotes, updated_at: new Date().toISOString() },
             { onConflict: 'group_id,date,user_id' }
           )).error;
+          if (error) {
+            const single = nextVotes[0];
+            error = (await supabase.from('daily_reading_votes').upsert(
+              { group_id: currentGroupId, date: selectedDateStr, user_id: user.id, vote: single, updated_at: new Date().toISOString() },
+              { onConflict: 'group_id,date,user_id' }
+            )).error;
+          }
+          if (error) throw error;
         }
-        if (error) throw error;
       }
 
       setVotesForDay((prev) => {
@@ -1273,15 +1368,24 @@ export default function Quran() {
 
   const toggleCompletion = async (assignmentId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('daily_reading_status')
-        .update({ is_completed: !currentStatus })
-        .eq('id', assignmentId);
+      const nextStatus = !currentStatus;
+      if (!navigator.onLine) {
+        await queueHatimWrite({
+          table: 'daily_reading_status',
+          operation: 'update',
+          payload: { id: assignmentId, is_completed: nextStatus },
+        });
+      } else {
+        const { error } = await supabase
+          .from('daily_reading_status')
+          .update({ is_completed: nextStatus })
+          .eq('id', assignmentId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       setAssignments(prev => prev.map(a =>
-        a.id === assignmentId ? { ...a, is_completed: !currentStatus } : a
+        a.id === assignmentId ? { ...a, is_completed: nextStatus } : a
       ));
     } catch (error) {
       console.error('Error updating status:', error);

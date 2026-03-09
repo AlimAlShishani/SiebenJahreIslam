@@ -1,16 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun, Flame } from 'lucide-react';
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { BookOpen, BookText, GraduationCap, User, LogOut, Moon, Sun, Flame, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useOffline, isOfflineAllowedPath } from '../context/OfflineContext';
 import { useRecording } from '../context/RecordingContext';
 import { changeLanguage } from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { ensurePushSubscription } from '../lib/pushNotifications';
 import { supabase } from '../lib/supabase';
+import { loadStreakCache, saveStreakCache } from '../lib/idb';
 export const Layout = () => {
   const { t, i18n } = useTranslation();
   const { signOut, user } = useAuth();
+  const { isOnline } = useOffline();
   const { isRecording } = useRecording();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -23,6 +26,10 @@ export const Layout = () => {
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
   const hideMobileChromeForReader = location.pathname.startsWith('/quran/read');
 
+  if (!isOnline && !isOfflineAllowedPath(location.pathname)) {
+    return <Navigate to="/quran" replace state={{ offlineRedirect: true }} />;
+  }
+
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, to: string) => {
     if (!isRecording) return;
     e.preventDefault();
@@ -32,15 +39,12 @@ export const Layout = () => {
   };
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !isOnline) return;
     void ensurePushSubscription(user.id);
-  }, [user?.id]);
+  }, [user?.id, isOnline]);
 
   useEffect(() => {
-    if (!user?.id) {
-      setDailyStreak(0);
-      return;
-    }
+    if (!user?.id) return;
 
     const toLocalDateKey = (date: Date) => {
       const y = date.getFullYear();
@@ -58,6 +62,12 @@ export const Layout = () => {
     };
 
     const loadStreak = async () => {
+      if (!navigator.onLine) {
+        const cached = await loadStreakCache(user.id);
+        setDailyStreak(cached?.streak ?? 0);
+        return;
+      }
+
       const lookbackStart = new Date();
       lookbackStart.setDate(lookbackStart.getDate() - 120);
       lookbackStart.setHours(0, 0, 0, 0);
@@ -69,7 +79,8 @@ export const Layout = () => {
         .gte('started_at', lookbackStart.toISOString());
 
       if (error || !data) {
-        setDailyStreak(0);
+        const cached = await loadStreakCache(user.id);
+        setDailyStreak(cached?.streak ?? 0);
         return;
       }
 
@@ -97,10 +108,11 @@ export const Layout = () => {
         cursor.setDate(cursor.getDate() - 1);
       }
       setDailyStreak(streak);
+      await saveStreakCache(user.id, streak);
     };
 
     void loadStreak();
-  }, [user?.id, location.pathname]);
+  }, [user?.id, isOnline, location.pathname]);
 
   useEffect(() => {
     const startKeepAliveAudio = () => {
@@ -183,6 +195,12 @@ export const Layout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors">
+      {!isOnline && (
+        <div className="bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100 px-4 py-2 flex items-center gap-2 text-sm font-medium">
+          <WifiOff size={16} className="shrink-0" />
+          <span>{t('offline.banner')}</span>
+        </div>
+      )}
       <header className={`bg-emerald-600 dark:bg-emerald-800 text-white shadow-md ${hideMobileChromeForReader ? 'max-md:hidden' : ''}`}>
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold font-serif">Nuruna</h1>

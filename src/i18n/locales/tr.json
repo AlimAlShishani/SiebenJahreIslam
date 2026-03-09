@@ -1,4 +1,9 @@
 {
+  "offline": {
+    "banner": "İnternet yok – değişiklikler daha sonra senkronize edilecek",
+    "onlyQuranAndInstances": "Çevrimdışı – sadece Kur'an ve örnekler mevcut",
+    "loginFirst": "Lütfen önce çevrimiçi giriş yapın"
+  },
   "versionCheck": {
     "title": "Yeni sürüm mevcut",
     "versionAvailable": "{{version}} sürümü mevcut",

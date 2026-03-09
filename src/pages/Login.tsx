@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
@@ -9,6 +9,8 @@ import { useTheme } from '../context/ThemeContext';
 export default function Login() {
   const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+  const offlineHint = (location.state as { offlineLoginRequired?: boolean; message?: string } | null)?.offlineLoginRequired;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,13 @@ export default function Login() {
       <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
         <h2 className="text-3xl font-bold text-center text-emerald-800 dark:text-emerald-300">{t('login.welcome')}</h2>
         <p className="text-center text-gray-500 dark:text-gray-400">{t('login.signInOrRegister')}</p>
-        
+
+        {offlineHint && (
+          <div className="p-3 text-sm text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+            {t('offline.loginFirst')}
+          </div>
+        )}
+
         {error && <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded-lg">{error}</div>}
 
         <form className="space-y-4" onSubmit={handleLogin}>

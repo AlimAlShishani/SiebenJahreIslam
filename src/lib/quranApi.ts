@@ -162,6 +162,20 @@ export async function getSurahList(): Promise<SurahMeta[]> {
     return cachedSession;
   }
 
+  try {
+    const res = await fetch('/quran-data/surahs.json');
+    if (res.ok) {
+      const surahs = (await res.json()) as SurahMeta[];
+      if (surahs?.length) {
+        memoryCache.set(cacheKey, surahs);
+        setToSession(cacheKey, surahs);
+        return surahs;
+      }
+    }
+  } catch {
+    // fallback to API
+  }
+
   type SurahResponse = {
     code: number;
     status: string;
@@ -213,6 +227,21 @@ export async function getJuzStartPage(juzNumber: number): Promise<number> {
     return cachedSession;
   }
 
+  try {
+    const res = await fetch('/quran-data/juz-starts.json');
+    if (res.ok) {
+      const map = (await res.json()) as Record<number, number>;
+      const start = map?.[juzNumber];
+      if (typeof start === 'number') {
+        memoryCache.set(cacheKey, start);
+        setToSession(cacheKey, start);
+        return start;
+      }
+    }
+  } catch {
+    // fallback to API
+  }
+
   type JuzResponse = {
     code: number;
     status: string;
@@ -245,6 +274,26 @@ async function fetchPageWithEdition(pageNumber: number, edition: string) {
   return fetchJson<PageResponse>(`/page/${pageNumber}/${edition}`);
 }
 
+/** Versucht lokales Quran-Bundle (offline) zu laden. Nur für quran-uthmani + de.aburida. */
+async function tryLoadLocalPage(
+  pageNumber: number,
+  translationEdition: string,
+  arabicEdition: string
+): Promise<QuranPageData | null> {
+  if (arabicEdition !== 'quran-uthmani' || translationEdition !== DEFAULT_TRANSLATION_EDITION) {
+    return null;
+  }
+  try {
+    const res = await fetch(`/quran-data/pages/${pageNumber}.json`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as QuranPageData;
+    if (!data?.verses?.length) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export async function getQuranPage(
   pageNumber: number,
   translationEdition = DEFAULT_TRANSLATION_EDITION,
@@ -258,6 +307,13 @@ export async function getQuranPage(
   if (cachedSession) {
     memoryCache.set(cacheKey, cachedSession);
     return cachedSession;
+  }
+
+  const localData = await tryLoadLocalPage(safePage, translationEdition, arabicEdition);
+  if (localData) {
+    memoryCache.set(cacheKey, localData);
+    setToSession(cacheKey, localData);
+    return localData;
   }
 
   const arabicCandidates = [arabicEdition, 'quran-uthmani', 'quran-uthmani-min', 'quran-simple'].filter(

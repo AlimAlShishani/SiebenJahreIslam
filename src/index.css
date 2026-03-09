@@ -20,23 +20,25 @@
 
 @font-face {
   font-family: "UthmanicHafs";
-  src: local("UthmanicHafs"), url("/UthmanicHafs.otf") format("opentype");
+  src: local("UthmanicHafs1Ver18"),
+       url("https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2") format("woff2"),
+       url("https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
-/* Stabiler Arabisch/Quran-Stack; Default ist Uthmanic Hafs. */
+/* Stabiler Arabisch/Quran-Stack */
 :root {
-  --quran-font-stack: "UthmanicHafs", "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
+  --quran-font-stack: "UthmanicHafs", "Scheherazade New", "Noto Naskh Arabic", "Geeza Pro", "Times New Roman", serif;
 }
 
 :root[data-quran-font="uthmanic"] {
-  --quran-font-stack: "UthmanicHafs", "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
+  --quran-font-stack: "UthmanicHafs", "Scheherazade New", "Noto Naskh Arabic", "Geeza Pro", "Times New Roman", serif;
 }
 
 :root[data-quran-font="scheherazade"] {
-  --quran-font-stack: "Scheherazade New", "Noto Naskh Arabic", "Amiri", "Geeza Pro", "Times New Roman", serif;
+  --quran-font-stack: "Scheherazade New", "Noto Naskh Arabic", "Geeza Pro", "Times New Roman", serif;
 }
 
 [dir="rtl"],
@@ -53,6 +55,10 @@
   font-kerning: normal;
   font-feature-settings: "rlig" 1, "calt" 1, "kern" 1, "mark" 1, "mkmk" 1;
   text-rendering: optimizeLegibility;
+}
+
+:root[data-quran-font="scheherazade"] .font-quran {
+  line-height: 2.4;
 }
 
 .font-arabic {
@@ -83,10 +89,7 @@ html.dark .quran-pause-mark {
   white-space: nowrap;
 }
 
-/* Iqlab-Meem: wird über Abstand/ـ gerendert (nicht über Tanween-Buchstabe) */
-.iqlab-meem {
-  display: inline;
-}
+/* Iqlab: Tanween→einfaches Tashkeel + Meem, Font mark/mkmk */
 
 /* Surah Kahf Licht – schwebende Lichter */
 @keyframes kahf-float {
@@ -118,5 +121,8 @@ html.dark .quran-pause-mark {
     -webkit-font-smoothing: antialiased;
     line-height: 1.95;
     letter-spacing: 0;
+  }
+  :root[data-quran-font="scheherazade"] .font-quran {
+    line-height: 2.4;
   }
 }

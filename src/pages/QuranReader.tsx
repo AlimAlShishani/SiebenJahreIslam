@@ -86,8 +86,6 @@ const SMALL_LOW_MEEM = '\u06ED';
 const SMALL_LOW_MEEM_ALT = '\u06E3';
 const SMALL_HIGH_MEEM_ALT = '\u06E1'; // Arabic Small High Meem (alternative)
 const SMALL_HIGH_MEEM_ALT2 = '\u06EB'; // Arabic Small High Meem (alternative 2)
-const ARABIC_TATWEEL = '\u0640'; // ـ (Kashida) – Platzhalter für Iqlab-Position
-
 function isConditionalMeemMark(ch: string): boolean {
   return (
     ch === SMALL_HIGH_MEEM ||
@@ -96,64 +94,6 @@ function isConditionalMeemMark(ch: string): boolean {
     ch === SMALL_HIGH_MEEM_ALT ||
     ch === SMALL_HIGH_MEEM_ALT2
   );
-}
-
-/** Unicode-Bereich für Iqlab/kleine Annotationen (06E0–06EF, außer Pausenzeichen 06EA/06EC). */
-/** U+06E0 ausgenommen: Sukoon auf finalem Alif (z. B. أَنَا Anbiya 25) – kein Iqlab, kein Tatweel. */
-function isIqlabChar(ch: string): boolean {
-  const cp = ch.codePointAt(0) ?? 0;
-  return cp >= 0x06E0 && cp <= 0x06EF && cp !== 0x06E0 && cp !== 0x06EA && cp !== 0x06EC;
-}
-
-/** Splittet Buffer-Text und wrappt Iqlab-Zeichen in Spans (falls sie im Buffer landen). */
-function flushBufferWithIqlabSpans(
-  buffer: string,
-  rendered: ReactNode[],
-  keyPrefix: string
-): void {
-  if (!buffer) return;
-  const iqlabChars = new Set([
-    SMALL_HIGH_MEEM,
-    SMALL_LOW_MEEM,
-    SMALL_LOW_MEEM_ALT,
-    SMALL_HIGH_MEEM_ALT,
-    SMALL_HIGH_MEEM_ALT2,
-  ]);
-  // U+06E1 (QURANIC_SUKOON) nie als Iqlab – sonst falsches Tatweel (z. B. كَفَرُوٓا۟ Anbiya 36)
-  const checkIqlab = (c: string) => c !== QURANIC_SUKOON && (iqlabChars.has(c) || isIqlabChar(c));
-  const parts: ReactNode[] = [];
-  let current = '';
-  let keyIdx = 0;
-  for (const ch of buffer) {
-    if (checkIqlab(ch)) {
-      const beforeIqlab = current;
-      if (current) {
-        parts.push(current);
-        current = '';
-        keyIdx += 1;
-      }
-      const arr = Array.from(beforeIqlab);
-      const lastChar = arr[arr.length - 1] ?? '';
-      const secondLast = arr[arr.length - 2] ?? '';
-      const afterKasrah = lastChar === '\u064D';
-      const afterDamma = lastChar === '\u064C';
-      const afterFatha = lastChar === '\u0627' || lastChar === '\u064B' || secondLast === '\u064B';
-      // Abstand/ـ vor dem Meem: Meem rendert darüber statt über dem Tanween-Buchstaben
-      if (afterKasrah || afterDamma) {
-        parts.push('\u00A0'); // geschütztes Leerzeichen
-      } else if (afterFatha) {
-        parts.push(ARABIC_TATWEEL); // ـ zwischen Alif und Meem
-      }
-      parts.push(<span key={`${keyPrefix}-${keyIdx}`} className="iqlab-meem">{ch}</span>);
-      keyIdx += 1;
-    } else {
-      current += ch;
-    }
-  }
-  if (current) parts.push(current);
-  for (const p of parts) {
-    rendered.push(p);
-  }
 }
 
 /** Nächster relevanter arabischer Buchstabe und sein Index. */
@@ -185,38 +125,59 @@ function shouldShowIqlabMark(text: string, fromIndex: number): boolean {
 
 const NBSP = '\u00A0';
 
+/** Korrigiert API-Reihenfolge: Iqlab (ۢ/ۭ/۫) muss NACH Tanween stehen für korrektes mark/mkmk-Stacking. */
+function fixIqlabUnicodeOrder(text: string): string {
+  return text.replace(/([\u06E2\u06ED\u06E3\u06EB])([\u064B\u064C\u064D])/g, '$2$1');
+}
+
+/** Tanween → einfaches Tashkeel bei Iqlab: Quran-Apps ersetzen Tanween durch Fatha/Damma/Kasrah + Iqlab-Meem. */
+const TANWEEN_TO_SIMPLE: Record<string, string> = {
+  '\u064B': '\u064E', // ً → َ (Tanween Fatha → Fatha)
+  '\u064C': '\u064F', // ٌ → ُ (Tanween Damma → Damma)
+  '\u064D': '\u0650', // ٍ → ِ (Tanween Kasrah → Kasrah)
+};
+
+function replaceTanweenWithSimpleForIqlab(text: string): string {
+  const chars = Array.from(text);
+  const result: string[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const replacement = TANWEEN_TO_SIMPLE[ch];
+    if (replacement) {
+      let j = i + 1;
+      while (j < chars.length && isArabicCombiningMark(chars[j]) && !isConditionalMeemMark(chars[j])) j++;
+      if (j < chars.length && isConditionalMeemMark(chars[j]) && chars[j] !== QURANIC_SUKOON) {
+        const next = nextRelevantArabicLetterAndIndex(text, j);
+        const isIqlab = next && (next.ch === '\u0628' || (next.ch === '\u0627' && nextRelevantArabicLetterAndIndex(text, next.index)?.ch === '\u0628'));
+        if (isIqlab) {
+          result.push(replacement);
+          continue;
+        }
+      }
+    }
+    result.push(ch);
+  }
+  return result.join('');
+}
+
 function renderArabicWithPauseMarks(text: string, hidePauseMarks: boolean, preventOrphans = false): ReactNode[] {
-  const normalized = typeof text === 'string' ? text.normalize('NFC') : text;
-  const chars = Array.from(normalized);
+  const normalized = (typeof text === 'string' ? text.normalize('NFC') : text);
+  const reordered = fixIqlabUnicodeOrder(normalized);
+  const withSimpleTanween = replaceTanweenWithSimpleForIqlab(reordered);
+  const chars = Array.from(withSimpleTanween);
   const rendered: ReactNode[] = [];
   let buffer = '';
-  let flushKey = 0;
   const flushBuffer = () => {
     if (!buffer) return;
-    flushBufferWithIqlabSpans(buffer, rendered, `buf-${flushKey++}`);
+    rendered.push(buffer); // Ein Text-Node – kein Splitting auf Iqlab (zerstört mark/mkmk)
     buffer = '';
   };
   for (let idx = 0; idx < chars.length; idx++) {
     const ch = chars[idx];
     if (isConditionalMeemMark(ch)) {
-      if (shouldShowIqlabMark(normalized, idx)) {
-        const prevChar = idx > 0 ? chars[idx - 1] : '';
-        const prevPrevChar = idx > 1 ? chars[idx - 2] : '';
-        const afterTanweenKasrah = prevChar === '\u064D';
-        const afterTanweenDamma = prevChar === '\u064C';
-        const afterTanweenFatha =
-          prevChar === '\u0627' || prevChar === '\u064B' || prevPrevChar === '\u064B';
+      if (shouldShowIqlabMark(withSimpleTanween, idx)) {
+        buffer += ch; // Iqlab im gleichen Text-Node wie vorheriger Text halten (mark/mkmk)
         flushBuffer();
-        if (afterTanweenKasrah || afterTanweenDamma) {
-          rendered.push('\u00A0'); // geschütztes Leerzeichen vor Meem
-        } else if (afterTanweenFatha) {
-          rendered.push(ARABIC_TATWEEL); // ـ vor Meem
-        }
-        rendered.push(
-          <span key={`iqlab-${idx}`} className="iqlab-meem">
-            {ch}
-          </span>
-        );
       } else if (ch === QURANIC_SUKOON) {
         // U+06E1 = Quranic Sukoon (nicht Iqlab) – anzeigen statt überspringen
         buffer += ch;
@@ -415,7 +376,8 @@ export default function QuranReader() {
   const [arabicFont, setArabicFont] = useState<ArabicFontChoice>(() => {
     if (typeof window === 'undefined') return 'uthmanic';
     const saved = window.localStorage.getItem(ARABIC_FONT_STORAGE_KEY);
-    return saved === 'scheherazade' ? 'scheherazade' : 'uthmanic';
+    if (saved === 'uthmanic' || saved === 'scheherazade') return saved;
+    return 'uthmanic';
   });
   const [translationEdition, setTranslationEdition] = useState(getDefaultTranslationEdition());
   const [translationOptions, setTranslationOptions] = useState<TranslationEdition[]>([]);
@@ -731,7 +693,7 @@ export default function QuranReader() {
         <span className="text-xs text-gray-500 dark:text-gray-400">{fontSize}px</span>
       </label>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Standard ist Uthmani.
+        Scheherazade hat erhöhten Zeilenabstand für bessere Lesbarkeit.
       </p>
     </div>
   );
@@ -875,6 +837,10 @@ export default function QuranReader() {
     if (!visibleVerses.length) {
       return; // Nicht selectedVerseKey löschen – Seite lädt noch, gespeicherter Vers bleibt erhalten
     }
+    // Nur auswählen, wenn pageData zur aktuellen Seite gehört – sonst pendingVerseSelection bewahren
+    if (pageData && pageData.pageNumber !== currentPage) {
+      return;
+    }
     let verseToSelect = visibleVerses[0];
 
     // Sprung zur Sura: Zielvers erst setzen, wenn er auf der geladenen Seite ist
@@ -911,7 +877,7 @@ export default function QuranReader() {
     setSelectedSurah(verseToSelect.surahNumber);
     setSelectedAyah(verseToSelect.ayahNumber);
     if (pendingVerseSelection) setPendingVerseSelection(null);
-  }, [pageData, pendingVerseSelection, selectedVerseKey, pendingVerseKey, initialSurahParam, initialAyahParam, isKahfSlot, selectedAyah]);
+  }, [pageData, pendingVerseSelection, selectedVerseKey, pendingVerseKey, initialSurahParam, initialAyahParam, isKahfSlot, selectedAyah, currentPage]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
@@ -1150,10 +1116,12 @@ export default function QuranReader() {
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           }
         } else {
-          // Fließtext: Seitenwechsel wie bisher (arabisch rückwärts, Übersetzung vorwärts)
+          // Fließtext: Seitenwechsel (arabisch rückwärts, Übersetzung vorwärts)
           if (mode === 'arabic') {
+            setPendingVerseSelection('last');
             setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           } else {
+            setPendingVerseSelection('first');
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           }
         }
@@ -1186,10 +1154,12 @@ export default function QuranReader() {
             setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           }
         } else {
-          // Fließtext: Seitenwechsel wie bisher (arabisch vorwärts, Übersetzung rückwärts)
+          // Fließtext: Seitenwechsel (arabisch vorwärts, Übersetzung rückwärts)
           if (mode === 'arabic') {
+            setPendingVerseSelection('first');
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           } else {
+            setPendingVerseSelection('last');
             setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           }
         }
@@ -1425,13 +1395,23 @@ export default function QuranReader() {
   };
 
   const goToPrevPageByMode = () => {
-    if (mode === 'arabic') setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
-    else setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+    if (mode === 'arabic') {
+      setPendingVerseSelection('last');
+      setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
+    } else {
+      setPendingVerseSelection('first');
+      setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+    }
   };
 
   const goToNextPageByMode = () => {
-    if (mode === 'arabic') setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
-    else setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
+    if (mode === 'arabic') {
+      setPendingVerseSelection('first');
+      setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+    } else {
+      setPendingVerseSelection('last');
+      setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -1534,7 +1514,10 @@ export default function QuranReader() {
             <>
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1))}
+                onClick={() => {
+                  setPendingVerseSelection('first');
+                  setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+                }}
                 className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
                 disabled={currentPage >= effectiveEndPage || loadingJump}
               >
@@ -1557,7 +1540,10 @@ export default function QuranReader() {
               />
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1))}
+                onClick={() => {
+                  setPendingVerseSelection('last');
+                  setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
+                }}
                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
                 disabled={currentPage <= effectiveStartPage || loadingJump}
               >
@@ -1570,7 +1556,10 @@ export default function QuranReader() {
             <>
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1))}
+                onClick={() => {
+                  setPendingVerseSelection('last');
+                  setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
+                }}
                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
                 disabled={currentPage <= effectiveStartPage || loadingJump}
               >
@@ -1593,7 +1582,10 @@ export default function QuranReader() {
               />
               <button
                 type="button"
-                onClick={() => setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1))}
+                onClick={() => {
+                  setPendingVerseSelection('first');
+                  setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+                }}
                 className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
                 disabled={currentPage >= effectiveEndPage || loadingJump}
               >

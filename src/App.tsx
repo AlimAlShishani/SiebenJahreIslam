@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { OfflineProvider } from './context/OfflineContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RecordingProvider } from './context/RecordingContext';
 import { Layout } from './components/Layout';
@@ -32,6 +33,7 @@ function AppContent() {
           onReload={reload}
         />
       )}
+      <OfflineProvider>
       <AuthProvider>
       <ThemeProvider>
       <RecordingProvider>
@@ -61,6 +63,7 @@ function AppContent() {
       </RecordingProvider>
       </ThemeProvider>
     </AuthProvider>
+    </OfflineProvider>
     </>
   );
 }

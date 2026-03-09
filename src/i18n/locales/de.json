@@ -1,4 +1,9 @@
 {
+  "offline": {
+    "banner": "Kein Internet – Änderungen werden später synchronisiert",
+    "onlyQuranAndInstances": "Offline – nur Quran und Instanzen verfügbar",
+    "loginFirst": "Bitte zuerst online einloggen"
+  },
   "versionCheck": {
     "title": "Neue Version verfügbar",
     "versionAvailable": "Version {{version}} ist verfügbar",
