@@ -443,6 +443,7 @@ export default function QuranReader() {
   });
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [mobileAudioOpen, setMobileAudioOpen] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState<number | null>(null);
   const [surahs, setSurahs] = useState<SurahMeta[]>([]);
   const [selectedJuz, setSelectedJuz] = useState(1);
   const [selectedSurah, setSelectedSurah] = useState(() => {
@@ -699,30 +700,59 @@ export default function QuranReader() {
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Scheherazade hat erhöhten Zeilenabstand für bessere Lesbarkeit.
       </p>
+      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          disabled={preloadProgress !== null}
+          onClick={async () => {
+            setPreloadProgress(0);
+            for (let p = 1; p <= 604; p++) {
+              try {
+                await fetch(`/quran-data/pages/${p}.json`);
+              } catch {
+                /* ignore */
+              }
+              setPreloadProgress(p);
+            }
+            await new Promise((r) => setTimeout(r, 1500));
+            setPreloadProgress(null);
+          }}
+          className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {preloadProgress === null
+            ? t('offline.preloadForOffline')
+            : preloadProgress >= 604
+              ? t('offline.preloadDone')
+              : t('offline.preloadProgress', { current: preloadProgress })}
+        </button>
+      </div>
     </div>
   );
 
   useEffect(() => {
     const loadMeta = async () => {
-      try {
-        const [surahData, translationData] = await Promise.all([getSurahList(), getTranslationEditions()]);
-        setSurahs(surahData);
-        setTranslationOptions(translationData);
-        if (translationData.some((item) => item.identifier === getDefaultTranslationEdition())) {
-          setTranslationEdition(getDefaultTranslationEdition());
-        } else if (translationData[0]) {
-          setTranslationEdition(translationData[0].identifier);
-        }
-      } catch {
-        setSurahs([]);
-        setTranslationOptions([
-          {
-            identifier: getDefaultTranslationEdition(),
-            language: 'de',
-            name: 'Abu Rida',
-            englishName: 'Abu Rida',
-          },
-        ]);
+      const [surahResult, translationResult] = await Promise.allSettled([
+        getSurahList(),
+        getTranslationEditions(),
+      ]);
+      const surahData = surahResult.status === 'fulfilled' ? surahResult.value : [];
+      const translationData =
+        translationResult.status === 'fulfilled'
+          ? translationResult.value
+          : [
+              {
+                identifier: getDefaultTranslationEdition(),
+                language: 'de',
+                name: 'Abu Rida',
+                englishName: 'Abu Rida',
+              },
+            ];
+      setSurahs(surahData);
+      setTranslationOptions(translationData);
+      if (translationData.some((item) => item.identifier === getDefaultTranslationEdition())) {
+        setTranslationEdition(getDefaultTranslationEdition());
+      } else if (translationData[0]) {
+        setTranslationEdition(translationData[0].identifier);
       }
     };
     loadMeta();

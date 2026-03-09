@@ -111,45 +111,69 @@ export async function getTranslationEditions(): Promise<TranslationEdition[]> {
     return cachedSession;
   }
 
-  type EditionsResponse = {
-    code: number;
-    status: string;
-    data: Array<{ identifier: string; language: string; name: string; englishName: string }>;
-  };
-
-  const response = await fetchJson<EditionsResponse>('/edition?type=translation');
-  const byId = new Map<string, TranslationEdition>();
-  for (const entry of response.data || []) {
-    if (!SUPPORTED_TRANSLATION_LANGUAGES.has(entry.language)) continue;
-    if (!byId.has(entry.identifier)) {
-      byId.set(entry.identifier, {
-        identifier: entry.identifier,
-        language: entry.language,
-        name: entry.name,
-        englishName: entry.englishName,
-      });
+  try {
+    const res = await fetch('/quran-data/translation-editions.json');
+    if (res.ok) {
+      const local = (await res.json()) as TranslationEdition[];
+      if (local?.length) {
+        memoryCache.set(cacheKey, local);
+        setToSession(cacheKey, local);
+        return local;
+      }
     }
+  } catch {
+    /* offline: fallback */
   }
-  const preferredSet = new Set(PREFERRED_TRANSLATION_EDITIONS);
-  const editions = Array.from(byId.values()).sort((a, b) => {
-    const aPref = PREFERRED_TRANSLATION_EDITIONS.indexOf(a.identifier);
-    const bPref = PREFERRED_TRANSLATION_EDITIONS.indexOf(b.identifier);
-    if (aPref >= 0 || bPref >= 0) {
-      if (aPref < 0) return 1;
-      if (bPref < 0) return -1;
-      return aPref - bPref;
+
+  try {
+    type EditionsResponse = {
+      code: number;
+      status: string;
+      data: Array<{ identifier: string; language: string; name: string; englishName: string }>;
+    };
+    const response = await fetchJson<EditionsResponse>('/edition?type=translation');
+    const byId = new Map<string, TranslationEdition>();
+    for (const entry of response.data || []) {
+      if (!SUPPORTED_TRANSLATION_LANGUAGES.has(entry.language)) continue;
+      if (!byId.has(entry.identifier)) {
+        byId.set(entry.identifier, {
+          identifier: entry.identifier,
+          language: entry.language,
+          name: entry.name,
+          englishName: entry.englishName,
+        });
+      }
     }
-    if (a.language !== b.language) return a.language.localeCompare(b.language);
-    return (a.name || a.englishName).localeCompare(b.name || b.englishName);
-  });
-  // Stabile, kurze Liste bevorzugter Editionen zuerst, dann Rest.
-  const compact = [
-    ...editions.filter((e) => preferredSet.has(e.identifier)),
-    ...editions.filter((e) => !preferredSet.has(e.identifier)).slice(0, 20),
-  ];
-  memoryCache.set(cacheKey, compact);
-  setToSession(cacheKey, compact);
-  return compact;
+    const preferredSet = new Set(PREFERRED_TRANSLATION_EDITIONS);
+    const editions = Array.from(byId.values()).sort((a, b) => {
+      const aPref = PREFERRED_TRANSLATION_EDITIONS.indexOf(a.identifier);
+      const bPref = PREFERRED_TRANSLATION_EDITIONS.indexOf(b.identifier);
+      if (aPref >= 0 || bPref >= 0) {
+        if (aPref < 0) return 1;
+        if (bPref < 0) return -1;
+        return aPref - bPref;
+      }
+      if (a.language !== b.language) return a.language.localeCompare(b.language);
+      return (a.name || a.englishName).localeCompare(b.name || b.englishName);
+    });
+    const compact = [
+      ...editions.filter((e) => preferredSet.has(e.identifier)),
+      ...editions.filter((e) => !preferredSet.has(e.identifier)).slice(0, 20),
+    ];
+    memoryCache.set(cacheKey, compact);
+    setToSession(cacheKey, compact);
+    return compact;
+  } catch {
+    const offlineDefault: TranslationEdition[] = PREFERRED_TRANSLATION_EDITIONS.slice(0, 6).map((id) => ({
+      identifier: id,
+      language: id.startsWith('de.') ? 'de' : id.startsWith('en.') ? 'en' : id.startsWith('tr.') ? 'tr' : 'en',
+      name: id,
+      englishName: id,
+    }));
+    memoryCache.set(cacheKey, offlineDefault);
+    setToSession(cacheKey, offlineDefault);
+    return offlineDefault;
+  }
 }
 
 export async function getSurahList(): Promise<SurahMeta[]> {
@@ -202,6 +226,23 @@ export async function getAyahPosition(surahNumber: number, ayahNumber: number): 
   if (cachedSession) {
     memoryCache.set(cacheKey, cachedSession);
     return cachedSession;
+  }
+
+  try {
+    const res = await fetch('/quran-data/ayah-to-page.json');
+    if (res.ok) {
+      const index = (await res.json()) as Record<string, { pageNumber: number; juzNumber: number }>;
+      const key = `${surahNumber}:${ayahNumber}`;
+      const local = index[key];
+      if (local) {
+        const result = { pageNumber: local.pageNumber, juzNumber: local.juzNumber };
+        memoryCache.set(cacheKey, result);
+        setToSession(cacheKey, result);
+        return result;
+      }
+    }
+  } catch {
+    /* offline: fallback to API */
   }
 
   type AyahResponse = {

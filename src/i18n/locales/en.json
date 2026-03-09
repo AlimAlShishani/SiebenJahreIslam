@@ -5,7 +5,11 @@
     "loginFirst": "Please log in online first",
     "noCache": "No cached data. Please load once online to use Hatim offline.",
     "goToQuran": "To Quran Reader",
-    "quranPageLoadError": "The Quran page could not be loaded. Please open the app once online and load a page – then it will work offline too."
+    "quranPageLoadError": "The Quran page could not be loaded. Please open the app once online and load a page – then it will work offline too.",
+    "preloadForOffline": "Prepare Quran for offline",
+    "preloadProgress": "{{current}}/604 pages loaded",
+    "preloadDone": "Done – Quran is available offline",
+    "preloadRunning": "Loading..."
   },
   "versionCheck": {
     "title": "New version available",

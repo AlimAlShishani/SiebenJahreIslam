@@ -92,11 +92,31 @@ async function main() {
   await writeFile(join(baseDir, 'juz-starts.json'), JSON.stringify(juzStarts), 'utf-8');
 
   console.log('Fetching Quran pages 1-604...');
+  const ayahToPage = {};
   for (let p = 1; p <= 604; p++) {
     await delay(150);
-    await fetchAndSavePage(p);
+    const result = await fetchAndSavePage(p);
+    for (const v of result.verses || []) {
+      const key = `${v.surahNumber}:${v.ayahNumber}`;
+      if (!ayahToPage[key]) {
+        ayahToPage[key] = { pageNumber: v.pageNumber, juzNumber: v.juzNumber };
+      }
+    }
     if (p % 50 === 0) console.log(`  ${p}/604 done`);
   }
+
+  console.log('Writing ayah-to-page index...');
+  await writeFile(join(baseDir, 'ayah-to-page.json'), JSON.stringify(ayahToPage), 'utf-8');
+
+  const translationEditions = [
+    { identifier: 'de.aburida', language: 'de', name: 'Abu Rida', englishName: 'Abu Rida' },
+    { identifier: 'de.bubenheim', language: 'de', name: 'Bubenheim', englishName: 'Bubenheim' },
+    { identifier: 'de.khoury', language: 'de', name: 'Khoury', englishName: 'Khoury' },
+    { identifier: 'en.sahih', language: 'en', name: 'Sahih International', englishName: 'Sahih International' },
+    { identifier: 'en.asad', language: 'en', name: 'Asad', englishName: 'Asad' },
+    { identifier: 'tr.diyanet', language: 'tr', name: 'Diyanet', englishName: 'Diyanet' },
+  ];
+  await writeFile(join(baseDir, 'translation-editions.json'), JSON.stringify(translationEditions), 'utf-8');
 
   console.log('Done. Quran data saved to public/quran-data/');
 }
