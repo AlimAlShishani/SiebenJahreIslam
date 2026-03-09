@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
-import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy, ChevronDown, MessageSquare } from 'lucide-react';
+import { User, Save, Mail, Hash, Shield, Bookmark, BookOpen, Copy, ChevronDown, MessageSquare, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 type SavedVerse = {
@@ -140,6 +140,13 @@ export default function Profile() {
               <Shield size={20} /> {t('profile.toAdmin')}
             </Link>
           )}
+
+          <Link
+            to="/changelog"
+            className="w-full bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 font-bold border border-gray-200 dark:border-gray-600"
+          >
+            <FileText size={20} /> {t('changelog.title', 'Changelog')}
+          </Link>
 
           <Link
             to="/feedback"

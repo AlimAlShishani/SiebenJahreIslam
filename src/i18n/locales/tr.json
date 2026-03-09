@@ -11,6 +11,9 @@
     "preloadDone": "Tamam – Kur'an çevrimdışı kullanılabilir",
     "preloadRunning": "Yükleniyor..."
   },
+  "changelog": {
+    "title": "Değişiklik Günlüğü"
+  },
   "versionCheck": {
     "title": "Yeni sürüm mevcut",
     "versionAvailable": "{{version}} sürümü mevcut",

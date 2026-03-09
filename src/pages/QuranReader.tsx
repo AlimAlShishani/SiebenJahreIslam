@@ -2013,6 +2013,11 @@ export default function QuranReader() {
                 const currentVerseId = `${currentVerse.surahNumber}:${currentVerse.ayahNumber}`;
                 const isBookmarked = savedVerses.some((v) => v.id === currentVerseId);
 
+                const isFirstVerseOfSurah = Number(currentVerse.ayahNumber) === 1;
+                const showBismillah = shouldShowSurahBismillah(currentVerse.surahNumber, currentVerse.ayahNumber);
+                const surahMeta = surahs.find((s) => s.number === currentVerse.surahNumber);
+                const surahName = surahMeta?.name ?? `سورة ${currentVerse.surahNumber}`;
+
                 return (
                   <div
                     className={`relative flex flex-1 min-h-0 md:h-[22rem] transition-all duration-300 ease-out ${
@@ -2025,6 +2030,25 @@ export default function QuranReader() {
                       <div ref={verseModeScrollRef} className="flex-1 min-h-0 overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0">
                         <div className="h-full flex flex-col">
                           <div className="flex-1 flex flex-col items-center justify-center text-center">
+                            {isFirstVerseOfSurah && (
+                              <div className="w-full max-w-md mx-auto mb-4 space-y-2">
+                                <div className="rounded-xl border-2 border-emerald-500/60 dark:border-emerald-400/50 bg-white dark:bg-gray-800/80 py-2 px-4">
+                                  <p className="font-bold text-gray-900 dark:text-gray-100 font-quran" dir="rtl" style={{ fontSize: `${Math.max(22, Math.round(fontSize * 0.85))}px` }}>
+                                    {surahName}
+                                  </p>
+                                </div>
+                                {showBismillah && (
+                                  <div className="rounded-lg px-2 py-1">
+                                    <p className="leading-loose font-quran font-bold text-gray-900 dark:text-gray-100" dir="rtl" style={{ fontSize: `${fontSize}px` }}>
+                                      {renderArabicWithPauseMarks(toQuranicSukoon(BISMILLAH_DISPLAY), hidePauseMarks)}
+                                    </p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                      Im Namen Allahs, des Allerbarmers, des Barmherzigen.
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <p
                               className="leading-loose font-quran text-gray-900 dark:text-gray-100"
                               dir="rtl"

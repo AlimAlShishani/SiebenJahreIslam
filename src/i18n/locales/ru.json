@@ -11,6 +11,9 @@
     "preloadDone": "Готово – Коран доступен офлайн",
     "preloadRunning": "Загрузка..."
   },
+  "changelog": {
+    "title": "История изменений"
+  },
   "versionCheck": {
     "title": "Доступна новая версия",
     "versionAvailable": "Версия {{version}} доступна",

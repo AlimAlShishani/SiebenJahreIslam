@@ -4,8 +4,6 @@ import { OfflineProvider } from './context/OfflineContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RecordingProvider } from './context/RecordingContext';
 import { Layout } from './components/Layout';
-import { useVersionCheck } from './hooks/useVersionCheck';
-import { VersionCheckModal } from './components/VersionCheckModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import Login from './pages/Login';
@@ -20,19 +18,11 @@ import BuchstabenUebersicht from './pages/BuchstabenUebersicht';
 import LearnLevel from './pages/LearnLevel';
 import Profile from './pages/Profile';
 import Feedback from './pages/Feedback';
+import Changelog from './pages/Changelog';
 
 function AppContent() {
-  const { updateAvailable, latestVersion, dismiss, reload } = useVersionCheck();
-
   return (
     <>
-      {updateAvailable && (
-        <VersionCheckModal
-          latestVersion={latestVersion}
-          onDismiss={dismiss}
-          onReload={reload}
-        />
-      )}
       <OfflineProvider>
       <AuthProvider>
       <ThemeProvider>
@@ -43,6 +33,7 @@ function AppContent() {
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/entwickler" element={<Entwickler />} />
           <Route path="/android-nutzung" element={<AndroidNutzung />} />
+          <Route path="/changelog" element={<Changelog />} />
           
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>

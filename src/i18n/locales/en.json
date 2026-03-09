@@ -11,6 +11,9 @@
     "preloadDone": "Done – Quran is available offline",
     "preloadRunning": "Loading..."
   },
+  "changelog": {
+    "title": "Changelog"
+  },
   "versionCheck": {
     "title": "New version available",
     "versionAvailable": "Version {{version}} is available",
