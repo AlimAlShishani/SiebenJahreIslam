@@ -2,7 +2,9 @@
   "offline": {
     "banner": "No internet – changes will sync later",
     "onlyQuranAndInstances": "Offline – only Quran and instances available",
-    "loginFirst": "Please log in online first"
+    "loginFirst": "Please log in online first",
+    "noCache": "No cached data. Please load once online to use Hatim offline.",
+    "goToQuran": "To Quran Reader"
   },
   "versionCheck": {
     "title": "New version available",

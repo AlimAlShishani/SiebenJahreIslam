@@ -14,6 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /\.(json|png|jpg|svg|woff2?)$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/verses\.quran\.foundation\/.*/i,

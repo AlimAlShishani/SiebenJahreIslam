@@ -2,7 +2,9 @@
   "offline": {
     "banner": "Kein Internet – Änderungen werden später synchronisiert",
     "onlyQuranAndInstances": "Offline – nur Quran und Instanzen verfügbar",
-    "loginFirst": "Bitte zuerst online einloggen"
+    "loginFirst": "Bitte zuerst online einloggen",
+    "noCache": "Keine gecachten Daten. Bitte einmal online laden, um Hatim offline nutzen zu können.",
+    "goToQuran": "Zum Quran-Reader"
   },
   "versionCheck": {
     "title": "Neue Version verfügbar",

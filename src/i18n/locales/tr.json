@@ -2,7 +2,9 @@
   "offline": {
     "banner": "İnternet yok – değişiklikler daha sonra senkronize edilecek",
     "onlyQuranAndInstances": "Çevrimdışı – sadece Kur'an ve örnekler mevcut",
-    "loginFirst": "Lütfen önce çevrimiçi giriş yapın"
+    "loginFirst": "Lütfen önce çevrimiçi giriş yapın",
+    "noCache": "Önbelleğe alınmış veri yok. Hatim'i çevrimdışı kullanmak için lütfen bir kez çevrimiçi yükleyin.",
+    "goToQuran": "Kur'an Okuyucuya"
   },
   "versionCheck": {
     "title": "Yeni sürüm mevcut",

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
@@ -229,6 +229,7 @@ export default function Quran() {
   const [showPartsWithoutAudioModal, setShowPartsWithoutAudioModal] = useState(false);
   const [partsWithoutAudio, setPartsWithoutAudio] = useState<number[]>([]);
   const [loadingPartsWithoutAudio, setLoadingPartsWithoutAudio] = useState(false);
+  const [offlineNoCache, setOfflineNoCache] = useState(false);
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
@@ -400,6 +401,7 @@ export default function Quran() {
         const cacheKey = getHatimCacheKey(user.id, selectedDateStr);
         const cached = await loadHatimDataFromCache(cacheKey);
         if (cached) {
+          setOfflineNoCache(false);
           setCurrentGroupId(cached.currentGroupId);
           setIsInGroup(cached.isInGroup);
           setIsAdmin(cached.isAdmin);
@@ -416,8 +418,14 @@ export default function Quran() {
           if (quranPageCache) quranPageCache.loadedKey = key;
           return;
         }
+        setOfflineNoCache(true);
+        if (shouldShowLoading) setLoading(false);
+        loadedKeyRef.current = key;
+        firstLoadDoneRef.current = true;
+        return;
       }
 
+      setOfflineNoCache(false);
       // 1. Meine Gruppe: reading_group_members wo user_id = ich
       const { data: myMembership } = await supabase
         .from('reading_group_members')
@@ -1569,6 +1577,20 @@ export default function Quran() {
   const sortedAssignments = visibleAssignments;
 
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
+
+  if (offlineNoCache) {
+    return (
+      <div className="pt-6 md:pt-8 space-y-6 pb-20">
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-8 text-center">
+          <p className="text-amber-800 dark:text-amber-200 mb-4">{t('offline.noCache')}</p>
+          <Link to="/quran" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors">
+            <BookOpen size={20} />
+            {t('offline.goToQuran')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-6 md:pt-8 space-y-8 pb-20 min-w-0 max-w-full overflow-x-hidden">

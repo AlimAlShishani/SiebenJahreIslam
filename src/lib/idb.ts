@@ -1,7 +1,13 @@
 import { openDB, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'nuruna-offline';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
+
+export type SessionCacheEntry = {
+  userId: string;
+  email: string;
+  cachedAt: number;
+};
 
 export type StreakCacheEntry = {
   userId: string;
@@ -47,6 +53,9 @@ function getDB(): Promise<IDBPDatabase> {
       }
       if (!db.objectStoreNames.contains('streak_cache')) {
         db.createObjectStore('streak_cache', { keyPath: 'userId' });
+      }
+      if (!db.objectStoreNames.contains('session_cache')) {
+        db.createObjectStore('session_cache', { keyPath: 'userId' });
       }
     },
   });
@@ -101,4 +110,22 @@ export async function saveStreakCache(userId: string, streak: number): Promise<v
 export async function loadStreakCache(userId: string): Promise<StreakCacheEntry | null> {
   const db = await getDB();
   return (await db.get('streak_cache', userId)) ?? null;
+}
+
+export async function saveSessionCache(userId: string, email: string): Promise<void> {
+  const db = await getDB();
+  await db.put('session_cache', { userId, email, cachedAt: Date.now() });
+}
+
+export async function loadSessionCache(): Promise<SessionCacheEntry | null> {
+  const db = await getDB();
+  const all = await db.getAll('session_cache');
+  if (all.length === 0) return null;
+  const sorted = (all as SessionCacheEntry[]).sort((a, b) => b.cachedAt - a.cachedAt);
+  return sorted[0];
+}
+
+export async function clearSessionCache(): Promise<void> {
+  const db = await getDB();
+  await db.clear('session_cache');
 }
