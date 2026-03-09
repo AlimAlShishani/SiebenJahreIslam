@@ -1,9 +1,10 @@
 /**
  * Fetches all 604 Quran pages (Arabic quran-uthmani + German de.aburida)
  * and saves them to public/quran-data/pages/{page}.json for offline use.
+ * Skips fetch when data already exists (z.B. auf Vercel – vermeidet Rate-Limit 429).
  * Run: node scripts/fetch-quran-data.mjs
  */
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile, readdir } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -68,6 +69,17 @@ async function fetchAndSavePage(pageNumber) {
 async function main() {
   const baseDir = join(__dirname, '..', 'public', 'quran-data');
   await mkdir(OUTPUT_DIR, { recursive: true });
+
+  try {
+    const existing = await readdir(OUTPUT_DIR);
+    const pages = existing.filter((f) => /^\d+\.json$/.test(f));
+    if (pages.length >= 604) {
+      console.log('Quran data already present (' + pages.length + ' pages), skipping fetch.');
+      return;
+    }
+  } catch {
+    /* dir empty or missing */
+  }
 
   console.log('Fetching surah list...');
   const surahRes = await fetchJson('/surah');
