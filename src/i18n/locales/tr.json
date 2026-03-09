@@ -4,7 +4,8 @@
     "onlyQuranAndInstances": "Çevrimdışı – sadece Kur'an ve örnekler mevcut",
     "loginFirst": "Lütfen önce çevrimiçi giriş yapın",
     "noCache": "Önbelleğe alınmış veri yok. Hatim'i çevrimdışı kullanmak için lütfen bir kez çevrimiçi yükleyin.",
-    "goToQuran": "Kur'an Okuyucuya"
+    "goToQuran": "Kur'an Okuyucuya",
+    "quranPageLoadError": "Kur'an sayfası yüklenemedi. Lütfen uygulamayı bir kez çevrimiçi açın ve bir sayfa yükleyin – sonra çevrimdışı da çalışır."
   },
   "versionCheck": {
     "title": "Yeni sürüm mevcut",
@@ -620,7 +621,8 @@
     "page": "Sayfa",
     "back": "Geri",
     "recording": "Kayıt",
-    "loading": "Yükleniyor..."
+    "loading": "Yükleniyor...",
+    "pageLoadError": "Kur'an sayfası yüklenemedi. Lütfen kısa süre sonra tekrar deneyin."
   },
   "admin": {
     "testerFeedback": "Test Geri Bildirimi",

@@ -13,7 +13,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}', '**/quran-data/**/*.json'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /\.(json|png|jpg|svg|woff2?)$/],
         runtimeCaching: [

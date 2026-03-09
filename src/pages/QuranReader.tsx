@@ -1,8 +1,10 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, CheckCircle, Loader2, Mic, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
 import { useRecording } from '../context/RecordingContext';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 import {
@@ -343,7 +345,9 @@ function normalizeAudioUrls(assignment: AssignmentForReader | null): string[] {
 }
 
 export default function QuranReader() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const { isOnline } = useOffline();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -770,7 +774,9 @@ export default function QuranReader() {
         setSelectedJuz(data.juzNumber);
       } catch {
         if (!cancelled) {
-          setErrorMessage('Die Quran-Seite konnte gerade nicht geladen werden. Bitte gleich erneut versuchen.');
+          setErrorMessage(
+            !isOnline ? t('offline.quranPageLoadError') : t('quranReader.pageLoadError')
+          );
           setPageData(null);
         }
       } finally {
