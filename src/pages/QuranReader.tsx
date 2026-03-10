@@ -1506,7 +1506,7 @@ export default function QuranReader() {
                 );
               })}
             </select>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500 opacity-75">
               {t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}
             </p>
           </label>
@@ -1672,7 +1672,7 @@ export default function QuranReader() {
                     );
                   })}
                 </select>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center truncate" title={t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 opacity-75 text-center truncate" title={t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}>
                   {t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}
                 </p>
                 <div className="h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mt-0.5">
@@ -1686,6 +1686,9 @@ export default function QuranReader() {
                 <div className="flex-1 min-w-[5.5rem] rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-2 py-1">
                   <p className="text-[10px] font-medium text-gray-700 dark:text-gray-300 tabular-nums truncate text-center" title={goalConfig.goalLabel}>
                     {goalConfig.goalLabel}
+                  </p>
+                  <p className="text-[9px] text-gray-500 dark:text-gray-400/80 tabular-nums truncate text-center mt-0.5">
+                    {t('quranReader.juzPageRange', { start: goalConfig.goalStartPage, end: goalConfig.goalEndPage })}
                   </p>
                   <div className="h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mt-0.5">
                     <div

@@ -754,7 +754,14 @@ export default function QuranMenu() {
                   <Link to={`/quran/read?slot=${encodeURIComponent(slot.id)}`} className="block">
                     <h2 className="font-bold text-xl drop-shadow-sm">{slot.label}</h2>
                     {slot.goal && (
-                      <div className="text-sm text-white/90 mt-1">{formatGoalLabel(slot.goal)}</div>
+                      <div className="mt-1">
+                        <div className="text-sm text-white/90">{formatGoalLabel(slot.goal)}</div>
+                        {slot.goalStartPage != null && slot.goalEndPage != null && (
+                          <div className="text-xs text-white/70 mt-0.5">
+                            {t('quranReader.juzPageRange', { start: slot.goalStartPage, end: slot.goalEndPage })}
+                          </div>
+                        )}
+                      </div>
                     )}
                     {status ? (
                       <div className="flex justify-between items-baseline gap-2 mt-2 text-sm text-white/95">
