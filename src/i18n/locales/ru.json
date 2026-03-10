@@ -622,6 +622,7 @@
   "quranReader": {
     "settings": "Настройки читалки",
     "verseMode": "Отдельные аяты",
+    "juzPageRange": "Страница {{start}}–{{end}}",
     "flowMode": "Сплошной текст",
     "arabic": "Арабский",
     "translation": "Перевод",

@@ -606,6 +606,7 @@
   "quranReader": {
     "settings": "Reader Einstellungen",
     "verseMode": "Einzelverse",
+    "juzPageRange": "Seite {{start}} bis {{end}}",
     "flowMode": "Fließtext",
     "arabic": "Arabisch",
     "translation": "Übersetzung",

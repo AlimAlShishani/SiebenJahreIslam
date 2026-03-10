@@ -622,6 +622,7 @@
   "quranReader": {
     "settings": "Okuyucu ayarları",
     "verseMode": "Tek ayetler",
+    "juzPageRange": "Sayfa {{start}}–{{end}}",
     "flowMode": "Akış metni",
     "arabic": "Arapça",
     "translation": "Çeviri",

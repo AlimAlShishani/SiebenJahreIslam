@@ -12,6 +12,7 @@ import {
   getDefaultTranslationEdition,
   getDefaultQuranTextEdition,
   getTranslationEditions,
+  getJuzPageRange,
   getJuzStartPage,
   getQuranPage,
   getSurahList,
@@ -1496,12 +1497,18 @@ export default function QuranReader() {
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
             >
-              {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
-                <option key={j} value={j}>
-                  Juz {j}
-                </option>
-              ))}
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => {
+                const { start, end } = getJuzPageRange(j);
+                return (
+                  <option key={j} value={j}>
+                    Juz {j} – {t('quranReader.juzPageRange', { start, end })}
+                  </option>
+                );
+              })}
             </select>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}
+            </p>
           </label>
           )}
           <label className="text-sm text-gray-600 dark:text-gray-300">
@@ -1656,12 +1663,18 @@ export default function QuranReader() {
                   }}
                   className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 text-center"
                 >
-                  {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
-                    <option key={j} value={j}>
-                      Juz {j}
-                    </option>
-                  ))}
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => {
+                    const { start, end } = getJuzPageRange(j);
+                    return (
+                      <option key={j} value={j}>
+                        Juz {j} – {t('quranReader.juzPageRange', { start, end })}
+                      </option>
+                    );
+                  })}
                 </select>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center truncate" title={t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}>
+                  {t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}
+                </p>
                 <div className="h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mt-0.5">
                   <div
                     className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-300"
