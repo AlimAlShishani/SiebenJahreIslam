@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, CheckCircle, Loader2, Mic, Settings } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, CheckCircle, HandHelping, Loader2, Mic, Settings, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
@@ -39,6 +39,7 @@ interface AssignmentForReader {
   end_page: number;
   audio_url: string | null;
   audio_urls?: string[] | null;
+  allowed_audio_user_ids?: string[] | null;
 }
 
 const ARABIC_SUKOON = '\u0652';
@@ -535,6 +536,9 @@ export default function QuranReader() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [assignment, setAssignment] = useState<AssignmentForReader | null>(null);
   const [loadingAssignment, setLoadingAssignment] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  const [delegationModalOpen, setDelegationModalOpen] = useState(false);
+  const [savingDelegation, setSavingDelegation] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedJuzRange, setSelectedJuzRange] = useState<{ start: number; end: number }>({ start: 1, end: 604 });
   const [mobileRecording, setMobileRecording] = useState(false);
@@ -780,7 +784,7 @@ export default function QuranReader() {
       setLoadingAssignment(true);
       const { data, error } = await supabase
         .from('daily_reading_status')
-        .select('id, group_id, date, juz_number, user_id, start_page, end_page, audio_url, audio_urls')
+        .select('id, group_id, date, juz_number, user_id, start_page, end_page, audio_url, audio_urls, allowed_audio_user_ids')
         .eq('id', assignmentId)
         .single();
       if (error || !data) {
@@ -792,6 +796,56 @@ export default function QuranReader() {
     };
     fetchAssignment();
   }, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignment?.group_id || !user?.id) {
+      setGroupMembers([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchMembers = async () => {
+      const { data: memberRows } = await supabase
+        .from('reading_group_members')
+        .select('user_id')
+        .eq('group_id', assignment.group_id!);
+      const memberIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+      if (cancelled || memberIds.length === 0) return;
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', memberIds);
+      if (!cancelled) {
+        setGroupMembers(profiles ?? []);
+      }
+    };
+    void fetchMembers();
+    return () => { cancelled = true; };
+  }, [assignment?.group_id, user?.id]);
+
+  const addDelegation = async (delegatedUserId: string) => {
+    if (!assignment) return;
+    const current = (assignment.allowed_audio_user_ids ?? []) as string[];
+    if (current.includes(delegatedUserId)) return;
+    const next = [...current, delegatedUserId];
+    setSavingDelegation(true);
+    const { error } = await supabase.from('daily_reading_status').update({ allowed_audio_user_ids: next }).eq('id', assignment.id);
+    if (!error) {
+      setAssignment((a) => (a ? { ...a, allowed_audio_user_ids: next } : a));
+    }
+    setSavingDelegation(false);
+  };
+
+  const removeDelegation = async (delegatedUserId: string) => {
+    if (!assignment) return;
+    const current = (assignment.allowed_audio_user_ids ?? []) as string[];
+    const next = current.filter((id) => id !== delegatedUserId);
+    setSavingDelegation(true);
+    const { error } = await supabase.from('daily_reading_status').update({ allowed_audio_user_ids: next }).eq('id', assignment.id);
+    if (!error) {
+      setAssignment((a) => (a ? { ...a, allowed_audio_user_ids: next } : a));
+    }
+    setSavingDelegation(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1497,14 +1551,11 @@ export default function QuranReader() {
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
             >
-              {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => {
-                const { start, end } = getJuzPageRange(j);
-                return (
-                  <option key={j} value={j}>
-                    Juz {j} – {t('quranReader.juzPageRange', { start, end })}
-                  </option>
-                );
-              })}
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
+                <option key={j} value={j}>
+                  Juz {j}
+                </option>
+              ))}
             </select>
             <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500 opacity-75">
               {t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}
@@ -1663,14 +1714,11 @@ export default function QuranReader() {
                   }}
                   className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 text-center"
                 >
-                  {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => {
-                    const { start, end } = getJuzPageRange(j);
-                    return (
-                      <option key={j} value={j}>
-                        Juz {j} – {t('quranReader.juzPageRange', { start, end })}
-                      </option>
-                    );
-                  })}
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
+                    <option key={j} value={j}>
+                      Juz {j}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500 opacity-75 text-center truncate" title={t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}>
                   {t('quranReader.juzPageRange', getJuzPageRange(selectedJuz))}
@@ -1798,7 +1846,19 @@ export default function QuranReader() {
             {loadingAssignment ? (
               <p className="text-xs text-gray-500 dark:text-gray-400">Laden...</p>
             ) : hasAssignmentContext && assignment ? (
-              <ReadingAudioCell
+              <>
+                {assignment.user_id === user?.id && assignment.group_id && (
+                  <button
+                    type="button"
+                    onClick={() => setDelegationModalOpen(true)}
+                    className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
+                    title={t('quran.delegateAudioTitle')}
+                  >
+                    <HandHelping size={12} />
+                    {t('quran.delegateAudio')}
+                  </button>
+                )}
+                <ReadingAudioCell
                 assignmentId={assignment.id}
                 assignmentUserId={assignment.user_id}
                 audioUrls={normalizeAudioUrls(assignment)}
@@ -1809,6 +1869,7 @@ export default function QuranReader() {
                 compact
                 onRecordingChange={(active) => setRecordingContext(active)}
               />
+              </>
             ) : (
               <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                 <p>Öffne den Reader über deinen Part in Hatim.</p>
@@ -2029,10 +2090,11 @@ export default function QuranReader() {
                 const currentVerseId = `${currentVerse.surahNumber}:${currentVerse.ayahNumber}`;
                 const isBookmarked = savedVerses.some((v) => v.id === currentVerseId);
 
-                const isFirstVerseOfSurah = Number(currentVerse.ayahNumber) === 1;
-                const showBismillah = shouldShowSurahBismillah(currentVerse.surahNumber, currentVerse.ayahNumber);
                 const surahMeta = surahs.find((s) => s.number === currentVerse.surahNumber);
                 const surahName = surahMeta?.name ?? `سورة ${currentVerse.surahNumber}`;
+                const isFirstVerseOfSurah = Number(currentVerse.ayahNumber) === 1;
+                const isLastVerseOfSurah = surahMeta ? Number(currentVerse.ayahNumber) === surahMeta.ayahCount : false;
+                const showBismillah = shouldShowSurahBismillah(currentVerse.surahNumber, currentVerse.ayahNumber);
 
                 return (
                   <div
@@ -2072,9 +2134,16 @@ export default function QuranReader() {
                             >
                               {renderArabicWithPauseMarks(arabicText, hidePauseMarks, true)}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                              {currentVerse.surahNumber}:{currentVerse.ayahNumber}
-                            </p>
+                            <div className="mt-2 flex flex-col items-center gap-1">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {currentVerse.surahNumber}:{currentVerse.ayahNumber}
+                              </p>
+                              {isLastVerseOfSurah && !isKahfCompleted && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                                  {t('quranReader.lastVerseOfSurah')}
+                                </span>
+                              )}
+                            </div>
                             {isKahfCompleted && (
                               <div className="mt-3 flex flex-col items-center gap-2">
                                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-sm font-medium">
@@ -2226,6 +2295,17 @@ export default function QuranReader() {
 
       {mobileAudioOpen && hasAssignmentContext && assignment && (
         <div className="md:hidden fixed bottom-[6.75rem] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">
+          {assignment.user_id === user?.id && assignment.group_id && (
+            <button
+              type="button"
+              onClick={() => setDelegationModalOpen(true)}
+              className="mb-2 w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
+              title={t('quran.delegateAudioTitle')}
+            >
+              <HandHelping size={12} />
+              {t('quran.delegateAudio')}
+            </button>
+          )}
           <ReadingAudioCell
             assignmentId={assignment.id}
             assignmentUserId={assignment.user_id}
@@ -2341,6 +2421,69 @@ export default function QuranReader() {
           </div>
         </div>
       </div>
+
+      {/* Modal: Audio-Aufnahme delegieren (Gruppenmitglied auswählen) */}
+      {delegationModalOpen && assignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                {t('quran.delegateModalTitle')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDelegationModalOpen(false)}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
+              {t('quran.delegateModalDesc')}
+            </p>
+            <div className="p-6 overflow-y-auto space-y-2">
+              {groupMembers
+                .filter((u) => u.id !== user?.id)
+                .map((u) => {
+                  const allowed = (assignment.allowed_audio_user_ids ?? []) as string[];
+                  const isAllowed = allowed.includes(u.id);
+                  return (
+                    <div
+                      key={u.id}
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600"
+                    >
+                      <span className="flex-1 text-gray-800 dark:text-gray-200 truncate">
+                        {u.full_name || u.email}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          isAllowed
+                            ? removeDelegation(u.id)
+                            : addDelegation(u.id)
+                        }
+                        disabled={savingDelegation}
+                        className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium ${
+                          isAllowed
+                            ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/70'
+                            : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/70'
+                        } disabled:opacity-50`}
+                      >
+                        {savingDelegation ? <Loader2 size={14} className="animate-spin inline" /> : null}
+                        {isAllowed ? t('quran.delegateRemove') : t('quran.delegateAdd')}
+                      </button>
+                    </div>
+                  );
+                })}
+              {groupMembers.filter((u) => u.id !== user?.id).length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+                  {t('quran.noOneInGroup')}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

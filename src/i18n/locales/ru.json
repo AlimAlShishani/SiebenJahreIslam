@@ -622,6 +622,7 @@
   "quranReader": {
     "settings": "Настройки читалки",
     "verseMode": "Отдельные аяты",
+    "lastVerseOfSurah": "Конец суры",
     "juzPageRange": "Страница {{start}}–{{end}}",
     "flowMode": "Сплошной текст",
     "arabic": "Арабский",

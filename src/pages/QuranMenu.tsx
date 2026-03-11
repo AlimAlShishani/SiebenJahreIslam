@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, BookText, Moon, Sparkles, Plus, Trash2, Pencil, Hourglass } from 'lucide-react';
+import { BookOpen, BookText, Moon, Sparkles, Plus, Trash2, Pencil, Hourglass, HandHelping, X, Loader2 } from 'lucide-react';
 import { getSurahList, type SurahMeta } from '../lib/quranApi';
 import { getKahfWindow, isKahfWindowActiveSync, getKahfRemainingMsSync } from '../lib/maghrib';
 import { useAuth } from '../context/AuthContext';
@@ -268,7 +268,10 @@ export default function QuranMenu() {
 
   const { user } = useAuth();
   const todayStr = toLocalDateString(getEffectiveToday());
-  const [hatimAssignment, setHatimAssignment] = useState<{ start_page: number; end_page: number; juz_number: number } | null>(null);
+  const [hatimAssignment, setHatimAssignment] = useState<{ id: string; group_id: string; start_page: number; end_page: number; juz_number: number; allowed_audio_user_ids?: string[] | null } | null>(null);
+  const [hatimDelegationOpen, setHatimDelegationOpen] = useState(false);
+  const [hatimGroupMembers, setHatimGroupMembers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [hatimSavingDelegation, setHatimSavingDelegation] = useState(false);
   const [slotsSyncLoading, setSlotsSyncLoading] = useState(false);
 
   useEffect(() => {
@@ -323,16 +326,19 @@ export default function QuranMenu() {
       }
       const { data: assignment } = await supabase
         .from('daily_reading_status')
-        .select('start_page, end_page, juz_number')
+        .select('id, group_id, start_page, end_page, juz_number, allowed_audio_user_ids')
         .eq('group_id', gid)
         .eq('user_id', user.id)
         .eq('date', todayStr)
         .maybeSingle();
       if (mounted && assignment) {
         setHatimAssignment({
+          id: assignment.id,
+          group_id: assignment.group_id,
           start_page: assignment.start_page,
           end_page: assignment.end_page,
           juz_number: assignment.juz_number ?? 1,
+          allowed_audio_user_ids: assignment.allowed_audio_user_ids ?? undefined,
         });
       } else if (mounted) {
         setHatimAssignment(null);
@@ -340,6 +346,53 @@ export default function QuranMenu() {
     })();
     return () => { mounted = false; };
   }, [user?.id, todayStr]);
+
+  useEffect(() => {
+    if (!hatimDelegationOpen || !hatimAssignment?.group_id) {
+      setHatimGroupMembers([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: memberRows } = await supabase
+        .from('reading_group_members')
+        .select('user_id')
+        .eq('group_id', hatimAssignment.group_id);
+      const memberIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
+      if (cancelled || memberIds.length === 0) return;
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', memberIds);
+      if (!cancelled) setHatimGroupMembers(profiles ?? []);
+    })();
+    return () => { cancelled = true; };
+  }, [hatimDelegationOpen, hatimAssignment?.group_id]);
+
+  const addHatimDelegation = async (delegatedUserId: string) => {
+    if (!hatimAssignment) return;
+    const current = (hatimAssignment.allowed_audio_user_ids ?? []) as string[];
+    if (current.includes(delegatedUserId)) return;
+    const next = [...current, delegatedUserId];
+    setHatimSavingDelegation(true);
+    const { error } = await supabase.from('daily_reading_status').update({ allowed_audio_user_ids: next }).eq('id', hatimAssignment.id);
+    if (!error) {
+      setHatimAssignment((a) => (a ? { ...a, allowed_audio_user_ids: next } : a));
+    }
+    setHatimSavingDelegation(false);
+  };
+
+  const removeHatimDelegation = async (delegatedUserId: string) => {
+    if (!hatimAssignment) return;
+    const current = (hatimAssignment.allowed_audio_user_ids ?? []) as string[];
+    const next = current.filter((id) => id !== delegatedUserId);
+    setHatimSavingDelegation(true);
+    const { error } = await supabase.from('daily_reading_status').update({ allowed_audio_user_ids: next }).eq('id', hatimAssignment.id);
+    if (!error) {
+      setHatimAssignment((a) => (a ? { ...a, allowed_audio_user_ids: next } : a));
+    }
+    setHatimSavingDelegation(false);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -560,8 +613,23 @@ export default function QuranMenu() {
               <p className="text-sm text-white/90 mt-0.5">{t('quranMenu.hatimDesc')}</p>
               {hatimAssignment && (
                 <div className="mt-3 space-y-1.5">
-                  <div className="text-sm text-white/95 font-medium">
-                    {t('quranMenu.page')} {hatimAssignment.start_page}–{hatimAssignment.end_page}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-white/95 font-medium">
+                      {t('quranMenu.page')} {hatimAssignment.start_page}–{hatimAssignment.end_page}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setHatimDelegationOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors shrink-0"
+                      title={t('quran.delegateAudioTitle')}
+                    >
+                      <HandHelping size={12} />
+                      {t('quran.delegateAudio')}
+                    </button>
                   </div>
                   {lastHatim?.page != null && (
                     <div className="space-y-1">
@@ -596,6 +664,68 @@ export default function QuranMenu() {
               )}
             </div>
           </Link>
+
+          {hatimDelegationOpen && hatimAssignment && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                    {t('quran.delegateModalTitle')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setHatimDelegationOpen(false)}
+                    className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
+                  {t('quran.delegateModalDesc')}
+                </p>
+                <div className="p-6 overflow-y-auto space-y-2">
+                  {hatimGroupMembers
+                    .filter((u) => u.id !== user?.id)
+                    .map((u) => {
+                      const allowed = (hatimAssignment.allowed_audio_user_ids ?? []) as string[];
+                      const isAllowed = allowed.includes(u.id);
+                      return (
+                        <div
+                          key={u.id}
+                          className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600"
+                        >
+                          <span className="flex-1 text-gray-800 dark:text-gray-200 truncate">
+                            {u.full_name || u.email}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              isAllowed
+                                ? removeHatimDelegation(u.id)
+                                : addHatimDelegation(u.id)
+                            }
+                            disabled={hatimSavingDelegation}
+                            className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium ${
+                              isAllowed
+                                ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/70'
+                                : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/70'
+                            } disabled:opacity-50`}
+                          >
+                            {hatimSavingDelegation ? <Loader2 size={14} className="animate-spin inline" /> : null}
+                            {isAllowed ? t('quran.delegateRemove') : t('quran.delegateAdd')}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  {hatimGroupMembers.filter((u) => u.id !== user?.id).length === 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+                      {t('quran.noOneInGroup')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Surah Kahf Licht – VON bis BIS aus Admin */}
           {kahfActive && (

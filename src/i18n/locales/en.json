@@ -622,6 +622,7 @@
   "quranReader": {
     "settings": "Reader settings",
     "verseMode": "Single verses",
+    "lastVerseOfSurah": "End of surah",
     "juzPageRange": "Page {{start}} to {{end}}",
     "flowMode": "Flowing text",
     "arabic": "Arabic",

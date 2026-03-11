@@ -151,7 +151,13 @@
     "openParts": "Offene Parts",
     "allPartsCompleted": "Alle Parts sind erledigt",
     "juz": "Juz",
-    "juzShort": "JUZ"
+    "juzShort": "JUZ",
+    "delegateAudio": "Hilfe",
+    "delegateAudioTitle": "Jemandem erlauben, Audio für deinen Part aufzunehmen",
+    "delegateModalTitle": "Audio-Aufnahme erlauben",
+    "delegateModalDesc": "Wähle ein Gruppenmitglied, das für deinen Part Audio aufnehmen darf.",
+    "delegateAdd": "Erlauben",
+    "delegateRemove": "Entfernen"
   },
   "quranMenu": {
     "title": "Quran Instanzen",
@@ -606,6 +612,7 @@
   "quranReader": {
     "settings": "Reader Einstellungen",
     "verseMode": "Einzelverse",
+    "lastVerseOfSurah": "Ende der Sure",
     "juzPageRange": "Seite {{start}} bis {{end}}",
     "flowMode": "Fließtext",
     "arabic": "Arabisch",

@@ -12,7 +12,7 @@ import {
   syncHatimQueue,
   getHatimCacheKey,
 } from '../lib/hatimOffline';
-import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut, List } from 'lucide-react';
+import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut, List, HandHelping } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
 const VOTE_HOURS = ['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '0', '1', '2'] as const;
@@ -38,6 +38,7 @@ interface DailyAssignment {
   is_completed: boolean;
   audio_url: string | null;
   audio_urls?: string[] | null;
+  allowed_audio_user_ids?: string[] | null;
   profiles: {
     full_name: string | null;
     email: string;
@@ -230,6 +231,8 @@ export default function Quran() {
   const [partsWithoutAudio, setPartsWithoutAudio] = useState<number[]>([]);
   const [loadingPartsWithoutAudio, setLoadingPartsWithoutAudio] = useState(false);
   const [offlineNoCache, setOfflineNoCache] = useState(false);
+  const [delegationModalAssignment, setDelegationModalAssignment] = useState<DailyAssignment | null>(null);
+  const [savingDelegation, setSavingDelegation] = useState(false);
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
     const allowed = new Set<string>(VOTE_OPTIONS);
@@ -1400,8 +1403,62 @@ export default function Quran() {
     }
   };
 
+  const addDelegation = async (assignmentId: string, delegatedUserId: string) => {
+    const a = assignments.find((x) => x.id === assignmentId);
+    if (!a || a.user_id !== user?.id) return;
+    const current = (a.allowed_audio_user_ids ?? []) as string[];
+    if (current.includes(delegatedUserId)) return;
+    const next = [...current, delegatedUserId];
+    setSavingDelegation(true);
+    try {
+      const { error } = await supabase
+        .from('daily_reading_status')
+        .update({ allowed_audio_user_ids: next })
+        .eq('id', assignmentId);
+      if (error) throw error;
+      setAssignments((prev) =>
+        prev.map((x) => (x.id === assignmentId ? { ...x, allowed_audio_user_ids: next } : x))
+      );
+      setDelegationModalAssignment(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingDelegation(false);
+    }
+  };
+
+  const removeDelegation = async (assignmentId: string, delegatedUserId: string) => {
+    const a = assignments.find((x) => x.id === assignmentId);
+    if (!a || a.user_id !== user?.id) return;
+    const current = (a.allowed_audio_user_ids ?? []) as string[];
+    const next = current.filter((id) => id !== delegatedUserId);
+    setSavingDelegation(true);
+    try {
+      const { error } = await supabase
+        .from('daily_reading_status')
+        .update({ allowed_audio_user_ids: next })
+        .eq('id', assignmentId);
+      if (error) throw error;
+      setAssignments((prev) =>
+        prev.map((x) => (x.id === assignmentId ? { ...x, allowed_audio_user_ids: next } : x))
+      );
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingDelegation(false);
+    }
+  };
+
+  const canEditAssignmentAudio = (a: DailyAssignment) => {
+    if (isGroupOwner || a.user_id === user?.id) return true;
+    const allowed = (a.allowed_audio_user_ids ?? []) as string[];
+    return user?.id ? allowed.includes(user.id) : false;
+  };
+
   const appendAssignmentAudio = async (assignmentId: string, assignmentUserId: string, newUrl: string) => {
-    if (!isGroupOwner && assignmentUserId !== user?.id) return;
+    const a = assignments.find((x) => x.id === assignmentId);
+    const canEdit = isGroupOwner || assignmentUserId === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
+    if (!canEdit) return;
     const a = assignments.find((x) => x.id === assignmentId);
     const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
     const next = [...current, newUrl];
@@ -1476,7 +1533,9 @@ export default function Quran() {
   const normalizeUrlForCompare = (url: string) => (url || '').trim().replace(/#.*$/, '').replace(/\?.*$/, '');
 
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
-    if (!isGroupOwner && assignmentUserId !== user?.id) return;
+    const a = assignments.find((x) => x.id === assignmentId);
+    const canEdit = isGroupOwner || assignmentUserId === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
+    if (!canEdit) return;
     const pathToRemove = getAudioPathFromUrl(urlToRemove);
     const urlNorm = normalizeUrlForCompare(urlToRemove);
     try {
@@ -1909,24 +1968,35 @@ export default function Quran() {
                               {t('quran.page')} <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> {t('quran.to')} <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
                             </p>
                             {isMe && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  navigate(
-                                    `/quran/read?assignmentId=${encodeURIComponent(assignment.id)}&startPage=${assignment.start_page}&endPage=${assignment.end_page}&date=${encodeURIComponent(selectedDateStr)}&slot=hatim`
-                                  )
-                                }
-                                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
-                              >
-                                <BookOpen size={14} />
-                                {t('quran.read')}
-                              </button>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigate(
+                                      `/quran/read?assignmentId=${encodeURIComponent(assignment.id)}&startPage=${assignment.start_page}&endPage=${assignment.end_page}&date=${encodeURIComponent(selectedDateStr)}&slot=hatim`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                                >
+                                  <BookOpen size={14} />
+                                  {t('quran.read')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDelegationModalAssignment(assignment)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                  title={t('quran.delegateAudioTitle')}
+                                >
+                                  <HandHelping size={14} />
+                                  {t('quran.delegateAudio')}
+                                </button>
+                              </div>
                             )}
                             <ReadingAudioCell
                               assignmentId={assignment.id}
                               assignmentUserId={assignment.user_id}
                               audioUrls={assignment.audio_urls ?? (assignment.audio_url ? [assignment.audio_url] : [])}
-                              canEdit={isMe || isGroupOwner}
+                              canEdit={canEditAssignmentAudio(assignment)}
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}
                               onDeleted={(url) => removeAssignmentAudioUrl(assignment.id, assignment.user_id, url)}
                               showUploadControls={false}
@@ -1970,6 +2040,69 @@ export default function Quran() {
           </>
         )}
       </div>
+
+      {/* Modal: Audio-Aufnahme delegieren (Hilfe anfragen) */}
+      {delegationModalAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                {t('quran.delegateModalTitle')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDelegationModalAssignment(null)}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
+              {t('quran.delegateModalDesc')}
+            </p>
+            <div className="p-6 overflow-y-auto space-y-2">
+              {users
+                .filter((u) => u.id !== user?.id)
+                .map((u) => {
+                  const allowed = (delegationModalAssignment.allowed_audio_user_ids ?? []) as string[];
+                  const isAllowed = allowed.includes(u.id);
+                  return (
+                    <div
+                      key={u.id}
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600"
+                    >
+                      <span className="flex-1 text-gray-800 dark:text-gray-200 truncate">
+                        {u.full_name || u.email}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          isAllowed
+                            ? removeDelegation(delegationModalAssignment.id, u.id)
+                            : addDelegation(delegationModalAssignment.id, u.id)
+                        }
+                        disabled={savingDelegation}
+                        className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium ${
+                          isAllowed
+                            ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/70'
+                            : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/70'
+                        } disabled:opacity-50`}
+                      >
+                        {savingDelegation ? <Loader2 size={14} className="animate-spin inline" /> : null}
+                        {isAllowed ? t('quran.delegateRemove') : t('quran.delegateAdd')}
+                      </button>
+                    </div>
+                  );
+                })}
+              {users.filter((u) => u.id !== user?.id).length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+                  {t('quran.noOneInGroup')}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Offene Parts (noch nicht erledigt) */}
       {showPartsWithoutAudioModal && (
