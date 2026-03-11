@@ -1419,7 +1419,7 @@ export default function Quran() {
       setAssignments((prev) =>
         prev.map((x) => (x.id === assignmentId ? { ...x, allowed_audio_user_ids: next } : x))
       );
-      setDelegationModalAssignment(null);
+      setDelegationModalAssignment((prev) => (prev?.id === assignmentId ? { ...prev, allowed_audio_user_ids: next } : prev));
     } catch (e) {
       console.error(e);
     } finally {
@@ -1442,6 +1442,7 @@ export default function Quran() {
       setAssignments((prev) =>
         prev.map((x) => (x.id === assignmentId ? { ...x, allowed_audio_user_ids: next } : x))
       );
+      setDelegationModalAssignment((prev) => (prev?.id === assignmentId ? { ...prev, allowed_audio_user_ids: next } : prev));
     } catch (e) {
       console.error(e);
     } finally {
@@ -1966,7 +1967,7 @@ export default function Quran() {
                             <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
                               {t('quran.page')} <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.start_page}</span> {t('quran.to')} <span className="font-bold text-gray-900 dark:text-gray-100">{assignment.end_page}</span>
                             </p>
-                            {isMe && (
+                            {(isMe || canEditAssignmentAudio(assignment)) && (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <button
                                   type="button"
@@ -1980,15 +1981,17 @@ export default function Quran() {
                                   <BookOpen size={14} />
                                   {t('quran.read')}
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDelegationModalAssignment(assignment)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                  title={t('quran.delegateAudioTitle')}
-                                >
-                                  <HandHelping size={14} />
-                                  {t('quran.delegateAudio')}
-                                </button>
+                                {isMe && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDelegationModalAssignment(assignment)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                    title={t('quran.delegateAudioTitle')}
+                                  >
+                                    <HandHelping size={14} />
+                                    {t('quran.delegateAudio')}
+                                  </button>
+                                )}
                               </div>
                             )}
                             <ReadingAudioCell
@@ -1998,7 +2001,7 @@ export default function Quran() {
                               canEdit={canEditAssignmentAudio(assignment)}
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}
                               onDeleted={(url) => removeAssignmentAudioUrl(assignment.id, assignment.user_id, url)}
-                              showUploadControls={false}
+                              showUploadControls={canEditAssignmentAudio(assignment)}
                             />
                           </div>
 
