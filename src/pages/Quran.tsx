@@ -1459,7 +1459,6 @@ export default function Quran() {
     const a = assignments.find((x) => x.id === assignmentId);
     const canEdit = isGroupOwner || assignmentUserId === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
     if (!canEdit) return;
-    const a = assignments.find((x) => x.id === assignmentId);
     const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
     const next = [...current, newUrl];
     try {
