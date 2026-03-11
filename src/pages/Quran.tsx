@@ -1997,6 +1997,7 @@ export default function Quran() {
                             <ReadingAudioCell
                               assignmentId={assignment.id}
                               assignmentUserId={assignment.user_id}
+                              storagePathUserId={canEditAssignmentAudio(assignment) ? user?.id : undefined}
                               audioUrls={assignment.audio_urls ?? (assignment.audio_url ? [assignment.audio_url] : [])}
                               canEdit={canEditAssignmentAudio(assignment)}
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}

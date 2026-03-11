@@ -10,6 +10,8 @@ export interface ReadingAudioCellProps {
   assignmentId: string;
   /** user_id des Assignments – für sichere Storage-Pfade (RLS) */
   assignmentUserId: string;
+  /** User-ID für Storage-Pfad – muss auth.uid() sein (für RLS). Delegierte Nutzer müssen ihren eigenen Ordner nutzen. */
+  storagePathUserId?: string;
   audioUrls: string[];
   canEdit: boolean;
   onSaved: (url: string) => void;
@@ -162,6 +164,7 @@ function SingleAudioPlayer({
 export function ReadingAudioCell({
   assignmentId,
   assignmentUserId,
+  storagePathUserId,
   audioUrls,
   canEdit,
   onSaved,
@@ -265,7 +268,8 @@ export function ReadingAudioCell({
   const startRecording = async () => {
     try {
       cancelRecordingRef.current = false;
-      recordingPathRef.current = `${assignmentUserId}/${assignmentId}_${Date.now()}.webm`;
+      const pathUserId = storagePathUserId ?? assignmentUserId;
+      recordingPathRef.current = `${pathUserId}/${assignmentId}_${Date.now()}.webm`;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const options: MediaRecorderOptions = { audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
@@ -349,7 +353,8 @@ export function ReadingAudioCell({
     setUploading(true);
     try {
       for (let i = 0; i < files.length; i++) {
-        const path = `${assignmentUserId}/${assignmentId}_${Date.now()}_${i}.webm`;
+        const pathUserId = storagePathUserId ?? assignmentUserId;
+        const path = `${pathUserId}/${assignmentId}_${Date.now()}_${i}.webm`;
         const file = files[i];
         const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
         if (error) throw error;

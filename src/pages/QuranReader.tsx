@@ -1865,6 +1865,7 @@ export default function QuranReader() {
                 <ReadingAudioCell
                 assignmentId={assignment.id}
                 assignmentUserId={assignment.user_id}
+                storagePathUserId={canEditAudio ? user?.id : undefined}
                 audioUrls={normalizeAudioUrls(assignment)}
                 canEdit={canEditAudio}
                 onSaved={appendAssignmentAudio}
@@ -2313,6 +2314,7 @@ export default function QuranReader() {
           <ReadingAudioCell
             assignmentId={assignment.id}
             assignmentUserId={assignment.user_id}
+            storagePathUserId={canEditAudio ? user?.id : undefined}
             audioUrls={normalizeAudioUrls(assignment)}
             canEdit={canEditAudio}
             onSaved={appendAssignmentAudio}
@@ -2387,6 +2389,7 @@ export default function QuranReader() {
               <ReadingAudioCell
                 assignmentId={assignment.id}
                 assignmentUserId={assignment.user_id}
+                storagePathUserId={canEditAudio ? user?.id : undefined}
                 audioUrls={normalizeAudioUrls(assignment)}
                 canEdit={canEditAudio}
                 onSaved={appendAssignmentAudio}
