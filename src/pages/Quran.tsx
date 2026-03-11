@@ -2044,7 +2044,9 @@ export default function Quran() {
       </div>
 
       {/* Modal: Audio-Aufnahme delegieren (Hilfe anfragen) */}
-      {delegationModalAssignment && (
+      {delegationModalAssignment && (() => {
+        const assignmentToShow = assignments.find((a) => a.id === delegationModalAssignment.id) ?? delegationModalAssignment;
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
@@ -2066,7 +2068,7 @@ export default function Quran() {
               {users
                 .filter((u) => u.id !== user?.id)
                 .map((u) => {
-                  const allowed = (delegationModalAssignment.allowed_audio_user_ids ?? []) as string[];
+                  const allowed = (assignmentToShow.allowed_audio_user_ids ?? []) as string[];
                   const isAllowed = allowed.includes(u.id);
                   return (
                     <div
@@ -2080,8 +2082,8 @@ export default function Quran() {
                         type="button"
                         onClick={() =>
                           isAllowed
-                            ? removeDelegation(delegationModalAssignment.id, u.id)
-                            : addDelegation(delegationModalAssignment.id, u.id)
+                            ? removeDelegation(assignmentToShow.id, u.id)
+                            : addDelegation(assignmentToShow.id, u.id)
                         }
                         disabled={savingDelegation}
                         className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium ${
@@ -2104,7 +2106,8 @@ export default function Quran() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Modal: Offene Parts (noch nicht erledigt) */}
       {showPartsWithoutAudioModal && (

@@ -554,7 +554,11 @@ export default function QuranReader() {
   const trackingBaselineVerseRef = useRef<string | null>(null);
 
   const hasAssignmentContext = !!assignmentId && !!assignment;
-  const canEditAudio = !!user && !!assignment && (assignment.user_id === user.id || isAdmin);
+  const canEditAudio = !!user && !!assignment && (
+    assignment.user_id === user.id ||
+    isAdmin ||
+    (!!user.id && ((assignment.allowed_audio_user_ids ?? []) as string[]).includes(user.id))
+  );
   const isVerseAllowedInCurrentSlot = (v: QuranVerse) =>
     v.ayahNumber !== 0 &&
     (!isKahfSlot || (v.surahNumber === 18 && v.ayahNumber >= 1 && v.ayahNumber <= 110));
