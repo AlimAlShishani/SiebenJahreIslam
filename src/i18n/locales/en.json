@@ -130,6 +130,7 @@
     "whenCanYouRead": "When can you read? ({{month}} Day {{day}})",
     "yourChoice": "Your choice:",
     "whoVoted": "Who voted what:",
+    "votingClosed": "Voting is closed. You can no longer vote for this day.",
     "todayDistribution": "Today's distribution",
     "distributionForDay": "Distribution for {{month}} Day {{day}}",
     "generateFromVotes": "Generate plan from votes",
@@ -546,6 +547,8 @@
     "0": "12 AM",
     "1": "1 AM",
     "2": "2 AM",
+    "3": "3 AM",
+    "4": "4 AM",
     "nachlesen": "catch up",
     "abgeben": "pass"
   },
@@ -596,7 +599,12 @@
     "confirmLeave": "Really leave group? You will lose access to the shared plan.",
     "confirmTransfer": "Transfer group ownership to {{name}}?",
     "deleteLogEntry": "Delete this activity log entry?",
-    "jumpToJuzTitle": "Jump to Juz {{n}}"
+    "jumpToJuzTitle": "Jump to Juz {{n}}",
+    "votingSettings": "Voting settings",
+    "votingSettingsDesc": "Which times should be available? Catch up and pass are always available.",
+    "votingDeadline": "Voting closes at",
+    "noDeadline": "No deadline",
+    "saveVotingSettings": "Save"
   },
   "activity": {
     "planUpdated": "{{actor}} redistributed the plan",

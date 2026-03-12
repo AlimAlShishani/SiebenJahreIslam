@@ -1836,7 +1836,7 @@ export default function QuranReader() {
       <div
         className={`grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0 ${
           viewLayout === 'verse'
-            ? 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-y-auto max-md:items-stretch max-md:gap-1'
+            ? 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-hidden max-md:items-stretch max-md:gap-1'
             : 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-y-auto max-md:gap-0'
         }`}
       >

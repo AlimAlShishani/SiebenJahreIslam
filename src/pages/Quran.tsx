@@ -16,10 +16,11 @@ import {
 import { BookOpen, Users, Calendar, CheckCircle, RefreshCw, Loader2, X, UserPlus, UserMinus, Settings2, History, Trash2, Mail, LogOut, List, HandHelping } from 'lucide-react';
 import { ReadingAudioCell } from '../components/ReadingAudioCell';
 
+const ALL_VOTE_HOURS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23'] as const;
 const VOTE_HOURS = ['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '0', '1', '2'] as const;
-const VOTE_OPTIONS = [...VOTE_HOURS, 'nachlesen', 'abgeben'] as const;
+const VOTE_OPTIONS = [...ALL_VOTE_HOURS, 'nachlesen', 'abgeben'] as const;
 type VoteValue = typeof VOTE_OPTIONS[number];
-const VOTE_ORDER: VoteValue[] = [...VOTE_HOURS, 'nachlesen', 'abgeben'];
+const VOTE_ORDER: VoteValue[] = [...ALL_VOTE_HOURS, 'nachlesen', 'abgeben'];
 
 interface DailyReadingVote {
   id: string;
@@ -185,7 +186,7 @@ export default function Quran() {
   const [isInGroup, setIsInGroup] = useState(() => quranPageCache?.isInGroup ?? false);
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>(() => quranPageCache?.groupMemberIds ?? []);
   const [currentGroupId, setCurrentGroupId] = useState<string | null>(() => quranPageCache?.currentGroupId ?? null);
-  const [currentGroup, setCurrentGroup] = useState<{ id: string; name: string | null; owner_id: string } | null>(null);
+  const [currentGroup, setCurrentGroup] = useState<{ id: string; name: string | null; owner_id: string; vote_options?: string[]; vote_deadline_minutes?: number | null } | null>(null);
   const [isGroupOwner, setIsGroupOwner] = useState(false);
   const [loading, setLoading] = useState(() => !quranPageCache);
   const [generating, setGenerating] = useState(false);
@@ -234,9 +235,12 @@ export default function Quran() {
   const [offlineNoCache, setOfflineNoCache] = useState(false);
   const [delegationModalAssignment, setDelegationModalAssignment] = useState<DailyAssignment | null>(null);
   const [savingDelegation, setSavingDelegation] = useState(false);
+  const [editingVoteOptions, setEditingVoteOptions] = useState<string[]>([]);
+  const [editingVoteDeadline, setEditingVoteDeadline] = useState<number | null>(null);
+  const [savingVotingSettings, setSavingVotingSettings] = useState(false);
 
   const normalizeVoteSelections = (value: unknown): VoteValue[] => {
-    const allowed = new Set<string>(VOTE_OPTIONS);
+    const allowed = new Set<string>([...ALL_VOTE_HOURS, 'nachlesen', 'abgeben']);
     if (Array.isArray(value)) {
       return value.filter((v): v is VoteValue => typeof v === 'string' && allowed.has(v));
     }
@@ -441,7 +445,7 @@ export default function Quran() {
       const userInGroup = !!gid && !!user?.id;
       setIsInGroup(userInGroup);
 
-      let groupRow: { id: string; name: string | null; owner_id: string } | null = null;
+      let groupRow: { id: string; name: string | null; owner_id: string; vote_options?: string[]; vote_deadline_minutes?: number | null } | null = null;
       let memberIds: string[] = [];
       let usersWithLang: { id: string; email: string; full_name: string | null; role: string; reader_language: string | null }[] = [];
       let assignmentsData: any[] | null = null;
@@ -456,7 +460,7 @@ export default function Quran() {
       } else {
         const { data: gr } = await supabase
           .from('reading_groups')
-          .select('id, name, owner_id')
+          .select('id, name, owner_id, vote_options, vote_deadline_minutes')
           .eq('id', gid)
           .single();
         groupRow = gr ?? null;
@@ -855,6 +859,8 @@ export default function Quran() {
     setShowManageGroupModal(true);
     setGroupSearchQuery('');
     setGroupSearchResults([]);
+    setEditingVoteOptions(currentGroup?.vote_options ?? [...VOTE_HOURS]);
+    setEditingVoteDeadline(currentGroup?.vote_deadline_minutes ?? null);
     try {
       const { data: invs } = await supabase
         .from('reading_group_invitations')
@@ -936,6 +942,34 @@ export default function Quran() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const saveVotingSettings = async () => {
+    if (!currentGroupId || !isGroupOwner) return;
+    setSavingVotingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('reading_groups')
+        .update({
+          vote_options: editingVoteOptions.length > 0 ? editingVoteOptions : [...VOTE_HOURS],
+          vote_deadline_minutes: editingVoteDeadline,
+        })
+        .eq('id', currentGroupId)
+        .eq('owner_id', user?.id);
+      if (error) throw error;
+      await fetchData();
+      setCurrentGroup((g) => g ? { ...g, vote_options: editingVoteOptions, vote_deadline_minutes: editingVoteDeadline } : null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingVotingSettings(false);
+    }
+  };
+
+  const toggleVoteHour = (hour: string) => {
+    setEditingVoteOptions((prev) =>
+      prev.includes(hour) ? prev.filter((h) => h !== hour) : [...prev, hour].sort((a, b) => Number(a) - Number(b))
+    );
   };
 
   const totalPagesForJuz = getJuzPageInfo(selectedRamadanDay).length;
@@ -1314,8 +1348,25 @@ export default function Quran() {
   };
   const myVotes = votesForDay.find((v) => v.user_id === user?.id)?.vote ?? [];
 
+  const effectiveVoteHours = useMemo((): VoteValue[] => {
+    const opts = currentGroup?.vote_options;
+    if (!opts || opts.length === 0) return [...VOTE_HOURS];
+    const valid = opts.filter((h): h is VoteValue => ALL_VOTE_HOURS.includes(h as typeof ALL_VOTE_HOURS[number])) as VoteValue[];
+    return valid.length > 0 ? valid : [...VOTE_HOURS];
+  }, [currentGroup?.vote_options]);
+
+  const isVotingClosed = useMemo(() => {
+    const deadline = currentGroup?.vote_deadline_minutes;
+    if (selectedDateStr < todayLocalDate) return true;
+    if (selectedDateStr > todayLocalDate) return false;
+    if (deadline == null) return false;
+    const now = new Date();
+    const minsSinceMidnight = now.getHours() * 60 + now.getMinutes();
+    return minsSinceMidnight >= deadline;
+  }, [currentGroup?.vote_deadline_minutes, selectedDateStr, todayLocalDate]);
+
   const saveVote = async (vote: VoteValue) => {
-    if (!user?.id) return;
+    if (!user?.id || isVotingClosed) return;
     setSavingVote(true);
     try {
       let nextVotes: VoteValue[];
@@ -1815,19 +1866,24 @@ export default function Quran() {
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-3">
             {t('quran.whenCanYouRead', { month: islamicMonthInfo.monthName, day: selectedRamadanDay })}
           </h3>
+          {isVotingClosed && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/30 px-3 py-2">
+              {t('quran.votingClosed')}
+            </p>
+          )}
           <div className="space-y-2 mb-3">
             <div className="flex flex-wrap gap-2">
-              {VOTE_HOURS.map((opt) => (
+              {effectiveVoteHours.map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => saveVote(opt)}
-                  disabled={savingVote}
+                  disabled={savingVote || isVotingClosed}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     myVotes.includes(opt)
                       ? 'bg-emerald-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  } ${isVotingClosed ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   {formatVoteLabel(opt)}
                 </button>
@@ -1839,12 +1895,12 @@ export default function Quran() {
                   key={opt}
                   type="button"
                   onClick={() => saveVote(opt)}
-                  disabled={savingVote}
+                  disabled={savingVote || isVotingClosed}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     myVotes.includes(opt)
                       ? 'bg-emerald-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  } ${isVotingClosed ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   {formatVoteLabel(opt)}
                 </button>
@@ -2489,6 +2545,47 @@ export default function Quran() {
                     })}
                   </div>
                 )}
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">{t('group.votingSettings')}</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t('group.votingSettingsDesc')}</p>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {ALL_VOTE_HOURS.map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => toggleVoteHour(h)}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        editingVoteOptions.includes(h)
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {formatVoteLabel(h)}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-sm text-gray-600 dark:text-gray-300">{t('group.votingDeadline')}</label>
+                  <select
+                    value={editingVoteDeadline ?? ''}
+                    onChange={(e) => setEditingVoteDeadline(e.target.value === '' ? null : Number(e.target.value))}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                  >
+                    <option value="">{t('group.noDeadline')}</option>
+                    {[18, 19, 20, 21, 22, 23].map((h) => (
+                      <option key={h} value={h * 60}>{`${h}:00`}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={saveVotingSettings}
+                  disabled={savingVotingSettings}
+                  className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 disabled:opacity-50"
+                >
+                  {savingVotingSettings ? <Loader2 size={14} className="animate-spin inline" /> : null} {t('group.saveVotingSettings')}
+                </button>
               </div>
               <div>
                 <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">{t('group.members')}</h4>

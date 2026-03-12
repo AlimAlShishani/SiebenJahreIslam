@@ -130,6 +130,7 @@
     "whenCanYouRead": "Wann kannst du lesen? ({{month}} Tag {{day}})",
     "yourChoice": "Deine Wahl:",
     "whoVoted": "Wer hat was gewählt:",
+    "votingClosed": "Das Voting ist geschlossen. Du kannst für diesen Tag nicht mehr abstimmen.",
     "todayDistribution": "Heutige Aufteilung",
     "distributionForDay": "Aufteilung für {{month}} Tag {{day}}",
     "generateFromVotes": "Plan aus Votes erzeugen",
@@ -536,6 +537,8 @@
     "0": "0 Uhr",
     "1": "1 Uhr",
     "2": "2 Uhr",
+    "3": "3 Uhr",
+    "4": "4 Uhr",
     "nachlesen": "nachlesen",
     "abgeben": "abgeben"
   },
@@ -586,7 +589,12 @@
     "confirmLeave": "Gruppe wirklich verlassen? Du verlierst den Zugriff auf den gemeinsamen Plan.",
     "confirmTransfer": "{{name}} die Gruppenleitung übertragen?",
     "deleteLogEntry": "Diesen Activity-Log-Eintrag löschen?",
-    "jumpToJuzTitle": "Zu Juz {{n}} springen"
+    "jumpToJuzTitle": "Zu Juz {{n}} springen",
+    "votingSettings": "Voting-Einstellungen",
+    "votingSettingsDesc": "Welche Uhrzeiten sollen zur Auswahl stehen? Nachholen und Abgeben bleiben immer.",
+    "votingDeadline": "Voting schließt um",
+    "noDeadline": "Kein Deadline",
+    "saveVotingSettings": "Speichern"
   },
   "activity": {
     "planUpdated": "{{actor}} hat den Plan neu verteilt",

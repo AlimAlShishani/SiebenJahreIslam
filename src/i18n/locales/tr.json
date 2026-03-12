@@ -130,6 +130,7 @@
     "whenCanYouRead": "Ne zaman okuyabilirsiniz? ({{month}} Gün {{day}})",
     "yourChoice": "Seçiminiz:",
     "whoVoted": "Kim ne oy verdi:",
+    "votingClosed": "Oy verme kapandı. Bu gün için artık oy veremezsiniz.",
     "todayDistribution": "Bugünün dağıtımı",
     "distributionForDay": "{{month}} Gün {{day}} için dağıtım",
     "generateFromVotes": "Oy'lardan plan oluştur",
@@ -546,6 +547,8 @@
     "0": "0 saat",
     "1": "1 saat",
     "2": "2 saat",
+    "3": "3 saat",
+    "4": "4 saat",
     "nachlesen": "sonra oku",
     "abgeben": "geç"
   },
@@ -596,7 +599,12 @@
     "confirmLeave": "Gerçekten gruptan ayrılsın mı? Ortak plana erişimi kaybedersiniz.",
     "confirmTransfer": "Grup sahipliği {{name}}'e devredilsin mi?",
     "deleteLogEntry": "Bu aktivite günlüğü kaydı silinsin mi?",
-    "jumpToJuzTitle": "Cüz {{n}}'e git"
+    "jumpToJuzTitle": "Cüz {{n}}'e git",
+    "votingSettings": "Oy ayarları",
+    "votingSettingsDesc": "Hangi saatler seçilebilir olmalı? Sonra okumak ve geçmek her zaman mevcut.",
+    "votingDeadline": "Oy verme kapanış saati",
+    "noDeadline": "Son tarih yok",
+    "saveVotingSettings": "Kaydet"
   },
   "activity": {
     "planUpdated": "{{actor}} planı yeniden dağıttı",
