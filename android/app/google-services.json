@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "899232279508",
+    "project_id": "nuruna",
+    "storage_bucket": "nuruna.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899232279508:android:9e099728004e153345c441",
+        "android_client_info": {
+          "package_name": "net.nuruna.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHNt3sq67lbhXOV6bbmFTa_ysw6obziHU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

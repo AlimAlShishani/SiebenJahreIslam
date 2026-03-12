@@ -94,9 +94,13 @@ async function ensureFcmSubscription(userId: string): Promise<void> {
   }
 }
 
+/** Nur 'true' wenn Firebase (google-services.json) konfiguriert ist – sonst Crash bei register() */
+const NATIVE_PUSH_ENABLED = import.meta.env.VITE_ENABLE_NATIVE_PUSH === 'true';
+
 export const ensurePushSubscription = async (userId: string) => {
   if (typeof window === 'undefined') return;
   if (Capacitor.isNativePlatform()) {
+    if (!NATIVE_PUSH_ENABLED) return; // Ohne google-services.json crasht register()
     await ensureFcmSubscription(userId);
   } else {
     await ensureWebPushSubscription(userId);

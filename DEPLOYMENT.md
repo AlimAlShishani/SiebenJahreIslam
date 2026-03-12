@@ -86,15 +86,103 @@ npm run cap:android   # Android Studio öffnen
 2. Passwörter eintragen (nicht committen – in .gitignore)
 3. `android.keystore` im Projektroot (wie bei TWA)
 
-### Firebase / Push (native)
+### Firebase / Push (native) – Schritt-für-Schritt
 
-1. [Firebase Console](https://console.firebase.google.com) → Projekt → Android-App hinzufügen (Package: `net.nuruna.app`)
-2. `google-services.json` herunterladen → `android/app/google-services.json`
-3. Supabase Edge Function Secrets setzen:
-   - `FCM_PROJECT_ID` (aus google-services.json: project_id)
-   - `FCM_CLIENT_EMAIL` (aus Firebase Service Account JSON)
-   - `FCM_PRIVATE_KEY` (aus Service Account JSON, mit \n für Zeilenumbrüche)
-4. Migration `sql/45_push_fcm_token.sql` ausführen
+**Ohne Firebase:** Die App crasht bei Zulassen von Benachrichtigungen, wenn `google-services.json` fehlt. FCM wird daher nur ausgeführt, wenn `VITE_ENABLE_NATIVE_PUSH=true` gesetzt ist.
+
+---
+
+#### Teil A: Firebase-Projekt und Android-App
+
+1. **Firebase Console öffnen**  
+   [https://console.firebase.google.com](https://console.firebase.google.com)
+
+2. **Projekt erstellen** (falls noch keins existiert)
+   - „Projekt hinzufügen“ → Name z.B. „Nuruna“
+   - Google Analytics optional (kann deaktiviert werden)
+   - „Projekt erstellen“
+
+3. **Android-App registrieren**
+   - Im Projekt: Zahnrad → **Projekteinstellungen**
+   - Unter „Deine Apps“: **Android-Symbol** (oder „App hinzufügen“)
+   - **Paketname:** `net.nuruna.app` (muss exakt so sein)
+   - App-Nickname optional (z.B. „Nuruna Android“)
+   - „App registrieren“
+
+4. **google-services.json herunterladen**
+   - Nach der Registrierung erscheint ein Download-Button
+   - Datei herunterladen und nach `android/app/google-services.json` kopieren  
+     (nicht in `android/`, sondern in `android/app/`)
+
+5. **In `.env` hinzufügen:**
+   ```
+   VITE_ENABLE_NATIVE_PUSH=true
+   ```
+
+6. **App neu bauen:**
+   ```bash
+   npm run cap:sync
+   ```
+   Dann in Android Studio die APK neu bauen.
+
+---
+
+#### Teil B: Service Account für Supabase (FCM-Benachrichtigungen senden)
+
+Damit Supabase Push-Benachrichtigungen an Android-Geräte schicken kann, braucht die Edge Function Zugriff auf Firebase.
+
+1. **Firebase Console** → Zahnrad → **Projekteinstellungen** → Tab **Dienstkonten**
+
+2. **„Neuen privaten Schlüssel erstellen“** klicken  
+   → Bestätigen → JSON-Datei wird heruntergeladen
+
+3. **JSON-Datei öffnen** und folgende Werte notieren:
+   - `project_id` → wird zu **FCM_PROJECT_ID**
+   - `client_email` → wird zu **FCM_CLIENT_EMAIL**
+   - `private_key` → wird zu **FCM_PRIVATE_KEY** (siehe Hinweis unten)
+
+4. **FCM_PRIVATE_KEY formatieren:**  
+   Der `private_key` enthält Zeilenumbrüche. In Supabase müssen diese als `\n` (zwei Zeichen: Backslash + n) gespeichert werden.  
+   Beispiel: Statt
+   ```
+   -----BEGIN PRIVATE KEY-----
+   MIIEvQIBADANBg...
+   -----END PRIVATE KEY-----
+   ```
+   wird es zu einer Zeile: `"-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...\n-----END PRIVATE KEY-----\n"`  
+   (echte Zeilenumbrüche durch `\n` ersetzen)
+
+5. **Supabase Secrets setzen**  
+   Supabase Dashboard → **Edge Functions** → **Secrets** (oder per CLI):
+   ```bash
+   supabase secrets set FCM_PROJECT_ID="dein-project-id"
+   supabase secrets set FCM_CLIENT_EMAIL="firebase-adminsdk-xxxxx@dein-projekt.iam.gserviceaccount.com"
+   supabase secrets set FCM_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
+   ```
+
+6. **Migration ausführen**  
+   Supabase SQL Editor → Inhalt von `sql/45_push_fcm_token.sql` einfügen und ausführen
+
+7. **Edge Function deployen** (falls noch nicht geschehen):
+   ```bash
+   supabase functions deploy send-push-notification --no-verify-jwt
+   ```
+
+---
+
+#### Checkliste
+
+| Schritt | Erledigt |
+|--------|----------|
+| Firebase-Projekt erstellt | ☐ |
+| Android-App mit Paket `net.nuruna.app` registriert | ☐ |
+| `google-services.json` in `android/app/` | ☐ |
+| `VITE_ENABLE_NATIVE_PUSH=true` in `.env` | ☐ |
+| `npm run cap:sync` + APK neu gebaut | ☐ |
+| Service-Account-JSON heruntergeladen | ☐ |
+| FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY in Supabase | ☐ |
+| Migration `45_push_fcm_token.sql` ausgeführt | ☐ |
+| Edge Function deployed | ☐ |
 
 ### iOS (später)
 
