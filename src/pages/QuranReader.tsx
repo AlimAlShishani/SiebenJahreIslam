@@ -1699,7 +1699,7 @@ export default function QuranReader() {
         </div>
       </div>
 
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 safe-area-top">
         <div className="px-3 pt-2 pb-2">
           <div className="flex items-center gap-2">
             <button
@@ -1836,8 +1836,8 @@ export default function QuranReader() {
       <div
         className={`grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0 ${
           viewLayout === 'verse'
-            ? 'max-md:absolute max-md:inset-x-0 max-md:top-[112px] max-md:bottom-[72px] max-md:px-2 max-md:overflow-y-auto max-md:items-stretch max-md:gap-1'
-            : 'max-md:absolute max-md:inset-x-0 max-md:top-[112px] max-md:bottom-[72px] max-md:px-2 max-md:overflow-y-auto max-md:gap-0'
+            ? 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-y-auto max-md:items-stretch max-md:gap-1'
+            : 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-y-auto max-md:gap-0'
         }`}
       >
         <aside className="hidden md:block space-y-4 h-fit lg:sticky lg:top-4">
@@ -2302,7 +2302,7 @@ export default function QuranReader() {
       </div>
 
       {mobileAudioOpen && hasAssignmentContext && assignment && (
-        <div className="md:hidden fixed bottom-[6.75rem] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">
+        <div className="md:hidden fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">
           {assignment.user_id === user?.id && assignment.group_id && (
             <button
               type="button"
@@ -2329,7 +2329,7 @@ export default function QuranReader() {
         </div>
       )}
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex justify-start items-end">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex justify-start items-end safe-area-bottom">
         {/* Bottom-Bar: Vorheriger | Arabisch | Übersetzung | Nächster | Aufnahme – 1/6 + 1/4 + 1/4 + 1/6 + 1/6, gap-0 */}
         <div className="flex items-end gap-0 pointer-events-auto w-full">
           {/* Vorheriger Vers: 1/6 */}
