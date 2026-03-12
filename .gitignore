@@ -6,8 +6,9 @@
 # Supabase
 supabase/.temp/
 
-# Android / TWA
+# Android / TWA / Capacitor
 android.keystore
+keystore.properties
 *.apk
 !app-release-signed.apk
 *.aab

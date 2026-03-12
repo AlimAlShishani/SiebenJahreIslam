@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Nuruna</string>
+    <string name="title_activity_main">Nuruna</string>
+    <string name="package_name">net.nuruna.app</string>
+    <string name="custom_url_scheme">net.nuruna.app</string>
+</resources>

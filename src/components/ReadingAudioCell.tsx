@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { hapticLight } from '../lib/haptics';
 import { ChevronDown, ChevronUp, Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward, Send } from 'lucide-react';
 
 const BUCKET = 'reading-audio';
@@ -324,6 +325,7 @@ export function ReadingAudioCell({
   };
 
   const sendRecording = () => {
+    void hapticLight();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setRecording(false);

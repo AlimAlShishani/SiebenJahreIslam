@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from './supabase';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
@@ -11,10 +13,9 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
-export const ensurePushSubscription = async (userId: string) => {
-  if (typeof window === 'undefined') return;
+/** Web Push: Service Worker + VAPID */
+async function ensureWebPushSubscription(userId: string): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return;
-
   let permission = Notification.permission;
   if (permission === 'default') {
     permission = await Notification.requestPermission();
@@ -24,11 +25,9 @@ export const ensurePushSubscription = async (userId: string) => {
     console.warn('Missing VITE_VAPID_PUBLIC_KEY: push subscription skipped.');
     return;
   }
-
   const registration = await navigator.serviceWorker.register('/push-sw.js');
   const ready = await navigator.serviceWorker.ready;
   if (!ready.active && !registration.active) return;
-
   let subscription = await ready.pushManager.getSubscription();
   if (!subscription) {
     subscription = await ready.pushManager.subscribe({
@@ -36,13 +35,11 @@ export const ensurePushSubscription = async (userId: string) => {
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
   }
-
   const json = subscription.toJSON();
   const endpoint = json.endpoint;
   const p256dh = json.keys?.p256dh;
   const auth = json.keys?.auth;
   if (!endpoint || !p256dh || !auth) return;
-
   const { error } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: userId,
@@ -54,8 +51,41 @@ export const ensurePushSubscription = async (userId: string) => {
     },
     { onConflict: 'endpoint' }
   );
-  if (error) {
-    console.error('Error saving push subscription:', error);
+  if (error) console.error('Error saving push subscription:', error);
+}
+
+/** Native (Capacitor): FCM Token */
+async function ensureFcmSubscription(userId: string): Promise<void> {
+  try {
+    const perm = await PushNotifications.requestPermissions();
+    if (perm.receive !== 'granted') return;
+    const { token } = await PushNotifications.register();
+    if (!token) return;
+    const fcmEndpoint = `fcm:${userId}`;
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      {
+        user_id: userId,
+        endpoint: fcmEndpoint,
+        p256dh: '',
+        auth: '',
+        fcm_token: token,
+        user_agent: navigator.userAgent,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'endpoint' }
+    );
+    if (error) console.error('Error saving FCM subscription:', error);
+  } catch (e) {
+    console.error('FCM registration failed:', e);
+  }
+}
+
+export const ensurePushSubscription = async (userId: string) => {
+  if (typeof window === 'undefined') return;
+  if (Capacitor.isNativePlatform()) {
+    await ensureFcmSubscription(userId);
+  } else {
+    await ensureWebPushSubscription(userId);
   }
 };
 

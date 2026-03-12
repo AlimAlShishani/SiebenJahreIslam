@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { triggerPushForActivity } from '../lib/pushNotifications';
+import { hapticLight } from '../lib/haptics';
 import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
 import {
@@ -1378,6 +1379,7 @@ export default function Quran() {
   };
 
   const toggleCompletion = async (assignmentId: string, currentStatus: boolean) => {
+    void hapticLight();
     try {
       const nextStatus = !currentStatus;
       if (!navigator.onLine) {

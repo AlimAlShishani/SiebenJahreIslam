@@ -71,7 +71,42 @@ Damit der Login auf der neuen Seite geht:
 4. Supabase Edge Function deployen (mit --no-verify-jwt, da wir Publishable/Secret Keys nutzen):
    - `supabase functions deploy send-push-notification --no-verify-jwt`
 
-## TWA/APK: App ohne Browser-Leiste (Digital Asset Links)
+## Capacitor (Android/iOS Native App)
+
+Die App nutzt Capacitor statt Bubblewrap/TWA. Build-Befehle:
+
+```bash
+npm run cap:sync      # Web bauen und in native Projekte kopieren
+npm run cap:android   # Android Studio öffnen
+```
+
+### Android Signing
+
+1. `keystore.properties.example` nach `keystore.properties` kopieren
+2. Passwörter eintragen (nicht committen – in .gitignore)
+3. `android.keystore` im Projektroot (wie bei TWA)
+
+### Firebase / Push (native)
+
+1. [Firebase Console](https://console.firebase.google.com) → Projekt → Android-App hinzufügen (Package: `net.nuruna.app`)
+2. `google-services.json` herunterladen → `android/app/google-services.json`
+3. Supabase Edge Function Secrets setzen:
+   - `FCM_PROJECT_ID` (aus google-services.json: project_id)
+   - `FCM_CLIENT_EMAIL` (aus Firebase Service Account JSON)
+   - `FCM_PRIVATE_KEY` (aus Service Account JSON, mit \n für Zeilenumbrüche)
+4. Migration `sql/45_push_fcm_token.sql` ausführen
+
+### iOS (später)
+
+```bash
+npx cap add ios
+```
+
+Erfordert Mac mit Xcode und Apple Developer Account.
+
+---
+
+## TWA/APK (veraltet – durch Capacitor ersetzt): App ohne Browser-Leiste (Digital Asset Links)
 
 Damit die installierte APK wie eine echte App wirkt (ohne Adresszeile, ohne Browser-UI), muss die Website **Digital Asset Links** bereitstellen. Ohne diese Verknüpfung zeigt Chrome die Browser-Oberfläche.
 

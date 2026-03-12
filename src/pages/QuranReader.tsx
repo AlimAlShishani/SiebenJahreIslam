@@ -24,6 +24,7 @@ import {
   type TranslationEdition,
 } from '../lib/quranApi';
 import { triggerPushForActivity } from '../lib/pushNotifications';
+import { hapticLight } from '../lib/haptics';
 import { getKahfWindow, isKahfWindowActiveSync } from '../lib/maghrib';
 import { getSlotGoalConfig } from '../lib/slots';
 import { calculatePageProgress } from '../lib/readingGoal';
@@ -1450,6 +1451,7 @@ export default function QuranReader() {
   }, [goalConfig, currentPage, activeVerseIndex, totalVersesInPage]);
 
   const goToPreviousVerse = () => {
+    void hapticLight();
     if (!visibleVerses.length) return;
     if (activeVerseIndex <= 0) {
       if (currentPage > effectiveStartPage) {
@@ -1469,6 +1471,7 @@ export default function QuranReader() {
   };
 
   const goToNextVerse = () => {
+    void hapticLight();
     if (!visibleVerses.length) return;
     const active = visibleVerses[activeVerseIndex];
     if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
