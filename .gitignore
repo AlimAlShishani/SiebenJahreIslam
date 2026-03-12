@@ -10,7 +10,7 @@ supabase/.temp/
 android.keystore
 keystore.properties
 *.apk
-!app-release-signed.apk
+!app-debug.apk
 *.aab
 *.idsig
 .gradle/
