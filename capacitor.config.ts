@@ -1,3 +1,4 @@
+/// <reference types="@capacitor-community/safe-area" />
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -6,6 +7,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     // androidScheme: 'https' für Deep Links (optional)
+  },
+  plugins: {
+    SystemBars: { insetsHandling: 'disable' },
   },
 };
 

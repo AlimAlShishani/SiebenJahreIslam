@@ -194,7 +194,7 @@ export const Layout = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors safe-area-top">
       {!isOnline && (
         <div className="bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100 px-4 py-2 flex items-center gap-2 text-sm font-medium">
           <WifiOff size={16} className="shrink-0" />
@@ -249,7 +249,7 @@ export const Layout = () => {
         <Outlet />
       </main>
 
-      <nav className={`bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 left-0 right-0 z-50 w-full ${hideMobileChromeForReader ? 'max-md:hidden' : ''}`}>
+      <nav className={`bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 left-0 right-0 z-50 w-full safe-area-bottom ${hideMobileChromeForReader ? 'max-md:hidden' : ''}`}>
         <div className="container mx-auto px-4">
           <ul className="flex justify-around md:justify-center md:gap-8 py-3">
             <li>
