@@ -59,7 +59,21 @@ async function ensureFcmSubscription(userId: string): Promise<void> {
   try {
     const perm = await PushNotifications.requestPermissions();
     if (perm.receive !== 'granted') return;
-    const { token } = await PushNotifications.register();
+    let resolveToken!: (t: string | null) => void;
+    const tokenPromise = new Promise<string | null>((r) => {
+      resolveToken = r;
+    });
+    const timeout = setTimeout(() => resolveToken(null), 10000);
+    await PushNotifications.addListener('registration', (ev) => {
+      clearTimeout(timeout);
+      resolveToken(ev.value ?? null);
+    });
+    await PushNotifications.addListener('registrationError', () => {
+      clearTimeout(timeout);
+      resolveToken(null);
+    });
+    await PushNotifications.register();
+    const token = await tokenPromise;
     if (!token) return;
     const fcmEndpoint = `fcm:${userId}`;
     const { error } = await supabase.from('push_subscriptions').upsert(
