@@ -1505,13 +1505,14 @@ export default function Quran() {
 
   const canEditAssignmentAudio = (a: DailyAssignment) => {
     if (a.user_id === user?.id) return true;
+    if (isGroupOwner) return true;
     const allowed = (a.allowed_audio_user_ids ?? []) as string[];
     return user?.id ? allowed.includes(user.id) : false;
   };
 
   const appendAssignmentAudio = async (assignmentId: string, assignmentUserId: string, newUrl: string) => {
     const a = assignments.find((x) => x.id === assignmentId);
-    const canEdit = assignmentUserId === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
+    const canEdit = assignmentUserId === user?.id || isGroupOwner || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
     if (!canEdit) return;
     const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
     const next = [...current, newUrl];
@@ -1587,7 +1588,7 @@ export default function Quran() {
 
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
     const a = assignments.find((x) => x.id === assignmentId);
-    const canEdit = assignmentUserId === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
+    const canEdit = assignmentUserId === user?.id || isGroupOwner || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
     if (!canEdit) return;
     const pathToRemove = getAudioPathFromUrl(urlToRemove);
     const urlNorm = normalizeUrlForCompare(urlToRemove);
