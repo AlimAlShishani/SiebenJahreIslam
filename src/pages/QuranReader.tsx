@@ -538,6 +538,7 @@ export default function QuranReader() {
   const [assignment, setAssignment] = useState<AssignmentForReader | null>(null);
   const [loadingAssignment, setLoadingAssignment] = useState(false);
   const [groupMembers, setGroupMembers] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  const [isGroupOwner, setIsGroupOwner] = useState(false);
   const [delegationModalOpen, setDelegationModalOpen] = useState(false);
   const [savingDelegation, setSavingDelegation] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -558,6 +559,7 @@ export default function QuranReader() {
   const canEditAudio = !!user && !!assignment && (
     assignment.user_id === user.id ||
     isAdmin ||
+    isGroupOwner ||
     (!!user.id && ((assignment.allowed_audio_user_ids ?? []) as string[]).includes(user.id))
   );
   const isVerseAllowedInCurrentSlot = (v: QuranVerse) =>
@@ -805,14 +807,18 @@ export default function QuranReader() {
   useEffect(() => {
     if (!assignment?.group_id || !user?.id) {
       setGroupMembers([]);
+      setIsGroupOwner(false);
       return;
     }
     let cancelled = false;
-    const fetchMembers = async () => {
-      const { data: memberRows } = await supabase
-        .from('reading_group_members')
-        .select('user_id')
-        .eq('group_id', assignment.group_id!);
+    const fetchMembersAndOwner = async () => {
+      const [{ data: groupRow }, { data: memberRows }] = await Promise.all([
+        supabase.from('reading_groups').select('owner_id').eq('id', assignment!.group_id!).single(),
+        supabase.from('reading_group_members').select('user_id').eq('group_id', assignment!.group_id!),
+      ]);
+      if (!cancelled && groupRow) {
+        setIsGroupOwner(groupRow.owner_id === user?.id);
+      }
       const memberIds = memberRows?.map((r: { user_id: string }) => r.user_id) ?? [];
       if (cancelled || memberIds.length === 0) return;
       const { data: profiles } = await supabase
@@ -823,7 +829,7 @@ export default function QuranReader() {
         setGroupMembers(profiles ?? []);
       }
     };
-    void fetchMembers();
+    void fetchMembersAndOwner();
     return () => { cancelled = true; };
   }, [assignment?.group_id, user?.id]);
 
