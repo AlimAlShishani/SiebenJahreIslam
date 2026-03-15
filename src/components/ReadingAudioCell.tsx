@@ -182,6 +182,7 @@ export function ReadingAudioCell({
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -267,7 +268,11 @@ export function ReadingAudioCell({
   };
 
   const startRecording = async () => {
+    setRecordingError(null);
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Mikrofon wird nicht unterstützt');
+      }
       cancelRecordingRef.current = false;
       const pathUserId = storagePathUserId ?? assignmentUserId;
       recordingPathRef.current = `${pathUserId}/${assignmentId}_${Date.now()}.webm`;
@@ -310,6 +315,10 @@ export function ReadingAudioCell({
       await requestWakeLock();
     } catch (e) {
       console.error(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      setRecordingError(msg.includes('Permission') || msg.includes('NotAllowed') || msg.includes('denied')
+        ? 'Mikrofon-Berechtigung fehlt. Bitte in den App-Einstellungen erlauben.'
+        : msg || 'Aufnahme konnte nicht gestartet werden.');
     }
   };
 
@@ -401,6 +410,11 @@ export function ReadingAudioCell({
 
   return (
     <div className={compact ? 'mt-1 flex flex-col gap-1.5' : 'mt-2 flex flex-col gap-3'}>
+      {recordingError && (
+        <p className="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-1 rounded">
+          {recordingError}
+        </p>
+      )}
       {showPlayers &&
         audioUrls.map((url) => (
           <SingleAudioPlayer
