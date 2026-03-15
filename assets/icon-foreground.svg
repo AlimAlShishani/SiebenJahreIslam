@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Nuruna Symbol (ohne Hintergrund-Rechteck) -->
+  <path d="M16 43c5-4 11-4 16 0c5-4 11-4 16 0V27c-5-4-11-4-16 0c-5-4-11-4-16 0v16z" fill="#ffffff"/>
+  <path d="M32 15l3 6l6 1l-6 1l-3 6l-3-6l-6-1l6-1l3-6z" fill="#fde68a"/>
+  <path d="M32 27v14" stroke="#0f766e" stroke-width="2" stroke-linecap="round"/>
+</svg>

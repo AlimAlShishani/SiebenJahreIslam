@@ -105,7 +105,7 @@ npm run cap:android   # Android Studio öffnen
 3. **Android-App registrieren**
    - Im Projekt: Zahnrad → **Projekteinstellungen**
    - Unter „Deine Apps“: **Android-Symbol** (oder „App hinzufügen“)
-   - **Paketname:** `net.nuruna.app` (muss exakt so sein)
+   - **Paketname:** `net.nuruna.twa` (muss exakt so sein, für Play Store)
    - App-Nickname optional (z.B. „Nuruna Android“)
    - „App registrieren“
 
@@ -175,7 +175,7 @@ Damit Supabase Push-Benachrichtigungen an Android-Geräte schicken kann, braucht
 | Schritt | Erledigt |
 |--------|----------|
 | Firebase-Projekt erstellt | ☐ |
-| Android-App mit Paket `net.nuruna.app` registriert | ☐ |
+| Android-App mit Paket `net.nuruna.twa` registriert | ☐ |
 | `google-services.json` in `android/app/` | ☐ |
 | `VITE_ENABLE_NATIVE_PUSH=true` in `.env` | ☐ |
 | `npm run cap:sync` + APK neu gebaut | ☐ |

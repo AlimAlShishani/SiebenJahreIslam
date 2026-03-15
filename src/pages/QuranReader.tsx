@@ -1543,7 +1543,7 @@ export default function QuranReader() {
   };
 
   return (
-    <div className="relative md:space-y-4 max-md:h-[100dvh] max-md:overflow-hidden max-md:bg-gray-50 dark:max-md:bg-gray-900">
+    <div className="relative md:space-y-4 max-md:h-full max-md:min-h-0 max-md:overflow-hidden max-md:bg-gray-50 dark:max-md:bg-gray-900">
       <div className="hidden md:block bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
         <div className={`grid grid-cols-1 gap-3 ${isKahfSlot ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
           {!isKahfSlot && (
@@ -1837,7 +1837,7 @@ export default function QuranReader() {
         className={`grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pt-0 ${
           viewLayout === 'verse'
             ? 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-hidden max-md:items-stretch max-md:gap-1'
-            : 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-y-auto max-md:gap-0'
+            : 'max-md:absolute max-md:inset-x-0 max-md:top-[calc(112px+env(safe-area-inset-top,0px))] max-md:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] max-md:px-2 max-md:overflow-hidden max-md:items-stretch max-md:gap-0'
         }`}
       >
         <aside className="hidden md:block space-y-4 h-fit lg:sticky lg:top-4">

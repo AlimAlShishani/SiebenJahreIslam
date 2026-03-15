@@ -1,4 +1,4 @@
-package net.nuruna.app;
+package net.nuruna.twa;
 
 import com.getcapacitor.BridgeActivity;
 

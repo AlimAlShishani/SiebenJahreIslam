@@ -194,7 +194,7 @@ export const Layout = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors safe-area-top">
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors safe-area-top ${hideMobileChromeForReader ? 'max-md:h-[100dvh] max-md:overflow-hidden max-md:min-h-0' : ''}`}>
       {!isOnline && (
         <div className="bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100 px-4 py-2 flex items-center gap-2 text-sm font-medium">
           <WifiOff size={16} className="shrink-0" />
@@ -245,7 +245,7 @@ export const Layout = () => {
         </div>
       </header>
 
-      <main className={`flex-grow container mx-auto px-4 md:py-6 ${hideMobileChromeForReader ? 'pt-0 pb-0 md:pb-24' : 'pt-0 pb-24 md:pb-24'}`}>
+      <main className={`flex-grow container mx-auto px-4 md:py-6 ${hideMobileChromeForReader ? 'pt-0 pb-0 md:pb-24 max-md:min-h-0 max-md:overflow-hidden' : 'pt-0 pb-24 md:pb-24'}`}>
         <Outlet />
       </main>
 

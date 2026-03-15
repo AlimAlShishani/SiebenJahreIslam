@@ -2,7 +2,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'net.nuruna.app',
+  appId: 'net.nuruna.twa',
   appName: 'Nuruna',
   webDir: 'dist',
   server: {
