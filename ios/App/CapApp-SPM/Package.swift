@@ -13,8 +13,10 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.2.0"),
         .package(name: "CapacitorCommunitySafeArea", path: "..\..\..\node_modules\@capacitor-community\safe-area"),
+        .package(name: "CapacitorFilesystem", path: "..\..\..\node_modules\@capacitor\filesystem"),
         .package(name: "CapacitorHaptics", path: "..\..\..\node_modules\@capacitor\haptics"),
-        .package(name: "CapacitorPushNotifications", path: "..\..\..\node_modules\@capacitor\push-notifications")
+        .package(name: "CapacitorPushNotifications", path: "..\..\..\node_modules\@capacitor\push-notifications"),
+        .package(name: "CapgoCapacitorAudioRecorder", path: "..\..\..\node_modules\@capgo\capacitor-audio-recorder")
     ],
     targets: [
         .target(
@@ -23,8 +25,10 @@ let package = Package(
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
                 .product(name: "CapacitorCommunitySafeArea", package: "CapacitorCommunitySafeArea"),
+                .product(name: "CapacitorFilesystem", package: "CapacitorFilesystem"),
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
-                .product(name: "CapacitorPushNotifications", package: "CapacitorPushNotifications")
+                .product(name: "CapacitorPushNotifications", package: "CapacitorPushNotifications"),
+                .product(name: "CapgoCapacitorAudioRecorder", package: "CapgoCapacitorAudioRecorder")
             ]
         )
     ]

@@ -72,6 +72,7 @@ type QuranPageCache = {
   isInGroup: boolean;
   groupMemberIds: string[];
   currentGroupId: string | null;
+  currentGroup: { id: string; name: string | null; owner_id: string } | null;
   votesForDay: DailyReadingVote[];
   activityLogs: ReadingActivityLog[];
   loadedKey: string | null;
@@ -162,7 +163,11 @@ const readQuranPageCache = (): QuranPageCache | null => {
   try {
     const raw = window.sessionStorage.getItem(QURAN_CACHE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as QuranPageCache;
+    const parsed = JSON.parse(raw) as Partial<QuranPageCache>;
+    return {
+      ...parsed,
+      currentGroup: parsed.currentGroup ?? null,
+    } as QuranPageCache;
   } catch {
     return null;
   }
@@ -186,7 +191,7 @@ export default function Quran() {
   const [isInGroup, setIsInGroup] = useState(() => quranPageCache?.isInGroup ?? false);
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>(() => quranPageCache?.groupMemberIds ?? []);
   const [currentGroupId, setCurrentGroupId] = useState<string | null>(() => quranPageCache?.currentGroupId ?? null);
-  const [currentGroup, setCurrentGroup] = useState<{ id: string; name: string | null; owner_id: string; vote_options?: string[]; vote_deadline_minutes?: number | null } | null>(null);
+  const [currentGroup, setCurrentGroup] = useState<{ id: string; name: string | null; owner_id: string; vote_options?: string[]; vote_deadline_minutes?: number | null } | null>(() => quranPageCache?.currentGroup ?? null);
   const [isGroupOwner, setIsGroupOwner] = useState(false);
   const [loading, setLoading] = useState(() => !quranPageCache);
   const [generating, setGenerating] = useState(false);
@@ -371,6 +376,7 @@ export default function Quran() {
       isInGroup,
       groupMemberIds,
       currentGroupId,
+      currentGroup,
       votesForDay,
       activityLogs,
       loadedKey: loadedKeyRef.current,
@@ -382,7 +388,7 @@ export default function Quran() {
     } catch {
       // ignore sessionStorage errors
     }
-  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, currentGroupId, votesForDay, activityLogs, todayLocalDate]);
+  }, [selectedRamadanDay, assignments, users, isAdmin, isInGroup, groupMemberIds, currentGroupId, currentGroup, votesForDay, activityLogs, todayLocalDate]);
 
   useEffect(() => {
     const showLoading = !firstLoadDoneRef.current;
@@ -1505,14 +1511,14 @@ export default function Quran() {
 
   const canEditAssignmentAudio = (a: DailyAssignment) => {
     if (a.user_id === user?.id) return true;
-    if (isGroupOwner) return true;
+    if (currentGroup?.owner_id === user?.id) return true;
     const allowed = (a.allowed_audio_user_ids ?? []) as string[];
     return user?.id ? allowed.includes(user.id) : false;
   };
 
   const appendAssignmentAudio = async (assignmentId: string, assignmentUserId: string, newUrl: string) => {
     const a = assignments.find((x) => x.id === assignmentId);
-    const canEdit = assignmentUserId === user?.id || isGroupOwner || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
+    const canEdit = assignmentUserId === user?.id || currentGroup?.owner_id === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
     if (!canEdit) return;
     const current = (a?.audio_urls ?? (a?.audio_url ? [a.audio_url] : [])) as string[];
     const next = [...current, newUrl];
@@ -1588,7 +1594,7 @@ export default function Quran() {
 
   const removeAssignmentAudioUrl = async (assignmentId: string, assignmentUserId: string, urlToRemove: string) => {
     const a = assignments.find((x) => x.id === assignmentId);
-    const canEdit = assignmentUserId === user?.id || isGroupOwner || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
+    const canEdit = assignmentUserId === user?.id || currentGroup?.owner_id === user?.id || (user?.id && ((a?.allowed_audio_user_ids ?? []) as string[]).includes(user.id));
     if (!canEdit) return;
     const pathToRemove = getAudioPathFromUrl(urlToRemove);
     const urlNorm = normalizeUrlForCompare(urlToRemove);
@@ -2045,10 +2051,10 @@ export default function Quran() {
                                     type="button"
                                     onClick={() => setDelegationModalAssignment(assignment)}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                    title={t('quran.delegateAudioTitle')}
+                                    title={t('quran.delegateAudioTitle', { defaultValue: 'Allow someone to record audio for your part' })}
                                   >
                                     <HandHelping size={14} />
-                                    {t('quran.delegateAudio')}
+                                    {t('quran.delegateAudio', { defaultValue: 'Request help' })}
                                   </button>
                                 )}
                               </div>
@@ -2112,7 +2118,7 @@ export default function Quran() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                {t('quran.delegateModalTitle')}
+                {t('quran.delegateModalTitle', { defaultValue: 'Allow audio recording' })}
               </h3>
               <button
                 type="button"
@@ -2123,7 +2129,7 @@ export default function Quran() {
               </button>
             </div>
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-              {t('quran.delegateModalDesc')}
+              {t('quran.delegateModalDesc', { defaultValue: 'Choose a group member who may record audio for your part.' })}
             </p>
             <div className="p-6 overflow-y-auto space-y-2">
               {users
@@ -2154,7 +2160,7 @@ export default function Quran() {
                         } disabled:opacity-50`}
                       >
                         {savingDelegation ? <Loader2 size={14} className="animate-spin inline" /> : null}
-                        {isAllowed ? t('quran.delegateRemove') : t('quran.delegateAdd')}
+                        {isAllowed ? t('quran.delegateRemove', { defaultValue: 'Remove' }) : t('quran.delegateAdd', { defaultValue: 'Allow' })}
                       </button>
                     </div>
                   );

@@ -1865,10 +1865,10 @@ export default function QuranReader() {
                     type="button"
                     onClick={() => setDelegationModalOpen(true)}
                     className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
-                    title={t('quran.delegateAudioTitle')}
+                    title={t('quran.delegateAudioTitle', { defaultValue: 'Allow someone to record audio for your part' })}
                   >
                     <HandHelping size={12} />
-                    {t('quran.delegateAudio')}
+                    {t('quran.delegateAudio', { defaultValue: 'Request help' })}
                   </button>
                 )}
                 <ReadingAudioCell
@@ -2314,10 +2314,10 @@ export default function QuranReader() {
               type="button"
               onClick={() => setDelegationModalOpen(true)}
               className="mb-2 w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
-              title={t('quran.delegateAudioTitle')}
+              title={t('quran.delegateAudioTitle', { defaultValue: 'Allow someone to record audio for your part' })}
             >
               <HandHelping size={12} />
-              {t('quran.delegateAudio')}
+              {t('quran.delegateAudio', { defaultValue: 'Request help' })}
             </button>
           )}
           <ReadingAudioCell
@@ -2444,7 +2444,7 @@ export default function QuranReader() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                {t('quran.delegateModalTitle')}
+                {t('quran.delegateModalTitle', { defaultValue: 'Allow audio recording' })}
               </h3>
               <button
                 type="button"
@@ -2455,7 +2455,7 @@ export default function QuranReader() {
               </button>
             </div>
             <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-              {t('quran.delegateModalDesc')}
+              {t('quran.delegateModalDesc', { defaultValue: 'Choose a group member who may record audio for your part.' })}
             </p>
             <div className="p-6 overflow-y-auto space-y-2">
               {groupMembers
@@ -2486,7 +2486,7 @@ export default function QuranReader() {
                         } disabled:opacity-50`}
                       >
                         {savingDelegation ? <Loader2 size={14} className="animate-spin inline" /> : null}
-                        {isAllowed ? t('quran.delegateRemove') : t('quran.delegateAdd')}
+                        {isAllowed ? t('quran.delegateRemove', { defaultValue: 'Remove' }) : t('quran.delegateAdd', { defaultValue: 'Allow' })}
                       </button>
                     </div>
                   );

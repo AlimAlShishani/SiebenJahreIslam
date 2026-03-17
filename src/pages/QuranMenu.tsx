@@ -625,10 +625,10 @@ export default function QuranMenu() {
                         setHatimDelegationOpen(true);
                       }}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors shrink-0"
-                      title={t('quran.delegateAudioTitle')}
+                      title={t('quran.delegateAudioTitle', { defaultValue: 'Allow someone to record audio for your part' })}
                     >
                       <HandHelping size={12} />
-                      {t('quran.delegateAudio')}
+                      {t('quran.delegateAudio', { defaultValue: 'Request help' })}
                     </button>
                   </div>
                   {lastHatim?.page != null && (
@@ -670,7 +670,7 @@ export default function QuranMenu() {
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                   <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                    {t('quran.delegateModalTitle')}
+                    {t('quran.delegateModalTitle', { defaultValue: 'Allow audio recording' })}
                   </h3>
                   <button
                     type="button"
@@ -681,7 +681,7 @@ export default function QuranMenu() {
                   </button>
                 </div>
                 <p className="px-6 pt-2 text-sm text-gray-500 dark:text-gray-400">
-                  {t('quran.delegateModalDesc')}
+                  {t('quran.delegateModalDesc', { defaultValue: 'Choose a group member who may record audio for your part.' })}
                 </p>
                 <div className="p-6 overflow-y-auto space-y-2">
                   {hatimGroupMembers
@@ -712,7 +712,7 @@ export default function QuranMenu() {
                             } disabled:opacity-50`}
                           >
                             {hatimSavingDelegation ? <Loader2 size={14} className="animate-spin inline" /> : null}
-                            {isAllowed ? t('quran.delegateRemove') : t('quran.delegateAdd')}
+                            {isAllowed ? t('quran.delegateRemove', { defaultValue: 'Remove' }) : t('quran.delegateAdd', { defaultValue: 'Allow' })}
                           </button>
                         </div>
                       );
