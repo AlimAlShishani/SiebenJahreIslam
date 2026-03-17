@@ -152,7 +152,13 @@
     "openParts": "Открытые части",
     "allPartsCompleted": "Все части выполнены",
     "juz": "Джуз",
-    "juzShort": "ДЖУЗ"
+    "juzShort": "ДЖУЗ",
+    "delegateAudio": "Помощь",
+    "delegateAudioTitle": "Разрешить кому-то записать аудио для вашей части",
+    "delegateModalTitle": "Разрешить аудиозапись",
+    "delegateModalDesc": "Выберите участника группы, который может записать аудио для вашей части.",
+    "delegateAdd": "Разрешить",
+    "delegateRemove": "Удалить"
   },
   "quranMenu": {
     "title": "Экземпляры Корана",

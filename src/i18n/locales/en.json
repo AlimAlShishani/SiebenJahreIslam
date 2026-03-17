@@ -152,7 +152,13 @@
     "openParts": "Open parts",
     "allPartsCompleted": "All parts are completed",
     "juz": "Juz",
-    "juzShort": "JUZ"
+    "juzShort": "JUZ",
+    "delegateAudio": "Help",
+    "delegateAudioTitle": "Allow someone to record audio for your part",
+    "delegateModalTitle": "Allow audio recording",
+    "delegateModalDesc": "Choose a group member who may record audio for your part.",
+    "delegateAdd": "Allow",
+    "delegateRemove": "Remove"
   },
   "quranMenu": {
     "title": "Quran instances",

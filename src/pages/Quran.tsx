@@ -2062,6 +2062,7 @@ export default function Quran() {
                               onSaved={(url) => appendAssignmentAudio(assignment.id, assignment.user_id, url)}
                               onDeleted={(url) => removeAssignmentAudioUrl(assignment.id, assignment.user_id, url)}
                               showUploadControls={canEditAssignmentAudio(assignment)}
+                              showPlayers={true}
                             />
                           </div>
 

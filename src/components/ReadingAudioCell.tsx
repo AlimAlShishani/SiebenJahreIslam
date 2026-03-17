@@ -1,8 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Capacitor } from '@capacitor/core';
+import { CapacitorAudioRecorder } from '@capgo/capacitor-audio-recorder';
+import { Filesystem } from '@capacitor/filesystem';
 import { supabase } from '../lib/supabase';
 import { hapticLight } from '../lib/haptics';
 import { ChevronDown, ChevronUp, Mic, Upload, Loader2, Trash2, Play, Pause, SkipBack, SkipForward, Send } from 'lucide-react';
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
 
 const BUCKET = 'reading-audio';
 const AUDIO_BITS_PER_SECOND = 48000;
@@ -267,9 +277,30 @@ export function ReadingAudioCell({
     return `${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
   };
 
+  const useNativeRecorder = Capacitor.isNativePlatform();
+
   const startRecording = async () => {
     setRecordingError(null);
     try {
+      if (useNativeRecorder) {
+        const perm = await CapacitorAudioRecorder.requestPermissions();
+        if (perm.recordAudio !== 'granted') {
+          throw new Error('Mikrofon-Berechtigung fehlt. Bitte in den App-Einstellungen erlauben.');
+        }
+        cancelRecordingRef.current = false;
+        const pathUserId = storagePathUserId ?? assignmentUserId;
+        recordingPathRef.current = `${pathUserId}/${assignmentId}_${Date.now()}.m4a`;
+        await CapacitorAudioRecorder.startRecording({ bitRate: 48000, sampleRate: 44100 });
+        if (mobileBar && mobileAudioOpen && onToggleMobileAudio) {
+          onToggleMobileAudio();
+        }
+        setRecording(true);
+        if (onRecordingChange) onRecordingChange(true);
+        setRecordingPaused(false);
+        startSilentPlayback();
+        await requestWakeLock();
+        return;
+      }
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error('Mikrofon wird nicht unterstützt');
       }
@@ -303,7 +334,6 @@ export function ReadingAudioCell({
           setUploading(false);
         }
       };
-      // Falls das Audio-Panel in der Mobile-Bar geöffnet ist, beim Start der Aufnahme zuklappen.
       if (mobileBar && mobileAudioOpen && onToggleMobileAudio) {
         onToggleMobileAudio();
       }
@@ -322,7 +352,23 @@ export function ReadingAudioCell({
     }
   };
 
-  const toggleRecordingPause = () => {
+  const toggleRecordingPause = async () => {
+    if (useNativeRecorder) {
+      try {
+        const { status } = await CapacitorAudioRecorder.getRecordingStatus();
+        const s = String(status);
+        if (s === 'recording') {
+          await CapacitorAudioRecorder.pauseRecording();
+          setRecordingPaused(true);
+        } else if (s === 'paused') {
+          await CapacitorAudioRecorder.resumeRecording();
+          setRecordingPaused(false);
+        }
+      } catch {
+        setRecordingPaused(false);
+      }
+      return;
+    }
     const mr = mediaRecorderRef.current;
     if (!mr) return;
     try {
@@ -333,8 +379,45 @@ export function ReadingAudioCell({
     }
   };
 
-  const sendRecording = () => {
+  const sendRecording = async () => {
     void hapticLight();
+    if (useNativeRecorder) {
+      try {
+        const result = await CapacitorAudioRecorder.stopRecording();
+        if (cancelRecordingRef.current || !result?.uri) {
+          cancelRecordingRef.current = false;
+          setRecording(false);
+          setRecordingPaused(false);
+          releaseWakeLock();
+          stopSilentPlayback();
+          if (onRecordingChange) onRecordingChange(false);
+          return;
+        }
+        setUploading(true);
+        try {
+          const { data } = await Filesystem.readFile({ path: result.uri });
+          const blob = base64ToBlob(data as string, 'audio/mp4');
+          if (blob.size > 0) {
+            const url = await uploadToPath(recordingPathRef.current, blob);
+            onSaved(url);
+          }
+        } catch (e) {
+          console.error(e);
+          setRecordingError('Aufnahme konnte nicht hochgeladen werden.');
+        } finally {
+          setUploading(false);
+        }
+      } catch (e) {
+        console.error(e);
+        setRecordingError(e instanceof Error ? e.message : 'Aufnahme fehlgeschlagen.');
+      }
+      setRecording(false);
+      setRecordingPaused(false);
+      releaseWakeLock();
+      stopSilentPlayback();
+      if (onRecordingChange) onRecordingChange(false);
+      return;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setRecording(false);
@@ -345,7 +428,21 @@ export function ReadingAudioCell({
     }
   };
 
-  const cancelRecording = () => {
+  const cancelRecording = async () => {
+    if (useNativeRecorder) {
+      cancelRecordingRef.current = true;
+      try {
+        await CapacitorAudioRecorder.cancelRecording();
+      } catch {
+        // ignore
+      }
+      setRecording(false);
+      setRecordingPaused(false);
+      releaseWakeLock();
+      stopSilentPlayback();
+      if (onRecordingChange) onRecordingChange(false);
+      return;
+    }
     const mr = mediaRecorderRef.current;
     if (mr && mr.state !== 'inactive') {
       cancelRecordingRef.current = true;

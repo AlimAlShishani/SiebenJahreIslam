@@ -152,7 +152,13 @@
     "openParts": "Açık bölümler",
     "allPartsCompleted": "Tüm bölümler tamamlandı",
     "juz": "Cüz",
-    "juzShort": "CÜZ"
+    "juzShort": "CÜZ",
+    "delegateAudio": "Yardım",
+    "delegateAudioTitle": "Birinin sizin bölümünüz için ses kaydetmesine izin verin",
+    "delegateModalTitle": "Ses kaydına izin ver",
+    "delegateModalDesc": "Sizin bölümünüz için ses kaydedebilecek bir grup üyesi seçin.",
+    "delegateAdd": "İzin ver",
+    "delegateRemove": "Kaldır"
   },
   "quranMenu": {
     "title": "Kuran örnekleri",
