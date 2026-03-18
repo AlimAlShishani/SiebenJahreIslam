@@ -1163,6 +1163,8 @@ export default function QuranReader() {
           return;
         }
         if (selectedIndex < verses.length - 1) {
+          const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
+          if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
           const nextIdx = selectedIndex + 1;
           const next = verses[nextIdx];
           setSelectedVerseKey(next.key);
@@ -1173,6 +1175,7 @@ export default function QuranReader() {
         }
         const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
         if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
+        if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
         if (currentPage < effectiveEndPage) {
           setPendingVerseSelection('first');
           setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
@@ -1218,7 +1221,9 @@ export default function QuranReader() {
             setVerseIndexInPage(0);
             return;
           }
+          const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
           if (selectedIndex < verses.length - 1) {
+            if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
             const nextIdx = selectedIndex + 1;
             const next = verses[nextIdx];
             setSelectedVerseKey(next.key);
@@ -1227,8 +1232,8 @@ export default function QuranReader() {
             setVerseIndexInPage(nextIdx);
             return;
           }
-          const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
           if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
+          if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
           if (currentPage < effectiveEndPage) {
             setPendingVerseSelection('first');
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
@@ -1239,6 +1244,8 @@ export default function QuranReader() {
             setPendingVerseSelection('last');
             setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           } else {
+            const lastOnPage = verses.length > 0 ? verses[verses.length - 1] : null;
+            if (lastOnPage && isSajdaVerse(lastOnPage)) setShowSajdaPopup(true);
             setPendingVerseSelection('first');
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           }
@@ -2027,14 +2034,34 @@ export default function QuranReader() {
                                   : (verse.translationText || ''));
                               const num = mode === 'arabic' ? toArabicIndicDigits(verse.ayahNumber) : `(${verse.ayahNumber})`;
                               const isSelected = selectedVerseKey === verse.key;
+                              const isLastVerseOfSurah = surahMeta ? Number(verse.ayahNumber) === surahMeta.ayahCount : false;
                               return (
                                 <span
                                   key={verse.key}
                                   ref={isSelected ? selectedVerseRef : undefined}
                                   role="button"
                                   tabIndex={0}
-                                  onClick={() => { setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); }}
-                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedVerseKey(verse.key); setSelectedSurah(verse.surahNumber); setSelectedAyah(verse.ayahNumber); } }}
+                                  onClick={() => {
+                                    const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
+                                    const idx = allVerses.findIndex((v) => v.key === verse.key);
+                                    const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
+                                    if (prevVerse && isSajdaVerse(prevVerse)) setShowSajdaPopup(true);
+                                    setSelectedVerseKey(verse.key);
+                                    setSelectedSurah(verse.surahNumber);
+                                    setSelectedAyah(verse.ayahNumber);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
+                                      const idx = allVerses.findIndex((v) => v.key === verse.key);
+                                      const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
+                                      if (prevVerse && isSajdaVerse(prevVerse)) setShowSajdaPopup(true);
+                                      setSelectedVerseKey(verse.key);
+                                      setSelectedSurah(verse.surahNumber);
+                                      setSelectedAyah(verse.ayahNumber);
+                                    }
+                                  }}
                                   className={`cursor-pointer ${isSelected ? 'bg-emerald-200/80 dark:bg-emerald-700/40 ring-1 ring-emerald-500/50 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
                                   aria-label={`Vers ${verse.ayahNumber}`}
                                 >
@@ -2048,6 +2075,11 @@ export default function QuranReader() {
                                   >
                                     {num}
                                   </span>
+                                  {isLastVerseOfSurah && (
+                                    <span className="inline-flex items-center gap-1 ml-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                                      {t('quranReader.lastVerseOfSurah')}
+                                    </span>
+                                  )}
                                   {' '}
                                 </span>
                               );
