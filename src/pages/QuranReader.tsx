@@ -78,12 +78,12 @@ const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
   'quran-simple-clean',
 ];
 
-/** Unicode-Bereiche für Quran-Pausenzeichen (Waqf). 06E2/06ED = bedingtes Meem (Iqlab), ausgenommen. */
+/** Unicode-Bereiche für Quran-Pausenzeichen (Waqf). 06E2/06ED = bedingtes Meem (Iqlab), ausgenommen. 06EC = Small High Upright Rectangular Zero (über Alif etc.) – kein Pausenzeichen, bleibt weiß. */
 function isQuranicPauseMark(ch: string): boolean {
   const cp = ch.codePointAt(0) ?? 0;
   if (cp >= 0x06D6 && cp <= 0x06DC) return true; // Kleine hohe Zeichen (Sad, Qaf, Meem, Lam Alef, Jeem, drei Punkte, Seen)
   if (cp === 0x06EA) return true; // Arabic Center Stop Mark
-  if (cp === 0x06EC) return true; // Arabic Rounded High Stop with Filled Centre
+  // 06EC = Arabic Small High Upright Rectangular Zero (۬) – kein Pausenzeichen, soll über dem Buchstaben (z.B. Alif) weiß gerendert werden
   return false;
 }
 const SMALL_HIGH_MEEM = '\u06E2';
