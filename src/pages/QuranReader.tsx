@@ -554,13 +554,16 @@ export default function QuranReader() {
   const [selectedJuzRange, setSelectedJuzRange] = useState<{ start: number; end: number }>({ start: 1, end: 604 });
   const [mobileRecording, setMobileRecording] = useState(false);
   const [showSajdaPopup, setShowSajdaPopup] = useState(false);
+  const pendingSajdaCallbackRef = useRef<(() => void) | null>(null);
   const { setRecording: setRecordingContext } = useRecording();
 
-  useEffect(() => {
-    if (!showSajdaPopup) return;
-    const t = window.setTimeout(() => setShowSajdaPopup(false), 5000);
-    return () => window.clearTimeout(t);
-  }, [showSajdaPopup]);
+  const closeSajdaPopup = () => {
+    setShowSajdaPopup(false);
+    const cb = pendingSajdaCallbackRef.current;
+    pendingSajdaCallbackRef.current = null;
+    if (cb) cb();
+  };
+
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const selectedVerseRef = useRef<HTMLSpanElement | null>(null);
@@ -1164,7 +1167,18 @@ export default function QuranReader() {
         }
         if (selectedIndex < verses.length - 1) {
           const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
-          if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
+          if (active && isSajdaVerse(active)) {
+            pendingSajdaCallbackRef.current = () => {
+              const nextIdx = selectedIndex + 1;
+              const next = verses[nextIdx];
+              setSelectedVerseKey(next.key);
+              setSelectedSurah(next.surahNumber);
+              setSelectedAyah(next.ayahNumber);
+              setVerseIndexInPage(nextIdx);
+            };
+            setShowSajdaPopup(true);
+            return;
+          }
           const nextIdx = selectedIndex + 1;
           const next = verses[nextIdx];
           setSelectedVerseKey(next.key);
@@ -1175,7 +1189,16 @@ export default function QuranReader() {
         }
         const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
         if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
-        if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
+        if (active && isSajdaVerse(active)) {
+          pendingSajdaCallbackRef.current = () => {
+            if (currentPage < effectiveEndPage) {
+              setPendingVerseSelection('first');
+              setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+            }
+          };
+          setShowSajdaPopup(true);
+          return;
+        }
         if (currentPage < effectiveEndPage) {
           setPendingVerseSelection('first');
           setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
@@ -1223,7 +1246,18 @@ export default function QuranReader() {
           }
           const active = selectedIndex >= 0 ? verses[selectedIndex] : null;
           if (selectedIndex < verses.length - 1) {
-            if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
+            if (active && isSajdaVerse(active)) {
+              pendingSajdaCallbackRef.current = () => {
+                const nextIdx = selectedIndex + 1;
+                const next = verses[nextIdx];
+                setSelectedVerseKey(next.key);
+                setSelectedSurah(next.surahNumber);
+                setSelectedAyah(next.ayahNumber);
+                setVerseIndexInPage(nextIdx);
+              };
+              setShowSajdaPopup(true);
+              return;
+            }
             const nextIdx = selectedIndex + 1;
             const next = verses[nextIdx];
             setSelectedVerseKey(next.key);
@@ -1233,7 +1267,16 @@ export default function QuranReader() {
             return;
           }
           if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
-          if (active && isSajdaVerse(active)) setShowSajdaPopup(true);
+          if (active && isSajdaVerse(active)) {
+            pendingSajdaCallbackRef.current = () => {
+              if (currentPage < effectiveEndPage) {
+                setPendingVerseSelection('first');
+                setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+              }
+            };
+            setShowSajdaPopup(true);
+            return;
+          }
           if (currentPage < effectiveEndPage) {
             setPendingVerseSelection('first');
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
@@ -1245,7 +1288,14 @@ export default function QuranReader() {
             setCurrentPage((prev) => Math.max(effectiveStartPage, prev - 1));
           } else {
             const lastOnPage = verses.length > 0 ? verses[verses.length - 1] : null;
-            if (lastOnPage && isSajdaVerse(lastOnPage)) setShowSajdaPopup(true);
+            if (lastOnPage && isSajdaVerse(lastOnPage)) {
+              pendingSajdaCallbackRef.current = () => {
+                setPendingVerseSelection('first');
+                setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
+              };
+              setShowSajdaPopup(true);
+              return;
+            }
             setPendingVerseSelection('first');
             setCurrentPage((prev) => Math.min(effectiveEndPage, prev + 1));
           }
@@ -1504,7 +1554,27 @@ export default function QuranReader() {
     if (!visibleVerses.length) return;
     const active = visibleVerses[activeVerseIndex];
     if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
-    if (isSajdaVerse(active)) setShowSajdaPopup(true);
+    if (isSajdaVerse(active)) {
+      pendingSajdaCallbackRef.current = () => {
+        if (activeVerseIndex >= visibleVerses.length - 1) {
+          if (currentPage < effectiveEndPage) {
+            setPendingVerseSelection('first');
+            setCurrentPage((p) => Math.min(effectiveEndPage, p + 1));
+          }
+        } else {
+          const nextIdx = activeVerseIndex + 1;
+          const v = visibleVerses[nextIdx];
+          setVerseIndexInPage(nextIdx);
+          if (v) {
+            setSelectedVerseKey(v.key);
+            setSelectedSurah(v.surahNumber);
+            setSelectedAyah(v.ayahNumber);
+          }
+        }
+      };
+      setShowSajdaPopup(true);
+      return;
+    }
     if (activeVerseIndex >= visibleVerses.length - 1) {
       if (currentPage < effectiveEndPage) {
         setPendingVerseSelection('first');
@@ -2041,27 +2111,43 @@ export default function QuranReader() {
                                     ref={isSelected ? selectedVerseRef : undefined}
                                     role="button"
                                     tabIndex={0}
-                                    onClick={() => {
-                                      const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
-                                      const idx = allVerses.findIndex((v) => v.key === verse.key);
-                                      const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
-                                      if (prevVerse && isSajdaVerse(prevVerse)) setShowSajdaPopup(true);
-                                      setSelectedVerseKey(verse.key);
-                                      setSelectedSurah(verse.surahNumber);
-                                      setSelectedAyah(verse.ayahNumber);
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
-                                        const idx = allVerses.findIndex((v) => v.key === verse.key);
-                                        const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
-                                        if (prevVerse && isSajdaVerse(prevVerse)) setShowSajdaPopup(true);
+onClick={() => {
+                                    const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
+                                    const idx = allVerses.findIndex((v) => v.key === verse.key);
+                                    const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
+                                    if (prevVerse && isSajdaVerse(prevVerse)) {
+                                      pendingSajdaCallbackRef.current = () => {
                                         setSelectedVerseKey(verse.key);
                                         setSelectedSurah(verse.surahNumber);
                                         setSelectedAyah(verse.ayahNumber);
+                                      };
+                                      setShowSajdaPopup(true);
+                                      return;
+                                    }
+                                    setSelectedVerseKey(verse.key);
+                                    setSelectedSurah(verse.surahNumber);
+                                    setSelectedAyah(verse.ayahNumber);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
+                                      const idx = allVerses.findIndex((v) => v.key === verse.key);
+                                      const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
+                                      if (prevVerse && isSajdaVerse(prevVerse)) {
+                                        pendingSajdaCallbackRef.current = () => {
+                                          setSelectedVerseKey(verse.key);
+                                          setSelectedSurah(verse.surahNumber);
+                                          setSelectedAyah(verse.ayahNumber);
+                                        };
+                                        setShowSajdaPopup(true);
+                                        return;
                                       }
-                                    }}
+                                      setSelectedVerseKey(verse.key);
+                                      setSelectedSurah(verse.surahNumber);
+                                      setSelectedAyah(verse.ayahNumber);
+                                    }
+                                  }}
                                     className={`cursor-pointer ${isSelected ? 'bg-emerald-200/80 dark:bg-emerald-700/40 ring-1 ring-emerald-500/50 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
                                     aria-label={`Vers ${verse.ayahNumber}`}
                                   >
@@ -2123,7 +2209,25 @@ export default function QuranReader() {
                 };
                 const goNext = () => {
                   if (isKahfSlot && currentVerse?.surahNumber === 18 && currentVerse?.ayahNumber === 110) return;
-                  if (isSajdaVerse(currentVerse)) setShowSajdaPopup(true);
+                  if (isSajdaVerse(currentVerse)) {
+                    pendingSajdaCallbackRef.current = () => {
+                      if (atLastVerse && currentPage < effectiveEndPage) {
+                        setPendingVerseSelection('first');
+                        setCurrentPage((p) => Math.min(effectiveEndPage, p + 1));
+                      } else {
+                        const nextIdx = Math.min(totalVerses - 1, safeIndex + 1);
+                        setVerseIndexInPage(nextIdx);
+                        const v = visibleVerses[nextIdx];
+                        if (v) {
+                          setSelectedVerseKey(v.key);
+                          setSelectedSurah(v.surahNumber);
+                          setSelectedAyah(v.ayahNumber);
+                        }
+                      }
+                    };
+                    setShowSajdaPopup(true);
+                    return;
+                  }
                   if (atLastVerse && currentPage < effectiveEndPage) {
                     setPendingVerseSelection('first');
                     setCurrentPage((p) => Math.min(effectiveEndPage, p + 1));
@@ -2359,7 +2463,7 @@ export default function QuranReader() {
       </div>
 
       {showSajdaPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowSajdaPopup(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={closeSajdaPopup}>
           <div
             className="max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-5 border border-gray-200 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
@@ -2372,7 +2476,7 @@ export default function QuranReader() {
             </p>
             <button
               type="button"
-              onClick={() => setShowSajdaPopup(false)}
+              onClick={closeSajdaPopup}
               className="mt-4 w-full py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
             >
               {t('quranReader.sajdaPopupOk')}
