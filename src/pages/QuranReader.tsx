@@ -2036,23 +2036,12 @@ export default function QuranReader() {
                               const isSelected = selectedVerseKey === verse.key;
                               const isLastVerseOfSurah = surahMeta ? Number(verse.ayahNumber) === surahMeta.ayahCount : false;
                               return (
-                                <span
-                                  key={verse.key}
-                                  ref={isSelected ? selectedVerseRef : undefined}
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={() => {
-                                    const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
-                                    const idx = allVerses.findIndex((v) => v.key === verse.key);
-                                    const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
-                                    if (prevVerse && isSajdaVerse(prevVerse)) setShowSajdaPopup(true);
-                                    setSelectedVerseKey(verse.key);
-                                    setSelectedSurah(verse.surahNumber);
-                                    setSelectedAyah(verse.ayahNumber);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
+                                <span key={verse.key} className="inline">
+                                  <span
+                                    ref={isSelected ? selectedVerseRef : undefined}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
                                       const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
                                       const idx = allVerses.findIndex((v) => v.key === verse.key);
                                       const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
@@ -2060,20 +2049,32 @@ export default function QuranReader() {
                                       setSelectedVerseKey(verse.key);
                                       setSelectedSurah(verse.surahNumber);
                                       setSelectedAyah(verse.ayahNumber);
-                                    }
-                                  }}
-                                  className={`cursor-pointer ${isSelected ? 'bg-emerald-200/80 dark:bg-emerald-700/40 ring-1 ring-emerald-500/50 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
-                                  aria-label={`Vers ${verse.ayahNumber}`}
-                                >
-                                  <span>{mode === 'arabic' ? renderArabicWithPauseMarks(text, hidePauseMarks, true) : text}</span>
-                                  {NBSP}
-                                  <span
-                                    className={mode === 'arabic'
-                                      ? `font-verse-num inline align-middle text-emerald-700 dark:text-emerald-300 font-semibold mx-1.5 ${isSelected ? 'underline underline-offset-2' : ''}`
-                                      : `text-emerald-600 dark:text-emerald-400 font-medium ${isSelected ? 'underline' : ''}`}
-                                    style={mode === 'arabic' ? { fontSize: `${fontSize}px` } : undefined}
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        const allVerses = pageData.verses.filter((v) => isVerseAllowedInCurrentSlot(v));
+                                        const idx = allVerses.findIndex((v) => v.key === verse.key);
+                                        const prevVerse = idx > 0 ? allVerses[idx - 1] : null;
+                                        if (prevVerse && isSajdaVerse(prevVerse)) setShowSajdaPopup(true);
+                                        setSelectedVerseKey(verse.key);
+                                        setSelectedSurah(verse.surahNumber);
+                                        setSelectedAyah(verse.ayahNumber);
+                                      }
+                                    }}
+                                    className={`cursor-pointer ${isSelected ? 'bg-emerald-200/80 dark:bg-emerald-700/40 ring-1 ring-emerald-500/50 rounded' : 'hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 rounded'}`}
+                                    aria-label={`Vers ${verse.ayahNumber}`}
                                   >
-                                    {num}
+                                    <span>{mode === 'arabic' ? renderArabicWithPauseMarks(text, hidePauseMarks, true) : text}</span>
+                                    {NBSP}
+                                    <span
+                                      className={mode === 'arabic'
+                                        ? `font-verse-num inline align-middle text-emerald-700 dark:text-emerald-300 font-semibold mx-1.5 ${isSelected ? 'underline underline-offset-2' : ''}`
+                                        : `text-emerald-600 dark:text-emerald-400 font-medium ${isSelected ? 'underline' : ''}`}
+                                      style={mode === 'arabic' ? { fontSize: `${fontSize}px` } : undefined}
+                                    >
+                                      {num}
+                                    </span>
                                   </span>
                                   {isLastVerseOfSurah && (
                                     <span className="inline-flex items-center gap-1 ml-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
