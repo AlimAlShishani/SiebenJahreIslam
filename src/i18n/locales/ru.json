@@ -635,6 +635,9 @@
   },
   "quranReader": {
     "settings": "Настройки читалки",
+    "sajdaPopupTitle": "Суджуд при чтении",
+    "sajdaPopupText": "Сунна – совершить суджуд сейчас, если можешь. Это не обязательно. Для этого не нужны вуду и направление на Киблу.",
+    "sajdaPopupOk": "Понятно",
     "verseMode": "Отдельные аяты",
     "lastVerseOfSurah": "Конец суры",
     "juzPageRange": "Страница {{start}}–{{end}}",

@@ -635,6 +635,9 @@
   },
   "quranReader": {
     "settings": "Okuyucu ayarları",
+    "sajdaPopupTitle": "Okurken secde",
+    "sajdaPopupText": "Şimdi secde etmek sünnettir – yapabiliyorsan. Zorunlu değildir. Bunun için abdest gerekmez ve Kıble'ye dönmen gerekmez.",
+    "sajdaPopupOk": "Tamam",
     "verseMode": "Tek ayetler",
     "lastVerseOfSurah": "Surenin sonu",
     "juzPageRange": "Sayfa {{start}}–{{end}}",

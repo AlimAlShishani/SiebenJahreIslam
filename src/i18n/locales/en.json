@@ -635,6 +635,9 @@
   },
   "quranReader": {
     "settings": "Reader settings",
+    "sajdaPopupTitle": "Sujud when reciting",
+    "sajdaPopupText": "It is Sunnah to perform Sujud now if you can – but it is not obligatory. You do not need wudu for it, and you do not need to face the Qibla.",
+    "sajdaPopupOk": "OK",
     "verseMode": "Single verses",
     "lastVerseOfSurah": "End of surah",
     "juzPageRange": "Page {{start}} to {{end}}",

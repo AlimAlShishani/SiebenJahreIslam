@@ -78,6 +78,15 @@ const QURAN_TEXT_OPTIONS: QuranTextEdition[] = [
   'quran-simple-clean',
 ];
 
+/** Sajda-Verse (Sujud beim Lesen): Sunna-Hinweis beim Wechsel zum nächsten Vers. */
+const SAJDA_VERSE_KEYS = new Set([
+  '7:206', '13:15', '16:50', '17:109', '19:58', '22:18', '22:77', '25:60', '27:26', '32:15', '38:24', '41:38', '53:62', '84:21', '96:19',
+]);
+function isSajdaVerse(verse: { surahNumber: number; ayahNumber: number } | null): boolean {
+  if (!verse) return false;
+  return SAJDA_VERSE_KEYS.has(`${verse.surahNumber}:${verse.ayahNumber}`);
+}
+
 /** Unicode-Bereiche für Quran-Pausenzeichen (Waqf). 06E2/06ED = bedingtes Meem (Iqlab), ausgenommen. 06EC = Small High Upright Rectangular Zero (über Alif etc.) – kein Pausenzeichen, bleibt weiß. */
 function isQuranicPauseMark(ch: string): boolean {
   const cp = ch.codePointAt(0) ?? 0;
@@ -544,7 +553,14 @@ export default function QuranReader() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedJuzRange, setSelectedJuzRange] = useState<{ start: number; end: number }>({ start: 1, end: 604 });
   const [mobileRecording, setMobileRecording] = useState(false);
+  const [showSajdaPopup, setShowSajdaPopup] = useState(false);
   const { setRecording: setRecordingContext } = useRecording();
+
+  useEffect(() => {
+    if (!showSajdaPopup) return;
+    const t = window.setTimeout(() => setShowSajdaPopup(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [showSajdaPopup]);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const selectedVerseRef = useRef<HTMLSpanElement | null>(null);
@@ -1481,6 +1497,7 @@ export default function QuranReader() {
     if (!visibleVerses.length) return;
     const active = visibleVerses[activeVerseIndex];
     if (isKahfSlot && active?.surahNumber === 18 && active?.ayahNumber === 110) return;
+    if (isSajdaVerse(active)) setShowSajdaPopup(true);
     if (activeVerseIndex >= visibleVerses.length - 1) {
       if (currentPage < effectiveEndPage) {
         setPendingVerseSelection('first');
@@ -2073,6 +2090,7 @@ export default function QuranReader() {
                 };
                 const goNext = () => {
                   if (isKahfSlot && currentVerse?.surahNumber === 18 && currentVerse?.ayahNumber === 110) return;
+                  if (isSajdaVerse(currentVerse)) setShowSajdaPopup(true);
                   if (atLastVerse && currentPage < effectiveEndPage) {
                     setPendingVerseSelection('first');
                     setCurrentPage((p) => Math.min(effectiveEndPage, p + 1));
@@ -2306,6 +2324,29 @@ export default function QuranReader() {
           )}
         </section>
       </div>
+
+      {showSajdaPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowSajdaPopup(false)}>
+          <div
+            className="max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-5 border border-gray-200 dark:border-gray-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-2">
+              {t('quranReader.sajdaPopupTitle')}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              {t('quranReader.sajdaPopupText')}
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowSajdaPopup(false)}
+              className="mt-4 w-full py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
+            >
+              {t('quranReader.sajdaPopupOk')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {mobileAudioOpen && hasAssignmentContext && assignment && (
         <div className="md:hidden fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))] left-2 right-2 z-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-2 max-h-[34vh] overflow-y-auto">

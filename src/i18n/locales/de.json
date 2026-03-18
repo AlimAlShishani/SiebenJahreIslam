@@ -619,6 +619,9 @@
   },
   "quranReader": {
     "settings": "Reader Einstellungen",
+    "sajdaPopupTitle": "Sujud beim Lesen",
+    "sajdaPopupText": "Es ist Sunna, jetzt einen Sujud zu machen – wenn du kannst. Es ist nicht verpflichtend. Du brauchst dafür kein Wudu und musst nicht in Richtung Qibla schauen.",
+    "sajdaPopupOk": "Verstanden",
     "verseMode": "Einzelverse",
     "lastVerseOfSurah": "Ende der Sure",
     "juzPageRange": "Seite {{start}} bis {{end}}",
