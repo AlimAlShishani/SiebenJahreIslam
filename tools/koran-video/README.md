@@ -35,7 +35,10 @@ Nützliche Optionen:
 | Option | Bedeutung |
 |---|---|
 | `--glyphen v1` / `v2` | V1 = wie das Font-Set der qurancliphelper-FAQ (Standard), V2 = wie quran.com |
-| `--format 9:16` | `9:16` (Reels/TikTok/Shorts, Standard), `16:9`, `1:1`, `4:5` |
+| `--format 16:9` | `16:9` Querformat (Standard), `9:16` (Reels/TikTok/Shorts), `1:1`, `4:5` |
+| `--glow 0.45` | Leuchten um den arabischen Text: `0` aus, `0.45` dezent (Standard), `0.8` kräftig |
+| `--glow-farbe "#F6D58E"` | Farbe des Leuchtens (Standard weiß; `#F6D58E` = warmes Gold) |
+| `--uebersetzung-font marcellus` | `marcellus` (Standard), `cormorant`, `ebgaramond`, `lora` (kursiv), `system` oder Pfad zu einer .ttf |
 | `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`) |
 | `--basmala auto/ja/nein` | `auto` = Basmala erwartet, wenn ab Vers 1 gelesen wird (nicht bei Sure 1 und 9) |
 | `--istiadha` | Aufnahme beginnt mit „A'udhu billahi minasch-schaitanir-radschim“ |
@@ -71,6 +74,20 @@ koran-video-ausgabe/067_001-010/
    ziehen und bis zum nächsten Vers verlängern.
 3. Alternativ die `.srt`-Dateien über CapCuts Untertitel-Import (Captions →
    Importieren) laden, oder einfach `video.mp4` als Basis nehmen.
+
+### Wiederholungen beim Rezitieren
+
+Wenn du kurz stoppst und ein paar Wörter zurückspringst, ist das kein Problem.
+Der Abgleich behandelt die wiederholten Wörter als Einschub und erkennt den
+nächsten Versanfang trotzdem. Getestet mit:
+- Wiederholung mitten im Vers
+- Neustart am Versanfang
+- Zurückspringen ans Ende des vorherigen Verses
+- zwei Wiederholungen in einer Aufnahme
+
+Abweichung jeweils ≤ 0,2 s. Springst du in den vorherigen Vers zurück, bleibt
+während der Wiederholung der vorherige Vers eingeblendet, und der neue Vers
+erscheint, wenn du ihn wirklich liest.
 
 ### Zeitstempel korrigieren
 

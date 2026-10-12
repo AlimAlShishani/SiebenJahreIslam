@@ -14,6 +14,16 @@ FORMATS = {"9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080), "4:5
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UTHMANIC_FONT = REPO_ROOT / "UthmanicHafs.otf"  # nur für die Isti'adha (hat keine Glyphen-Codes)
+# Schriften für die Übersetzung (Google Fonts, OFL-Lizenz) – werden bei Bedarf geladen.
+# name: (Datei im google/fonts-Repo, Gewicht bei variablen Fonts, Größenfaktor)
+TRANSLATION_FONTS = {
+    "marcellus": ("ofl/marcellus/Marcellus-Regular.ttf", None, 1.0),
+    "cormorant": ("ofl/cormorantgaramond/CormorantGaramond[wght].ttf", 500, 1.3),
+    "ebgaramond": ("ofl/ebgaramond/EBGaramond[wght].ttf", 420, 1.15),
+    "lora": ("ofl/lora/Lora-Italic[wght].ttf", 400, 1.0),
+}
+FONT_REPO = "https://raw.githubusercontent.com/google/fonts/main/"
+
 LATIN_FONTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
@@ -37,18 +47,42 @@ class Style:
     arabic_size: int = 0  # 0 = automatisch
     translation_size: int = 0
     latin_font: str | None = None
+    latin_weight: int | None = None  # nur bei variablen Fonts (z. B. 500)
     glyphs: str = "v1"  # QCF-Version: v1 oder v2
+    glow: float = 0.0  # Leuchten um den arabischen Text, 0 = aus, ~0.6 dezent, 1 = kräftig
+    glow_color: str = "#FFFFFF"
+
+    translation_font: str = "marcellus"  # Name aus TRANSLATION_FONTS, "system" oder Pfad zu .ttf/.otf
+
+    @property
+    def unit(self) -> float:
+        """Bezugsgröße, damit Schrift in 9:16 und 16:9 gleich wirkt."""
+        return (self.width * self.height) ** 0.5
 
     @property
     def text_width(self) -> int:
-        return int(self.width * 0.86)
+        frac = 0.86 if self.width <= self.height else 0.78
+        return int(self.width * frac)
 
 
 class Renderer:
     def __init__(self, style: Style):
         self.style = style
         self._fonts: dict = {}
-        self.latin_font_path = style.latin_font or next((p for p in LATIN_FONTS if Path(p).exists()), None)
+        self.latin_scale = 1.0
+        self.latin_font_path = style.latin_font
+        name = style.translation_font
+        if not self.latin_font_path and name in TRANSLATION_FONTS:
+            rel, weight, self.latin_scale = TRANSLATION_FONTS[name]
+            self.latin_font_path = str(_google_font(rel))
+            if weight and not style.latin_weight:
+                style.latin_weight = weight
+        elif not self.latin_font_path and name not in ("system", ""):
+            if not Path(name).exists():
+                raise SystemExit(f"Übersetzungs-Schrift unbekannt: {name} (erlaubt: {', '.join(TRANSLATION_FONTS)}, system oder Pfad)")
+            self.latin_font_path = name
+        if not self.latin_font_path:
+            self.latin_font_path = next((p for p in LATIN_FONTS if Path(p).exists()), None)
 
     # ------------------------------------------------------------------ Fonts
     def glyph_font(self, page: int, size: int) -> ImageFont.FreeTypeFont:
@@ -66,7 +100,13 @@ class Renderer:
         key = ("lat", size)
         if key not in self._fonts:
             if self.latin_font_path:
-                self._fonts[key] = ImageFont.truetype(self.latin_font_path, size)
+                font = ImageFont.truetype(self.latin_font_path, size)
+                if self.style.latin_weight:
+                    try:
+                        font.set_variation_by_axes([self.style.latin_weight])
+                    except OSError:
+                        pass  # kein variabler Font
+                self._fonts[key] = font
             else:
                 self._fonts[key] = ImageFont.load_default(size)
         return self._fonts[key]
@@ -94,7 +134,7 @@ class Renderer:
         return _balance(lines, space, self.style.text_width), space
 
     def _arabic_layout(self, seg: Segment, max_height: int):
-        size = self.style.arabic_size or int(self.style.width * 0.085)
+        size = self.style.arabic_size or int(self.style.unit * 0.066)
         while True:
             lines, space = self._arabic_lines(seg, size)
             line_h = int(size * 1.85)
@@ -130,7 +170,7 @@ class Renderer:
 
     def render(self, seg: Segment, out_ar: Path, out_tr: Path | None) -> None:
         W, H = self.style.width, self.style.height
-        tr_size = self.style.translation_size or int(W * 0.036)
+        tr_size = self.style.translation_size or int(self.style.unit * 0.029 * self.latin_scale)
         tr_lines = self._translation_lines(seg.translation, tr_size) if (out_tr and seg.translation) else []
         tr_line_h = int(tr_size * 1.4)
         tr_h = len(tr_lines) * tr_line_h
@@ -138,7 +178,7 @@ class Renderer:
 
         ar_img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         if seg.kind == "istiadha":
-            size = int(min(W, H * 0.75) * 0.075)
+            size = int(self.style.unit * 0.055)
             font = self._istiadha_font(size)
             kw = {"direction": "rtl", "language": "ar"} if features.check("raqm") else {}
             bbox = font.getbbox(seg.text, **kw)
@@ -153,7 +193,7 @@ class Renderer:
             ar_h = len(layout[1]) * layout[3]
             top = int((H - (ar_h + gap + tr_h)) / 2)
             self._draw_arabic(ar_img, seg, top, layout)
-        _save(ar_img, out_ar, self.style.shadow)
+        _save(ar_img, out_ar, self.style.shadow, self.style.glow, self.style.glow_color, self.style.unit)
 
         if out_tr is not None:
             tr_img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -164,7 +204,18 @@ class Renderer:
                 lw = font.getlength(line)
                 draw.text(((W - lw) / 2, y), line, font=font, fill=_hex(self.style.color) + (235,))
                 y += tr_line_h
-            _save(tr_img, out_tr, self.style.shadow)
+            _save(tr_img, out_tr, self.style.shadow, 0.0, "#FFFFFF", self.style.unit)
+
+
+def _google_font(rel: str) -> Path:
+    from quran_data import CACHE_DIR, _get
+
+    path = CACHE_DIR / "fonts" / "uebersetzung" / Path(rel).name
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        url = FONT_REPO + rel.replace("[", "%5B").replace("]", "%5D")
+        path.write_bytes(_get(url, binary=True))
+    return path
 
 
 def _balance(lines, space, max_w):
@@ -189,15 +240,26 @@ def _balance(lines, space, max_w):
     return out
 
 
-def _save(img: Image.Image, path: Path, shadow: bool) -> None:
-    if shadow:
-        alpha = img.getchannel("A")
-        bbox = alpha.getbbox()
-        if bbox:
+def _save(img: Image.Image, path: Path, shadow: bool, glow: float, glow_color: str, unit: float) -> None:
+    alpha = img.getchannel("A")
+    if alpha.getbbox():
+        layers = []
+        if shadow:
             sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
             sh.putalpha(alpha.point(lambda a: int(a * 0.75)))
-            sh = sh.filter(ImageFilter.GaussianBlur(max(4, img.width // 200)))
-            img = Image.alpha_composite(sh, img)
+            layers.append(sh.filter(ImageFilter.GaussianBlur(max(4, unit / 280))))
+        if glow > 0:
+            import numpy as np
+
+            # zwei Unschärfen: enger heller Kern + weiter weicher Schein
+            inner = np.asarray(alpha.filter(ImageFilter.GaussianBlur(unit / 160)), np.float32) / 255
+            outer = np.asarray(alpha.filter(ImageFilter.GaussianBlur(unit / 45)), np.float32) / 255
+            g = np.clip((inner * 1.4 + outer * 2.2) * glow, 0, 0.95)
+            layer = Image.new("RGBA", img.size, _hex(glow_color) + (0,))
+            layer.putalpha(Image.fromarray((g * 255).astype("uint8"), "L"))
+            layers.append(layer)
+        for layer in reversed(layers):
+            img = Image.alpha_composite(layer, img)
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, optimize=True)
 

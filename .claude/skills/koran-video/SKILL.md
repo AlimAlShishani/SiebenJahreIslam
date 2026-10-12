@@ -20,14 +20,16 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    Arbeitsverzeichnis bzw. in Upload-Ordnern (`find / -newer … -iname "*.m4a"`
    o. ä.). Videos gehen auch, dann wird die Tonspur benutzt. Nur nachfragen, wenn
    Sure oder Verse fehlen. Erwähnt der Nutzer Isti'adha, Hintergrund oder Format,
-   die passenden Optionen setzen; sonst Standard (9:16, dunkler Verlauf, V1-Glyphen,
-   deutsche Übersetzung).
+   die passenden Optionen setzen; sonst Standard: **16:9 Querformat**, dunkler
+   Verlauf, V1-Glyphen, dezenter Glow, Übersetzung (Abu Rida) in Marcellus.
+   „Hochformat“, „Reel“, „Short“, „TikTok“ → `--format 9:16`.
 2. **Abhängigkeiten** (einmal pro Session, ffmpeg muss vorhanden sein):
    `pip install -q -r tools/koran-video/requirements.txt`
 3. **Ausführen** (ca. 1–2 min pro Minute Audio, beim ersten Mal plus Downloads):
    ```bash
    python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B \
-     [--istiadha] [--basmala nein] [--hintergrund <datei>] [--format 16:9]
+     [--istiadha] [--basmala nein] [--hintergrund <datei>] [--format 9:16] \
+     [--glow 0.8] [--glow-farbe "#F6D58E"] [--uebersetzung-font cormorant]
    ```
    Die Basmala wird automatisch erwartet, wenn ab Vers 1 gelesen wird (außer
    Sure 1 und 9). Liest der Nutzer sie nicht, `--basmala nein` setzen.
@@ -36,6 +38,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      Verse länger als kurze)? Steht im Log „nicht sicher erkannt“?
    - Bei Zweifeln 1–2 Frames an verdächtigen Stellen aus `video.mp4` extrahieren
      und ansehen, notfalls mit `--modell medium` neu laufen lassen.
+   - Wiederholungen (Nutzer stoppt und liest ein paar Wörter erneut) sind normal
+     und werden vom Abgleich abgefangen; kein Grund zur Rückfrage.
    - Passt die Anzahl erkannter Verse nicht zur Aufnahme (z. B. andere Verse
      gelesen als angegeben), dem Nutzer sagen, was du hörst.
 5. **Liefern:** `video.mp4` und `capcut-paket.zip` mit SendUserFile schicken

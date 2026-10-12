@@ -170,7 +170,12 @@ def parse_args(argv=None):
     p.add_argument("--glyphen", choices=["v1", "v2"], default="v1",
                    help="Glyphen-Schrift: v1 = King-Fahd-Font-Set aus der FAQ von qurancliphelper.com (Standard), "
                         "v2 = neuere Madina-Ausgabe wie auf quran.com")
-    p.add_argument("--format", choices=list(FORMATS), default="9:16")
+    p.add_argument("--format", choices=list(FORMATS), default="16:9",
+                   help="16:9 = Querformat (Standard), 9:16 = Hochformat für Reels/Shorts/TikTok, 1:1, 4:5")
+    p.add_argument("--glow", type=float, default=0.45, help="Leuchten um den arabischen Text: 0 = aus, 0.45 = dezent (Standard), 0.8 = kräftig")
+    p.add_argument("--glow-farbe", default="#FFFFFF", help="Farbe des Leuchtens, z. B. #F6D58E für warmes Gold")
+    p.add_argument("--uebersetzung-font", default="marcellus",
+                   help="Schrift der Übersetzung: marcellus (Standard), cormorant, ebgaramond, lora (kursiv), system oder Pfad zu .ttf")
     p.add_argument("--hintergrund", type=Path, help="Hintergrundbild oder -video (Standard: dunkler Verlauf)")
     p.add_argument("--abdunkeln", type=float, default=0.35, help="Hintergrund abdunkeln, 0–1 (Standard 0.35)")
     p.add_argument("--farbe", default="#FFFFFF", help="Textfarbe (Standard weiß)")
@@ -258,7 +263,8 @@ def main(argv=None) -> None:
     log(f"3/4 Rendere Vers-Bilder (Glyphen-Schrift QCF {args.glyphen.upper()}) …")
     size = FORMATS[args.format]
     renderer = Renderer(Style(width=size[0], height=size[1], color=args.farbe,
-                                arabic_size=args.schriftgroesse, glyphs=args.glyphen))
+                                arabic_size=args.schriftgroesse, glyphs=args.glyphen, glow=args.glow,
+                                glow_color=args.glow_farbe, translation_font=args.uebersetzung_font))
     for sub in ("arabisch", "uebersetzung"):
         if (capcut / sub).exists():
             shutil.rmtree(capcut / sub)
