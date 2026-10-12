@@ -40,3 +40,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Koran-Video-Workflow (tools/koran-video)
+koran-video-ausgabe/
+__pycache__/
