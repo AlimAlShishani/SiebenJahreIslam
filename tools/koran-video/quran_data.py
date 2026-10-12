@@ -1,9 +1,11 @@
 """Koran-Daten (Glyphen-Codes, Uthmani-Text, Übersetzung) und QCF-V2-Seitenfonts.
 
 Quelle: api.quran.com (dieselben Daten/Fonts, die quran.com selbst nutzt).
-Die Glyphen-Schrift (QCF V2) hat einen eigenen Font pro Mushaf-Seite (604 Stück);
+Die Glyphen-Schrift (QCF) hat einen eigenen Font pro Mushaf-Seite (604 Stück);
 jedes Wort ist darin ein einzelnes Zeichen. Deshalb sieht der Text exakt wie im
 Madina-Mushaf aus.
+  V1 = ältere Madina-Ausgabe (1405 H) – das Font-Set aus der FAQ von qurancliphelper.com
+  V2 = neuere Madina-Ausgabe (1421 H) – wie auf quran.com
 """
 
 from __future__ import annotations
@@ -19,11 +21,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 API = "https://api.quran.com/api/v4"
-FONT_URL = "https://verses.quran.foundation/fonts/quran/hafs/v2/ttf/p{page}.ttf"
+FONT_URL = "https://verses.quran.foundation/fonts/quran/hafs/{version}/ttf/p{page}.ttf"
 TOTAL_PAGES = 604
 
 CACHE_DIR = Path(os.environ.get("KORAN_VIDEO_CACHE", Path.home() / ".cache" / "koran-video"))
-FONT_DIR = CACHE_DIR / "fonts" / "qcf_v2"
+FONT_DIR = CACHE_DIR / "fonts"  # Unterordner qcf_v1 / qcf_v2
 
 ISTIADHA_TEXT = "أَعُوذُ بِٱللَّهِ مِنَ ٱلشَّيْطَـٰنِ ٱلرَّجِيمِ"
 ISTIADHA_UEBERSETZUNG = "Ich suche Schutz bei Allah vor dem gesteinigten Satan."
@@ -31,8 +33,7 @@ ISTIADHA_UEBERSETZUNG = "Ich suche Schutz bei Allah vor dem gesteinigten Satan."
 
 @dataclass
 class Word:
-    code: str  # Glyphe im Seitenfont (QCF V2)
-    page: int  # welcher Seitenfont
+    glyphs: dict  # {"v1": (zeichen, seite), "v2": (zeichen, seite)} – Glyphe im jeweiligen Seitenfont
     text: str  # Uthmani-Text des Wortes (leer beim Versende-Zeichen)
     is_end: bool  # Versende-Ornament mit Versnummer
 
@@ -92,7 +93,7 @@ def chapter_info(surah: int) -> dict:
 def chapter_verses(surah: int, translation_id: int | None) -> list[dict]:
     """Alle Verse einer Sure inkl. Wörter mit Glyphen-Codes (gecacht)."""
     tid = translation_id or 0
-    name = f"verses_{surah}_t{tid}.json"
+    name = f"verses2_{surah}_t{tid}.json"
     path = CACHE_DIR / "api" / name
     if path.exists():
         return json.loads(path.read_text("utf-8"))
@@ -101,7 +102,7 @@ def chapter_verses(surah: int, translation_id: int | None) -> list[dict]:
     while page:
         params = {
             "words": "true",
-            "word_fields": "code_v2,v2_page,text_uthmani",
+            "word_fields": "code_v1,page_number,code_v2,v2_page,text_uthmani",
             "fields": "text_uthmani",
             "per_page": 50,
             "page": page,
@@ -120,7 +121,8 @@ def _words(verse: dict) -> list[Word]:
     out = []
     for w in verse["words"]:
         is_end = w["char_type_name"] == "end"
-        out.append(Word(w["code_v2"], int(w["v2_page"]), "" if is_end else w.get("text_uthmani", ""), is_end))
+        glyphs = {"v1": (w["code_v1"], int(w["page_number"])), "v2": (w["code_v2"], int(w["v2_page"]))}
+        out.append(Word(glyphs, "" if is_end else w.get("text_uthmani", ""), is_end))
     return out
 
 
@@ -152,18 +154,18 @@ def build_segments(
     return segs
 
 
-def font_path(page: int, font_dir: Path = FONT_DIR) -> Path:
-    path = font_dir / f"p{page}.ttf"
+def font_path(page: int, version: str = "v2", font_dir: Path | None = None) -> Path:
+    path = (font_dir or FONT_DIR / f"qcf_{version}") / f"p{page}.ttf"
     if not path.exists() or path.stat().st_size == 0:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".part")
-        tmp.write_bytes(_get(FONT_URL.format(page=page), binary=True))
+        tmp.write_bytes(_get(FONT_URL.format(version=version, page=page), binary=True))
         tmp.replace(path)
     return path
 
 
-def download_all_fonts(font_dir: Path = FONT_DIR, progress=print) -> None:
+def download_all_fonts(font_dir: Path, version: str = "v2", progress=print) -> None:
     for page in range(1, TOTAL_PAGES + 1):
-        font_path(page, font_dir)
+        font_path(page, version, font_dir)
         if page % 50 == 0 or page == TOTAL_PAGES:
             progress(f"  Fonts: {page}/{TOTAL_PAGES}")

@@ -1,4 +1,4 @@
-"""Vers-Bilder (transparente PNGs) mit den QCF-V2-Glyphenfonts rendern."""
+"""Vers-Bilder (transparente PNGs) mit den QCF-Glyphenfonts (V1 oder V2) rendern."""
 
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ class Style:
     arabic_size: int = 0  # 0 = automatisch
     translation_size: int = 0
     latin_font: str | None = None
+    glyphs: str = "v1"  # QCF-Version: v1 oder v2
 
     @property
     def text_width(self) -> int:
@@ -53,7 +54,12 @@ class Renderer:
     def glyph_font(self, page: int, size: int) -> ImageFont.FreeTypeFont:
         key = ("p", page, size)
         if key not in self._fonts:
-            self._fonts[key] = ImageFont.truetype(str(font_path(page)), size)
+            # V1-Fonts sind kleiner gezeichnet als V2, die Seiten 1–2 (Fatiha/Anfang Baqara) nochmals kleiner
+            scale = 1.0
+            if self.style.glyphs == "v1":
+                scale = 1.2 * (1.4 if page <= 2 else 1.0)
+            path = font_path(page, self.style.glyphs)
+            self._fonts[key] = ImageFont.truetype(str(path), max(8, int(size * scale)))
         return self._fonts[key]
 
     def latin(self, size: int):
@@ -71,8 +77,9 @@ class Renderer:
         space = size * 0.22
         tokens = []
         for w in seg.words:
-            font = self.glyph_font(w.page, size)
-            tokens.append((w, font.getlength(w.code)))
+            code, page = w.glyphs[self.style.glyphs]
+            font = self.glyph_font(page, size)
+            tokens.append(((code, page), font.getlength(code)))
         lines, cur, cur_w = [], [], 0.0
         for tok in tokens:
             add = tok[1] + (space if cur else 0)
@@ -104,9 +111,9 @@ class Renderer:
         for li, (line, line_w) in enumerate(lines):
             x = cx + line_w / 2
             y = top + li * line_h
-            for w, tw in line:
+            for (code, page), tw in line:
                 x -= tw
-                draw.text((x, y), w.code, font=self.glyph_font(w.page, size), fill=fill)
+                draw.text((x, y), code, font=self.glyph_font(page, size), fill=fill)
                 x -= space
 
     def _istiadha_font(self, size: int):

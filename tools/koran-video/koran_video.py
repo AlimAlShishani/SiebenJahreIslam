@@ -167,6 +167,9 @@ def parse_args(argv=None):
     p.add_argument("--zeitstempel", type=Path, help="eigene/korrigierte zeitstempel.json verwenden statt neu zu erkennen")
     p.add_argument("--uebersetzung", default="208",
                    help="quran.com-Übersetzungs-ID: 208 = Abu Rida (Standard), 27 = Bubenheim, 'keine' = ohne")
+    p.add_argument("--glyphen", choices=["v1", "v2"], default="v1",
+                   help="Glyphen-Schrift: v1 = King-Fahd-Font-Set aus der FAQ von qurancliphelper.com (Standard), "
+                        "v2 = neuere Madina-Ausgabe wie auf quran.com")
     p.add_argument("--format", choices=list(FORMATS), default="9:16")
     p.add_argument("--hintergrund", type=Path, help="Hintergrundbild oder -video (Standard: dunkler Verlauf)")
     p.add_argument("--abdunkeln", type=float, default=0.35, help="Hintergrund abdunkeln, 0–1 (Standard 0.35)")
@@ -177,7 +180,7 @@ def parse_args(argv=None):
     p.add_argument("--kein-video", action="store_true", help="nur Zeitstempel + Bilder, kein video.mp4")
     p.add_argument("--ausgabe", type=Path, help="Ausgabeordner (Standard: koran-video-ausgabe/<sure>_<von>-<bis>)")
     p.add_argument("--alle-fonts", type=Path, metavar="ORDNER",
-                   help="nur alle 604 Glyphen-Fonts (QCF V2) in ORDNER herunterladen, z. B. zum Installieren für CapCut")
+                   help="nur alle 604 Glyphen-Fonts (Version laut --glyphen) in ORDNER herunterladen, z. B. zum Installieren für CapCut")
     args = p.parse_args(argv)
     if args.alle_fonts:
         return args
@@ -190,8 +193,8 @@ def parse_args(argv=None):
 def main(argv=None) -> None:
     args = parse_args(argv)
     if args.alle_fonts:
-        log(f"Lade alle 604 Glyphen-Fonts nach {args.alle_fonts} …")
-        download_all_fonts(args.alle_fonts, log)
+        log(f"Lade alle 604 Glyphen-Fonts (QCF {args.glyphen.upper()}) nach {args.alle_fonts} …")
+        download_all_fonts(args.alle_fonts, args.glyphen, log)
         log("Fertig. Installieren: alle .ttf markieren → Rechtsklick → „Installieren“.")
         return
     if not shutil.which("ffmpeg"):
@@ -252,9 +255,10 @@ def main(argv=None) -> None:
     log((out / "zeitstempel.txt").read_text("utf-8"))
 
     # 3) Bilder
-    log("3/4 Rendere Vers-Bilder (Glyphen-Schrift QCF V2) …")
+    log(f"3/4 Rendere Vers-Bilder (Glyphen-Schrift QCF {args.glyphen.upper()}) …")
     size = FORMATS[args.format]
-    renderer = Renderer(Style(width=size[0], height=size[1], color=args.farbe, arabic_size=args.schriftgroesse))
+    renderer = Renderer(Style(width=size[0], height=size[1], color=args.farbe,
+                                arabic_size=args.schriftgroesse, glyphs=args.glyphen))
     for sub in ("arabisch", "uebersetzung"):
         if (capcut / sub).exists():
             shutil.rmtree(capcut / sub)
@@ -280,7 +284,7 @@ def main(argv=None) -> None:
     shutil.rmtree(work, ignore_errors=True)
     shutil.make_archive(str(out / "capcut-paket"), "zip", capcut)
     log(f"\nFertig in {time.time() - t_start:.0f}s → {out}/")
-    log(f"  Glyphen-Fonts liegen in {FONT_DIR}")
+    log(f"  Glyphen-Fonts liegen in {FONT_DIR / ('qcf_' + args.glyphen)}")
 
 
 if __name__ == "__main__":

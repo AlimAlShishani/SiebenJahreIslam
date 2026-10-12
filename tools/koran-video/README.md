@@ -1,16 +1,23 @@
 # Koran-Video-Workflow
 
-Du lädst deine Rezitation hoch und sagst **Sure, von Vers, bis Vers**. Den Rest
-erledigt das Tool:
+**So funktioniert es:** Du schickst Claude deine Rezitation und schreibst dazu
+Sure und Verse, z. B. „Sure 67, Vers 1–10“. Claude führt alles aus und schickt
+dir `video.mp4` und das CapCut-Paket zurück. Korrekturen („Vers 3 beginnt bei
+0:25“) schreibst du einfach in den Chat. Den Ablauf für Claude beschreibt
+`.claude/skills/koran-video/SKILL.md`.
+
+Was dabei passiert:
 
 1. **Zeitstempel erkennen:** Whisper transkribiert die Aufnahme, der Text wird
    Buchstabe für Buchstabe mit dem Koran abgeglichen und jede Versgrenze auf die
    Atempause davor eingerastet.
 2. **Verse rendern:** jeder Vers als transparentes Vollbild-PNG in der
-   **Glyphen-Schrift (QCF V2)**. Das ist ein eigener Font pro Mushaf-Seite (604
-   Stück), derselbe wie auf quran.com, also exakt wie im Madina-Mushaf und mit
-   Versnummer-Ornament. Optional kommt die deutsche Übersetzung als eigene Ebene
-   dazu.
+   **Glyphen-Schrift** des King-Fahd-Komplexes. Das ist ein eigener Font pro
+   Mushaf-Seite (604 Stück), also exakt wie im Madina-Mushaf und mit
+   Versnummer-Ornament. Standard ist **V1**, die Generation des Font-Sets, das die FAQ
+   von [qurancliphelper.com](https://qurancliphelper.com) verlinkt. Mit
+   `--glyphen v2` gibt es die neuere Ausgabe wie auf quran.com. Optional kommt
+   die deutsche Übersetzung als eigene Ebene dazu.
 3. **Video bauen:** Hintergrund, Verse (mit sanfter Blende) und Audio werden zu
    `video.mp4` zusammengesetzt.
 4. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
@@ -27,6 +34,7 @@ Nützliche Optionen:
 
 | Option | Bedeutung |
 |---|---|
+| `--glyphen v1` / `v2` | V1 = wie das Font-Set der qurancliphelper-FAQ (Standard), V2 = wie quran.com |
 | `--format 9:16` | `9:16` (Reels/TikTok/Shorts, Standard), `16:9`, `1:1`, `4:5` |
 | `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`) |
 | `--basmala auto/ja/nein` | `auto` = Basmala erwartet, wenn ab Vers 1 gelesen wird (nicht bei Sure 1 und 9) |
@@ -91,6 +99,8 @@ Draft übernehmen.
 ## Quellen
 
 - Text, Glyphen-Codes, Übersetzungen: `api.quran.com/api/v4`
-- Glyphen-Fonts: `verses.quran.foundation/fonts/quran/hafs/v2/ttf/p{seite}.ttf`
+- Glyphen-Fonts: `verses.quran.foundation/fonts/quran/hafs/{v1|v2}/ttf/p{seite}.ttf`
+  (Das Set `AllPartsFonts.zip` aus der FAQ von qurancliphelper.com stammt von
+  2005, also aus der V1-Zeit, und ist dort nur als Windows-Installer zu haben.)
   (Cache: `~/.cache/koran-video/`, änderbar mit `KORAN_VIDEO_CACHE`)
 - Isti'adha-Text: `UthmanicHafs.otf` aus dem Repo (dafür gibt es keine Glyphen-Codes)
