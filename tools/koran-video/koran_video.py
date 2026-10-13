@@ -28,6 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from quran_data import FONT_DIR, Segment, build_segments, chapter_info, download_all_fonts  # noqa: E402
+import effects  # noqa: E402
 from render import FORMATS, Renderer, Style, make_background  # noqa: E402
 from timing import SR, compute_timestamps, detect_silences, load_audio, voice_span  # noqa: E402
 
@@ -103,6 +104,8 @@ def build_video(
     darken: float,
     fade: float,
     work: Path,
+    particles: Path | None = None,
+    glitch: float = 0.0,
 ) -> None:
     W, H = size
     bg_is_image = background.suffix.lower() in IMAGE_EXT
@@ -119,6 +122,18 @@ def build_video(
     ]
     cur = "base0"
     n_in = 2
+    if particles:
+        # Partikel per „Screen“-Mischung: Schwarz bleibt unsichtbar, Lichtpunkte hellen auf
+        inputs += ["-stream_loop", "-1", "-t", f"{duration:.3f}", "-i", str(particles)]
+        filters.append(f"[{cur}]format=gbrp[bgp]")
+        filters.append(f"[{n_in}:v]scale={W}:{H},fps=30,format=gbrp[pt]")
+        filters.append("[bgp][pt]blend=all_mode=screen:shortest=1,format=rgba[base1]")
+        cur = "base1"
+        n_in += 1
+
+    verse_glitch, micro = [], []
+    if glitch > 0:
+        verse_glitch, micro = effects.glitch_times([s.start for s in segs], duration, glitch)
     for i, (seg, pngs) in enumerate(zip(segs, images)):
         d = max(0.05, seg.end - seg.start)
         f = min(fade, d / 3)
@@ -134,6 +149,20 @@ def build_video(
             filters.append(f"[{cur}][{lbl}]overlay=0:0:eof_action=pass[{nxt}]")
             cur = nxt
             n_in += 1
+        windows = [(a, b) for a, b, vi in verse_glitch if vi == i]
+        if windows:
+            gpng = effects.glitch_variant(pngs[0], work / f"glitch_{i:03d}.png", glitch, seed=i)
+            inputs += ["-loop", "1", "-framerate", "30", "-t", f"{d:.3f}", "-i", str(gpng)]
+            enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in windows)
+            filters.append(f"[{n_in}:v]format=rgba,setpts=PTS-STARTPTS+{seg.start:.3f}/TB[g{i}]")
+            filters.append(f"[{cur}][g{i}]overlay=0:0:eof_action=pass:enable='{enable}'[gb{i}]")
+            cur = f"gb{i}"
+            n_in += 1
+    if micro or verse_glitch:
+        sh = max(2, int(W * 0.004 * glitch))
+        enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in micro + [(a, b) for a, b, _ in verse_glitch])
+        filters.append(f"[{cur}]rgbashift=rh={sh}:bh=-{sh}:enable='{enable}'[gl]")
+        cur = "gl"
     filters.append(f"[{cur}]format=yuv420p[vout]")
     script = work / "filter.txt"
     script.write_text(";\n".join(filters), "utf-8")
@@ -174,6 +203,9 @@ def parse_args(argv=None):
                    help="16:9 = Querformat (Standard), 9:16 = Hochformat für Reels/Shorts/TikTok, 1:1, 4:5")
     p.add_argument("--glow", type=float, default=0.45, help="Leuchten um den arabischen Text: 0 = aus, 0.45 = dezent (Standard), 0.8 = kräftig")
     p.add_argument("--glow-farbe", default="#FFFFFF", help="Farbe des Leuchtens, z. B. #F6D58E für warmes Gold")
+    p.add_argument("--partikel", type=float, default=0.5, help="schwebende Lichtpartikel: 0 = aus, 0.5 = dezent (Standard), 1 = viele/hell")
+    p.add_argument("--partikel-farbe", default="#FFE9B8", help="Farbe der Partikel (Standard warmes Weiß)")
+    p.add_argument("--glitch", type=float, default=0.5, help="Glitch beim Verswechsel + vereinzelt: 0 = aus, 0.5 = dezent (Standard), 1 = stärker")
     p.add_argument("--uebersetzung-font", default="marcellus",
                    help="Schrift der Übersetzung: marcellus (Standard), cormorant, ebgaramond, lora (kursiv), system oder Pfad zu .ttf")
     p.add_argument("--hintergrund", type=Path, help="Hintergrundbild oder -video (Standard: dunkler Verlauf)")
@@ -282,11 +314,15 @@ def main(argv=None) -> None:
         bg = capcut / "hintergrund.png"
         make_background(size, bg)
 
-    # 4) Video
+    # 4) Partikel + Video
+    particles = None
+    if args.partikel > 0:
+        log("    Rendere Partikel-Ebene (nahtloser Loop) …")
+        particles = effects.render_particles(capcut / "partikel.mp4", size, args.partikel, args.partikel_farbe)
     if not args.kein_video:
         log("4/4 Erstelle video.mp4 …")
         build_video(segs, images, audio_out, bg, size, duration, out / "video.mp4",
-                    args.abdunkeln if args.hintergrund else 0.0, args.blende, work)
+                    args.abdunkeln if args.hintergrund else 0.0, args.blende, work, particles, args.glitch)
     shutil.rmtree(work, ignore_errors=True)
     shutil.make_archive(str(out / "capcut-paket"), "zip", capcut)
     log(f"\nFertig in {time.time() - t_start:.0f}s → {out}/")

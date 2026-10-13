@@ -21,7 +21,9 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    o. ä.). Videos gehen auch, dann wird die Tonspur benutzt. Nur nachfragen, wenn
    Sure oder Verse fehlen. Erwähnt der Nutzer Isti'adha, Hintergrund oder Format,
    die passenden Optionen setzen; sonst Standard: **16:9 Querformat**, dunkler
-   Verlauf, V1-Glyphen, dezenter Glow, Übersetzung (Abu Rida) in Marcellus.
+   Verlauf, V1-Glyphen, dezenter Glow, schwebende Partikel, dezenter Glitch beim
+   Verswechsel, Übersetzung (Abu Rida) in Marcellus. „Ohne Effekte“ →
+   `--partikel 0 --glitch 0`.
    „Hochformat“, „Reel“, „Short“, „TikTok“ → `--format 9:16`.
 2. **Abhängigkeiten** (einmal pro Session, ffmpeg muss vorhanden sein):
    `pip install -q -r tools/koran-video/requirements.txt`
