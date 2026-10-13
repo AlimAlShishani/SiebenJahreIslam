@@ -119,16 +119,6 @@ def load_plan(path: Path | None) -> dict:
     return {k: v for k, v in plan.items() if not k.startswith("_")}
 
 
-def plan_has_graphics(plan: dict) -> bool:
-    for v in plan.values():
-        if isinstance(v, list) or (isinstance(v, dict) and (v.get("grafiken") or any(t.get("grafiken") for t in v.get("teile", [])))):
-            return True
-    return False
-
-
-# --------------------------------------------------------------------------- automatische Teilung
-
-
 def auto_bounds(seg: Segment, fits: Fits | None) -> list[int]:
     """Letzte Wortnummer jedes Teils (der letzte Eintrag ist immer die Wortzahl)."""
     words = _content(seg)

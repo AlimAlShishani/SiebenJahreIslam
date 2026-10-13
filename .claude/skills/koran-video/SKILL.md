@@ -88,6 +88,11 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    - **Farbe nach Stimmung** (`farbe`): Standard weiß; `rot` Warnung/Strafe,
      `gruen` frohe Botschaft/Gläubige/Lohn, `gelb` Schwäche/Fehler des Menschen,
      `gold` Aussagen über Allah/Erhabenes, `blau`/`rosa` Schöpfung. Sparsam.
+   - **Layout** (Wunsch des Nutzers): Text und Grafik stehen zusammen mittig im
+     Bild, die Grafik ist bewusst nicht riesig (16:9: 40 % der Bildhöhe).
+     Abschnitte ohne Grafik zeigen den Text in der Bildmitte – nicht oben vor
+     leerem Bildschirm. Das ist der Standard (`--layout auto`); `--layout oben`
+     (Text oben, große Grafik) nur auf ausdrücklichen Wunsch.
 5. **Schritt C – Video rendern** (ca. 3 min pro Minute Audio):
    ```bash
    python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B \
@@ -131,6 +136,12 @@ zweite Versuch (`beispiel_ankabut_1-7/`) ist der Maßstab.
   Silhouette. Felsen kantig wie ein Brocken (helle Oberseite, dunklere
   Seiten); Facetten, die von einem Mittelpunkt ausstrahlen, wirken wie ein
   Schirm oder Wasserball. Palmwedel hängen im Bogen nach unten.
+- **Kontakt zeigen:** Wer schiebt, trägt, hebt oder hilft, berührt den Gegenstand
+  bzw. die andere Figur sichtbar (Hände auf der Felsoberfläche, Hand in Hand).
+  Position aus den Gelenkpunkten berechnen (`m.hand("v")`), nicht schätzen.
+- **Gegenstände wie in echt bauen:** Beim Richterhammer sitzt der Stiel quer in
+  der Mitte des Kopfes, nicht in einer Linie mit ihm. Vor dem Zeichnen kurz
+  überlegen, wie das Ding wirklich aufgebaut ist.
 - **Körpersprache wie in den Referenzvideos:** Haltung zeigt den Inhalt (Last
   auf dem Rücken: tief gebeugt; Last stemmen: Frontansicht, Arme hoch;
   Erleichterung: offene Arme; Freude: Arme hoch; Hilfe: einer beugt sich und

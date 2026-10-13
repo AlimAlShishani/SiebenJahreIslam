@@ -443,26 +443,34 @@ def sprechblase(x, y, w, h, text="", groesse=44, spitze=None):
     return f'<path d="{body}" fill="#fff" fill-opacity="0.16" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>' + t
 
 
-def richterhammer(x, y, s=1.0, winkel=-32, hell=1.0):
-    """Richterhammer über dem Schallblock. (x, y) = Mitte der Unterkante des Blocks.
+def richterhammer(x, y, s=1.0, winkel=-30, hell=1.0):
+    """Richterhammer im Moment des Aufschlags auf dem Schallblock. (x, y) = Mitte der Unterkante des Blocks.
 
-    Kopf hell mit weißen Ringen, Stiel und Block in dunkleren Grautönen – die Teile sind klar getrennt.
+    Wie ein echter Hammer: Der Kopf ist ein Zylinder QUER zum Stiel, der Stiel steckt in seiner Mitte;
+    eine Stirnseite des Kopfes trifft den Block. Kopf hell mit weißen Ringen, Stiel und Block dunkler.
+    winkel = Neigung des Stiels (negativ = Stiel zeigt nach rechts oben).
     """
-    block = (f'<rect x="{x - 52 * s:.1f}" y="{y - 16 * s:.1f}" width="{104 * s:.1f}" height="{16 * s:.1f}" rx="{5 * s:.1f}" fill="{grau(.62, hell)}"/>'
-             f'<rect x="{x - 40 * s:.1f}" y="{y - 26 * s:.1f}" width="{80 * s:.1f}" height="{12 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(.86, hell)}"/>')
-    hx, hy = x - 8 * s, y - 62 * s
-    hammer = (f'<g transform="rotate({winkel} {hx:.1f} {hy:.1f})">'
-              f'<rect x="{hx - 4 * s:.1f}" y="{hy - 4 * s:.1f}" width="{96 * s:.1f}" height="{12 * s:.1f}" rx="{6 * s:.1f}" fill="{grau(.74, hell)}"/>'
-              f'<rect x="{hx - 30 * s:.1f}" y="{hy - 22 * s:.1f}" width="{56 * s:.1f}" height="{44 * s:.1f}" rx="{9 * s:.1f}" fill="{grau(.9, hell)}"/>'
-              f'<rect x="{hx - 36 * s:.1f}" y="{hy - 26 * s:.1f}" width="{10 * s:.1f}" height="{52 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(1, hell)}"/>'
-              f'<rect x="{hx + 20 * s:.1f}" y="{hy - 26 * s:.1f}" width="{10 * s:.1f}" height="{52 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(1, hell)}"/></g>')
-    ix, iy = x - 4 * s, y - 26 * s                  # Aufschlagpunkt: Strahlen rundherum (links und rechts)
-    schlag = "".join(f'<path d="M{ix + math.cos(math.radians(a)) * 64 * s:.1f},{iy - math.sin(math.radians(a)) * 30 * s:.1f} '
-                     f'l{math.cos(math.radians(a)) * 18 * s:.1f},{-math.sin(math.radians(a)) * 18 * s:.1f}" '
+    block = (f'<rect x="{x - 56 * s:.1f}" y="{y - 16 * s:.1f}" width="{112 * s:.1f}" height="{16 * s:.1f}" rx="{5 * s:.1f}" fill="{grau(.62, hell)}"/>'
+             f'<rect x="{x - 42 * s:.1f}" y="{y - 27 * s:.1f}" width="{84 * s:.1f}" height="{13 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(.86, hell)}"/>')
+    # Kopfmitte so wählen, dass die tiefste Ecke der unteren Stirnseite (nach der Drehung) genau auf
+    # der Blockmitte aufsetzt – der Moment des Aufschlags
+    a = math.radians(winkel)
+    ecken = [(dx * math.cos(a) - 40 * math.sin(a), dx * math.sin(a) + 40 * math.cos(a)) for dx in (-24, 24)]
+    ex, ey = max(ecken, key=lambda e: e[1])
+    hx, hy = x - ex * s, y - 24 * s - ey * s         # 3 Einheiten tiefer: die Ecke setzt sichtbar auf
+    stiel = (f'<rect x="{hx + 20 * s:.1f}" y="{hy - 5.5 * s:.1f}" width="{100 * s:.1f}" height="{11 * s:.1f}" rx="{5.5 * s:.1f}" fill="{grau(.74, hell)}"/>'
+             f'<circle cx="{hx + 122 * s:.1f}" cy="{hy:.1f}" r="{8 * s:.1f}" fill="{grau(.74, hell)}"/>')
+    kopf = (f'<rect x="{hx - 21 * s:.1f}" y="{hy - 34 * s:.1f}" width="{42 * s:.1f}" height="{68 * s:.1f}" rx="{8 * s:.1f}" fill="{grau(.9, hell)}"/>'
+            f'<rect x="{hx - 24 * s:.1f}" y="{hy - 40 * s:.1f}" width="{48 * s:.1f}" height="{11 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(1, hell)}"/>'
+            f'<rect x="{hx - 24 * s:.1f}" y="{hy + 29 * s:.1f}" width="{48 * s:.1f}" height="{11 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(1, hell)}"/>'
+            f'<rect x="{hx - 23 * s:.1f}" y="{hy - 5 * s:.1f}" width="{46 * s:.1f}" height="{10 * s:.1f}" rx="{3 * s:.1f}" fill="{grau(.8, hell)}"/>')
+    hammer = f'<g transform="rotate({winkel} {hx:.1f} {hy:.1f})">{stiel}{kopf}</g>'
+    ix, iy = x, y - 27 * s                           # Aufschlagpunkt: Strahlen links und rechts davon
+    schlag = "".join(f'<path d="M{ix + math.cos(math.radians(w)) * 66 * s:.1f},{iy - math.sin(math.radians(w)) * 30 * s:.1f} '
+                     f'l{math.cos(math.radians(w)) * 18 * s:.1f},{-math.sin(math.radians(w)) * 18 * s:.1f}" '
                      f'stroke="{grau(1, hell)}" stroke-width="{4.5 * s:.1f}" stroke-linecap="round"/>'
-                     for a in (150, 172, 194, 30, 8, -14))
+                     for w in (150, 172, 194, 30, 8, -14))
     return f'<g stroke="none">{block}{hammer}</g>' + schlag
-
 def sanduhr(x, y, h=200, oben=.35, hell=1.0):
     """Sanduhr, (x, y) = Mitte der Unterkante. oben = Anteil Sand noch oben (0..1).
 

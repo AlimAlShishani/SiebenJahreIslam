@@ -175,16 +175,18 @@ class Renderer:
         return textwrap.wrap(text, width=width_chars)
 
     def render(self, seg: Segment, out_ar: Path, out_tr: Path | None, layout: str = "mitte",
-               with_graphic: bool = False) -> int:
+               with_graphic: bool = False, graphic_h: int = 0) -> int:
         """Rendert Arabisch + Übersetzung als transparente Vollbild-PNGs.
 
-        layout "mitte": Textblock mittig. layout "oben": Textblock oben (darunter ist Platz für Grafiken).
-        with_graphic: Textblock kompakter halten, damit die Grafik groß genug bleibt.
+        layout "mitte": Textblock mittig; mit graphic_h > 0 bilden Text und die Grafik darunter
+        zusammen einen mittigen Block. layout "oben": Textblock oben (darunter Platz für eine große Grafik).
+        with_graphic: Textblock kompakter halten, damit die Grafik Platz hat.
         Rückgabe: y-Koordinate der Unterkante des Textblocks.
         """
         W, H = self.style.width, self.style.height
         area_top = 0
         area_h = H
+        extra = int(H * GRAFIK_ABSTAND) + graphic_h if graphic_h else 0   # Grafik unter dem Text
         tr_size = self.style.translation_size or int(self.style.unit * 0.029 * self.latin_scale)
         tr_lines = self._translation_lines(seg.translation, tr_size) if (out_tr and seg.translation) else []
         tr_line_h = int(tr_size * 1.4)
@@ -198,7 +200,7 @@ class Renderer:
             kw = {"direction": "rtl", "language": "ar"} if features.check("raqm") else {}
             bbox = font.getbbox(seg.text, **kw)
             ar_h = bbox[3] - bbox[1]
-            top = int(H * 0.07) if layout == "oben" else area_top + int((area_h - (ar_h + gap + tr_h)) / 2)
+            top = int(H * 0.07) if layout == "oben" else max(int(H * 0.04), area_top + int((area_h - (ar_h + gap + tr_h + extra)) / 2))
             x = (W - (bbox[2] - bbox[0])) / 2 - bbox[0]
             fill = _hex(self.style.color) + (255,)
             ImageDraw.Draw(ar_img).text((x, top - bbox[1]), seg.text, font=font, fill=fill, **kw)
@@ -209,7 +211,7 @@ class Renderer:
             if layout == "oben":
                 top = int(H * 0.05)
             else:
-                top = area_top + int((area_h - (ar_h + gap + tr_h)) / 2)
+                top = max(int(H * 0.04), area_top + int((area_h - (ar_h + gap + tr_h + extra)) / 2))
             self._draw_arabic(ar_img, seg, top, ar_layout)
         _save(ar_img, out_ar, self.style.shadow, self.style.glow, self.style.glow_color, self.style.unit)
 
@@ -226,14 +228,40 @@ class Renderer:
         return top + ar_h + gap + tr_h
 
 
-def graphic_box(style: Style, text_bottom: int) -> tuple[int, int, int, int]:
-    """(x, y, breite, höhe) für eine Grafik unterhalb des Textblocks (Seitenverhältnis 400:260)."""
+GRAFIK_ABSTAND = 0.035   # Abstand Text → Grafik (Anteil der Bildhöhe)
+
+
+def graphic_size(style: Style) -> tuple[int, int]:
+    """Größe der Grafik im mittigen Layout (Seitenverhältnis 400:260): bewusst nicht zu groß,
+    damit Text und Grafik zusammen mittig stehen (16:9: 40 % der Höhe, 9:16: 78 % der Breite)."""
     W, H = style.width, style.height
-    top = text_bottom + int(H * 0.02)
-    avail_h = max(int(H * 0.2), H - top - int(H * 0.02))
-    w = min(int(W * (0.75 if W >= H else 0.94)), int(avail_h * 400 / 260))
-    h = int(w * 260 / 400)
-    return (W - w) // 2, top + (avail_h - h) // 2, w, h
+    if W >= H:
+        h = int(H * 0.40)
+        return int(h * 400 / 260), h
+    w = int(W * 0.78)
+    return w, int(w * 260 / 400)
+
+
+def graphic_box(style: Style, text_bottom: int, gross: bool = False) -> tuple[int, int, int, int]:
+    """(x, y, breite, höhe) für eine Grafik unterhalb des Textblocks (Seitenverhältnis 400:260).
+
+    gross=True (Layout „oben“): die Grafik füllt den Platz unter dem Text.
+    Sonst: Grafik in graphic_size() direkt unter dem Text (Text + Grafik sind zusammen mittig).
+    """
+    W, H = style.width, style.height
+    if gross:
+        top = text_bottom + int(H * 0.02)
+        avail_h = max(int(H * 0.2), H - top - int(H * 0.02))
+        w = min(int(W * (0.75 if W >= H else 0.94)), int(avail_h * 400 / 260))
+        h = int(w * 260 / 400)
+        return (W - w) // 2, top + (avail_h - h) // 2, w, h
+    w, h = graphic_size(style)
+    top = text_bottom + int(H * GRAFIK_ABSTAND)
+    rest = H - top - int(H * 0.04)
+    if rest < h:                       # sehr langer Text: Grafik verkleinern statt abschneiden
+        h = max(int(H * 0.16), rest)
+        w = int(h * 400 / 260)
+    return (W - w) // 2, top, w, h
 
 
 def save_layer(img: Image.Image, path: Path, style: Style, grafik: bool = False) -> None:

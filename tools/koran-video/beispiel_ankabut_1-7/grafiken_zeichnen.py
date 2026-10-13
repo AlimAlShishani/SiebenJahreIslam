@@ -6,6 +6,7 @@ piktogramm.py (Posen über Gelenkwinkel, Körper statt Strichmännchen), Gegenst
 typischer Silhouette, Tiefe nur über Grautöne – keine dunklen Linien, keine Augen/Gesichter.
 Ausführen aus dem Repo-Wurzelverzeichnis; danach grafiken/vorschau.jpg ansehen.
 """
+import math
 import sys
 from pathlib import Path
 
@@ -76,11 +77,15 @@ S["29-5_frist"] = sanduhr(200, 252, 240, .22)
 S["29-5_namen"] = schriftzug("ٱلسَّمِيعُ ٱلْعَلِيمُ", 200, 172, 86) + sparkle(56, 92, 9, .8) + sparkle(346, 82, 11, .8)
 
 # ---------------------------------------------------------------- 29:6
-# Teil 1 „Wer sich abmüht, müht sich nur für sich selbst ab“ – schiebt einen Felsen den Hang hinauf
-m = Mensch(150, 238, 196, "schieben")
+# Teil 1 „Wer sich abmüht, müht sich nur für sich selbst ab“ – stemmt sich gegen einen großen Felsen den Hang hinauf
+#   (Fels so platziert, dass die Hände auf seiner Oberfläche liegen: Kontakt zeigt das Schieben)
+m = Mensch(130, 238, 170, "schieben", arm_v=(84, 20), arm_h=(80, 24))
 hx, hy = m.hand("v")
+r = 68
+fy = 238 - .82 * r                                    # Fels liegt auf dem Boden
+fx = hx + math.sqrt((.9 * r) ** 2 - (fy - hy) ** 2)  # Abstand Hand–Mitte = Radius (Hand liegt auf)
 kx, ky, kr = m.kopf()
-hang = (m.svg + fels(hx + 58, 238, 66) + schweiss(kx - kr * 1.6, ky - kr * 1.2, 1.4)
+hang = (fels(fx, fy, r, rund=True) + m.svg + schweiss(kx - kr * 1.6, ky - kr * 1.2, 1.4)
         + '<path d="M-60,240 L460,240" stroke-width="6"/><rect x="-60" y="241" width="520" height="120" fill="#fff" fill-opacity="0.08" stroke="none"/>')
 S["29-6_muehe"] = f'<g transform="translate(-6 -42) rotate(-16 200 240)">{hang}</g>'
 # Teil 2 „Allah ist auf niemanden von allen Welten angewiesen“ (gold) – ٱلْغَنِيّ über der Weltkugel

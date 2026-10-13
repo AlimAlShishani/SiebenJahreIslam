@@ -27,7 +27,8 @@ Was dabei passiert:
    eigene schlichte Grafiken (Piktogramm-Stil, `piktogramm.py`) und legt in
    `plan.json` fest, welche Grafik ab welchem Wort erscheint, wie die
    Übersetzung aufgeteilt wird und welche Farbstimmung ein Abschnitt hat. Text
-   steht dann oben, die Grafik groß darunter, wie in deinen Referenzvideos.
+   und Grafik stehen zusammen mittig im Bild (Text oben, Grafik darunter);
+   Abschnitte ohne Grafik zeigen den Text in der Bildmitte.
 5. **Video bauen:** Hintergrund, Partikel, Szenen (mit sanfter Blende, Grafiken
    schweben leicht) und Audio werden zu `video.mp4` zusammengesetzt.
 6. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
@@ -48,7 +49,7 @@ Nützliche Optionen:
 | `--plan plan.json` | Abschnitte, Teil-Übersetzungen, Farben und Grafiken (Format in `szenen.py`) |
 | `--max-zeilen 1` | höchstens so viele Zeilen arabischer Text pro Abschnitt (Standard 1 bei 16:9, 2 bei 9:16) |
 | `--nicht-teilen` | Verse nicht automatisch teilen |
-| `--layout auto/oben/mitte` | Text oben (Grafik darunter) oder mittig; `auto` = oben, sobald der Plan Grafiken hat |
+| `--layout auto/mitte/oben` | `auto`/`mitte` (Standard): Text mittig, mit Grafik bilden Text + Grafik einen mittigen Block; `oben`: Text oben, große Grafik darunter |
 | `--glyphen v1` / `v2` | V1 = wie das Font-Set der qurancliphelper-FAQ (Standard), V2 = wie quran.com |
 | `--format 16:9` | `16:9` Querformat (Standard), `9:16` (Reels/TikTok/Shorts), `1:1`, `4:5` |
 | `--glow 0.45` | Leuchten um den arabischen Text: `0` aus, `0.45` dezent (Standard), `0.8` kräftig |

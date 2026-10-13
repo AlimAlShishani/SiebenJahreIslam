@@ -35,8 +35,8 @@ from dataclasses import dataclass, replace  # noqa: E402
 from quran_data import FONT_DIR, Segment, build_segments, chapter_info, download_all_fonts  # noqa: E402
 import effects  # noqa: E402
 from grafiken import render_graphic, render_tint  # noqa: E402
-from render import FORMATS, Renderer, Style, graphic_box, make_background  # noqa: E402
-from szenen import Screen, build_screens, load_plan, plan_has_graphics, plan_template, planning_text  # noqa: E402
+from render import FORMATS, Renderer, Style, graphic_box, graphic_size, make_background  # noqa: E402
+from szenen import Screen, build_screens, load_plan, plan_template, planning_text  # noqa: E402
 from timing import SR, compute_timestamps, detect_silences, finalize_word_times, load_audio, voice_span  # noqa: E402
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
@@ -233,7 +233,8 @@ def parse_args(argv=None):
                    help="höchstens so viele Zeilen arabischer Text pro Abschnitt (Standard: 1 bei Querformat, 2 bei Hochformat)")
     p.add_argument("--nicht-teilen", action="store_true", help="Verse nicht automatisch in Abschnitte teilen")
     p.add_argument("--layout", choices=["auto", "mitte", "oben"], default="auto",
-                   help="Textposition: oben (Grafik darunter) oder mitte; auto = oben, sobald der Plan Grafiken enthält")
+                   help="auto/mitte (Standard): Text mittig, bei Abschnitten mit Grafik bilden Text und Grafik "
+                        "zusammen einen mittigen Block; oben: Text oben, große Grafik darunter")
     p.add_argument("--uebersetzung", default="208",
                    help="quran.com-Übersetzungs-ID: 208 = Abu Rida (Standard), 27 = Bubenheim, 'keine' = ohne")
     p.add_argument("--glyphen", choices=["v1", "v2"], default="v1",
@@ -363,13 +364,14 @@ def main(argv=None) -> None:
                                    auto=not args.nicht_teilen)
     for note in notes:
         log(f"  Hinweis: {note}")
-    layout = args.layout if args.layout != "auto" else ("oben" if plan_has_graphics(plan) else "mitte")
+    layout = "oben" if args.layout == "oben" else "mitte"
     write_screen_list(screens, out)
     write_srt(screens, capcut / "arabisch.srt", "text")
     if tid:
         write_srt(screens, capcut / "uebersetzung.srt", "translation")
 
-    log(f"3/4 Rendere {len(screens)} Szenen (Glyphen-Schrift QCF {args.glyphen.upper()}, Layout {layout}) …")
+    log(f"3/4 Rendere {len(screens)} Szenen (Glyphen-Schrift QCF {args.glyphen.upper()}, "
+        f"{'Text oben, große Grafik darunter' if layout == 'oben' else 'Text mittig, Grafik darunter'}) …")
     for sub in ("arabisch", "uebersetzung", "grafiken", "farbe"):
         if (capcut / sub).exists():
             shutil.rmtree(capcut / sub)
@@ -380,7 +382,8 @@ def main(argv=None) -> None:
         stub = file_stub(i, sc.start, sc.key)
         ar = capcut / "arabisch" / f"{stub}.png"
         tr = capcut / "uebersetzung" / f"{stub}.png" if tid else None
-        bottom = r.render(sc.view, ar, tr, layout, with_graphic=bool(sc.graphics))
+        gh = graphic_size(r.style)[1] if (sc.graphics and layout == "mitte") else 0
+        bottom = r.render(sc.view, ar, tr, layout, with_graphic=bool(sc.graphics), graphic_h=gh)
         layers.append(Layer(ar, sc.start, sc.end, args.blende))
         if tr and tr.exists():
             layers.append(Layer(tr, sc.start, sc.end, args.blende))
@@ -389,7 +392,7 @@ def main(argv=None) -> None:
                 (capcut / "farbe").mkdir(parents=True, exist_ok=True)
                 tints[sc.color] = render_tint(capcut / "farbe" / f"leuchten_{sc.color.lstrip('#')}.png", base_style, sc.color)
             layers.insert(0, Layer(tints[sc.color], sc.start, sc.end, 0.5))
-        box = graphic_box(r.style, bottom)
+        box = graphic_box(r.style, bottom, gross=(layout == "oben"))
         for k, g in enumerate(sc.graphics, 1):
             gpng = capcut / "grafiken" / f"{file_stub(i, g.start, sc.key)}_{k}_{g.name}.png"
             gpng.parent.mkdir(parents=True, exist_ok=True)
