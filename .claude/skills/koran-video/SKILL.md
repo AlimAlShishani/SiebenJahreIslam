@@ -32,8 +32,10 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B --nur-zeitstempel \
      [--istiadha] [--basmala nein]
    ```
-   Die Basmala wird automatisch erwartet, wenn ab Vers 1 gelesen wird (außer
-   Sure 1 und 9). Liest der Nutzer sie nicht, `--basmala nein` setzen.
+   Basmala und Isti'adha werden NICHT angenommen, sondern erkannt: Standard
+   `auto` behält sie nur, wenn die Spracherkennung sie in der Aufnahme hört
+   (Log: „Basmala: erkannt“ / „nicht gehört → weggelassen“). Sagt der Nutzer
+   ausdrücklich etwas anderes, `--basmala ja/nein` bzw. `--istiadha ja/nein`.
    Einzelbuchstaben am Sure-Anfang (الم، حم، يس …) werden beim Abgleich wie
    gesprochen ausgeschrieben („Alif Lām Mīm“). Kurze Aussetzer der
    Handyaufnahme (< 0,38 s) zählen nicht als Pause; Pausen neben einem
@@ -97,6 +99,28 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    „Vers 7 nicht teilen“): Zeiten in `zeitstempel.json` (Vers-`start` und
    `ende` des vorherigen Verses) bzw. `plan.json` ändern und Schritt C erneut
    ausführen (keine neue Erkennung).
+
+## Lehren aus dem ersten echten Fall (al-Ankabut 1–7)
+
+Der Nutzer war mit den Grafiken NICHT zufrieden: „einfach schlecht“ und
+„teilweise unerkennbar“. Er will trotzdem ausdrücklich, dass du die
+Piktogramme **selbst zeichnest** – keine Icon-Sets (Font Awesome, Material,
+Tabler o. ä.), keine fertigen Grafiken. Also die Qualität deutlich anheben:
+
+- **Erkennbarkeit zuerst:** Jede Grafik muss ohne Text auf einen Blick
+  verständlich sein. Test vor dem Rendern: Kontaktbogen ansehen und für jede
+  Szene ehrlich beantworten „Was sieht ein Fremder hier?“ – wenn die Antwort
+  nicht der Inhalt ist, neu zeichnen.
+- **Wenige, große, klare Elemente** statt vieler kleiner (eine Hauptfigur, ein
+  Gegenstand, höchstens ein Zeichen). Gegenstände groß und mit typischer
+  Silhouette (ein Fels sah wie eine Halbkugel aus, ein Sack wie eine Vase bzw.
+  ein Wesen mit Fühlern, Vögel mit angelegten Flügeln wie Fische).
+- **Figuren wie in den Referenzvideos:** kräftige, gefüllte Piktogramme mit
+  glaubwürdigen Proportionen und eindeutiger Körpersprache; Posen am Kontakt-
+  bogen gegen echte Körperhaltung prüfen (Gewicht, Balance, wohin die Figur
+  schaut/geht), Hände nicht zufällig an Nachbarfiguren.
+- Lieber eine Szene mehr Zeit geben (Entwürfe, Varianten vergleichen) als viele
+  schwache Szenen; bei Zweifel lieber keine Grafik als eine unklare.
 
 ## Regeln für Grafiken (vom Nutzer, nicht verhandelbar)
 

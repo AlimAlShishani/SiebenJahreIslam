@@ -137,20 +137,24 @@ def build_segments(
     surah: int,
     von: int,
     bis: int,
-    basmala: bool,
-    istiadha: bool,
+    basmala: bool | str,
+    istiadha: bool | str,
     translation_id: int | None,
 ) -> list[Segment]:
+    """basmala/istiadha: True, False oder "auto" (= vielleicht vorhanden; wird nur behalten,
+    wenn die Spracherkennung sie in der Aufnahme hört)."""
     verses = chapter_verses(surah, translation_id)
     if not (1 <= von <= bis <= len(verses)):
         raise SystemExit(f"Sure {surah} hat {len(verses)} Verse – Bereich {von}-{bis} ist ungültig.")
     segs: list[Segment] = []
     if istiadha:
-        segs.append(Segment("istiadha", "istiadha", [], ISTIADHA_TEXT, ISTIADHA_UEBERSETZUNG if translation_id else ""))
+        segs.append(Segment("istiadha", "istiadha", [], ISTIADHA_TEXT, ISTIADHA_UEBERSETZUNG if translation_id else "",
+                            meta={"optional": istiadha == "auto"}))
     if basmala:
         fatiha1 = chapter_verses(1, translation_id)[0]
         words = [w for w in _words(fatiha1) if not w.is_end]
-        segs.append(Segment("basmala", "basmala", words, fatiha1["text_uthmani"], _translation(fatiha1)))
+        segs.append(Segment("basmala", "basmala", words, fatiha1["text_uthmani"], _translation(fatiha1),
+                            meta={"optional": basmala == "auto"}))
     for v in verses[von - 1 : bis]:
         segs.append(Segment("vers", v["verse_key"], _words(v), v["text_uthmani"], _translation(v)))
     return segs

@@ -96,6 +96,9 @@ def write_timestamps(segs: list[Segment], out: Path, info: dict) -> None:
 def read_timestamps(path: Path, segs: list[Segment]) -> None:
     data = json.loads(path.read_text("utf-8"))
     entries = data["segmente"]
+    keys = {e["key"] for e in entries}
+    # nicht gehörte Basmala/Isti'adha (auto) stehen nicht in der Datei
+    segs[:] = [s for s in segs if not (s.meta.get("optional") and s.key not in keys)]
     if [e["key"] for e in entries] != [s.key for s in segs]:
         raise SystemExit("zeitstempel.json passt nicht zu Sure/Versen/Basmala/Isti'adha dieses Aufrufs.")
     for s, e in zip(segs, entries):
@@ -216,7 +219,8 @@ def parse_args(argv=None):
     p.add_argument("--bis", type=int, help="letzter Vers (Standard: = --von)")
     p.add_argument("--basmala", choices=["auto", "ja", "nein"], default="auto",
                    help="Basmala am Anfang? auto = ja, wenn ab Vers 1 gelesen wird (außer Sure 1 und 9)")
-    p.add_argument("--istiadha", action="store_true", help="Aufnahme beginnt mit „A'udhu billahi …“")
+    p.add_argument("--istiadha", nargs="?", const="ja", choices=["auto", "ja", "nein"], default="auto",
+                   help="Isti'adha (A'udhu billahi …) am Anfang? auto = wird erkannt, falls gesprochen")
     p.add_argument("--methode", choices=["auto", "whisper", "stille"], default="auto",
                    help="Zeitstempel per Spracherkennung (genau) oder nur per Pausen (grob)")
     p.add_argument("--modell", default="small", help="Whisper-Modell: tiny, base, small, medium, large-v3 (Standard: small)")
@@ -279,10 +283,12 @@ def main(argv=None) -> None:
         raise SystemExit(f"Datei nicht gefunden: {audio_in}")
     tid = None if str(args.uebersetzung).lower() in ("keine", "0", "none") else int(args.uebersetzung)
     info_ch = chapter_info(args.sure)
+    # auto: Basmala/Isti'adha werden nur übernommen, wenn sie in der Aufnahme zu hören sind
     if args.basmala == "auto":
-        basmala = args.von == 1 and bool(info_ch.get("bismillah_pre")) and args.sure not in (1, 9)
+        basmala = "auto" if args.sure != 9 and not (args.sure == 1 and args.von == 1) else False
     else:
         basmala = args.basmala == "ja"
+    istiadha = {"auto": "auto", "ja": True, "nein": False}[args.istiadha]
 
     out = args.ausgabe or Path("koran-video-ausgabe") / f"{args.sure:03d}_{args.von:03d}-{args.bis:03d}"
     capcut = out / "capcut"
@@ -291,11 +297,11 @@ def main(argv=None) -> None:
         d.mkdir(parents=True, exist_ok=True)
 
     log(f"Sure {args.sure} ({info_ch.get('name_simple')}), Verse {args.von}–{args.bis}"
-        f"{', mit Basmala' if basmala else ''}{', mit Isti`adha' if args.istiadha else ''}")
+        f"{', mit Basmala' if basmala is True else ''}{', mit Isti`adha' if istiadha is True else ''}")
 
     # 1) Korandaten
     log("1/4 Lade Korantext, Glyphen-Codes und Übersetzung …")
-    segs = build_segments(args.sure, args.von, args.bis, basmala, args.istiadha, tid)
+    segs = build_segments(args.sure, args.von, args.bis, basmala, istiadha, tid)
 
     # 2) Audio vorbereiten (Stille am Anfang/Ende abschneiden)
     log("2/4 Zeitstempel bestimmen …")

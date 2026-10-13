@@ -188,8 +188,19 @@ def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, flo
     rate = max(rate, 1.0)
 
     estimates: list[tuple[float | None, float | None]] = []
-    for a, b in seg_ranges:
+    for seg, (a, b) in zip(segs, seg_ranges):
         idx = [i for i in range(a, b) if i in mapped]
+        if seg.meta.get("optional"):
+            # Basmala/Isti'adha nur behalten, wenn sie wirklich gesprochen wurden:
+            # mindestens die Hälfte der Buchstaben erkannt, davon ein zusammenhängendes Stück ≥ 5
+            longest = run = 0
+            for i in range(a, b):
+                run = run + 1 if i in mapped else 0
+                longest = max(longest, run)
+            if len(idx) < 0.5 * (b - a) or longest < 5:
+                seg.meta["nicht_gehoert"] = True
+                estimates.append((None, None))
+                continue
         # wenige Treffer in einem langen Vers sind unzuverlässig
         if not idx or len(idx) < max(2, 0.15 * (b - a)):
             estimates.append((None, None))
@@ -405,12 +416,21 @@ def compute_timestamps(
         prompt = " ".join(plain(s.text) for s in segs if s.kind == "vers")[:200].rsplit(" ", 1)[0] or None
         words = transcribe(audio, modell, prompt, log)
         est, word_raw = align_with_transcript(segs, words)
+        keep = [i for i, sg in enumerate(segs) if not sg.meta.get("nicht_gehoert")]
+        for sg in segs:
+            if sg.meta.get("optional"):
+                log(f"  {sg.label}: {'nicht gehört → weggelassen' if sg.meta.get('nicht_gehoert') else 'erkannt'}")
+        segs[:] = [segs[i] for i in keep]
+        est = [est[i] for i in keep]
+        word_raw = [word_raw[i] for i in keep]
         missing = sum(1 for e in est if e[0] is None)
         if missing:
             log(f"  Hinweis: {missing} Segment(e) nicht sicher erkannt – geschätzt nach Textlänge")
         est = _fill_missing(est, segs, onset, offset)
         bounds = snap_boundaries(est, silences, onset, offset)
     else:
+        # ohne Spracherkennung lässt sich nicht prüfen, ob die Isti'adha gesprochen wurde
+        segs[:] = [sg for sg in segs if not (sg.meta.get("optional") and sg.kind == "istiadha")]
         bounds = silence_only_boundaries(segs, silences, onset, offset)
         word_raw = [None] * len(segs)
 
