@@ -236,7 +236,8 @@ def parse_args(argv=None):
                    help="auto/mitte (Standard): Text mittig, bei Abschnitten mit Grafik bilden Text und Grafik "
                         "zusammen einen mittigen Block; oben: Text oben, große Grafik darunter")
     p.add_argument("--uebersetzung", default="208",
-                   help="quran.com-Übersetzungs-ID: 208 = Abu Rida (Standard), 27 = Bubenheim, 'keine' = ohne")
+                   help="quran.com-Übersetzungs-ID: 208 = Abu Rida (Standard), 27 = Bubenheim, 20 = Saheeh International "
+                        "(Englisch), 85 = Abdel Haleem (Englisch), 'keine' = ohne")
     p.add_argument("--glyphen", choices=["v1", "v2"], default="v1",
                    help="Glyphen-Schrift: v1 = King-Fahd-Font-Set aus der FAQ von qurancliphelper.com (Standard), "
                         "v2 = neuere Madina-Ausgabe wie auf quran.com")
@@ -377,6 +378,8 @@ def main(argv=None) -> None:
             shutil.rmtree(capcut / sub)
     layers: list[Layer] = []
     tints: dict = {}
+    # gleiche Grafik (gleiche Datei, Position, Farbe) im direkt folgenden Abschnitt: stehen lassen statt aus-/einblenden
+    letzte_grafik: dict = {}
     for i, sc in enumerate(screens, 1):
         r = renderer_for(sc.color)
         stub = file_stub(i, sc.start, sc.key)
@@ -394,10 +397,16 @@ def main(argv=None) -> None:
             layers.insert(0, Layer(tints[sc.color], sc.start, sc.end, 0.5))
         box = graphic_box(r.style, bottom, gross=(layout == "oben"))
         for k, g in enumerate(sc.graphics, 1):
+            schluessel = (str(g.source.resolve()), box, sc.color)
+            vorher = letzte_grafik.get(schluessel)
+            if vorher is not None and abs(vorher.end - g.start) < 0.05:
+                vorher.end = g.end
+                continue
             gpng = capcut / "grafiken" / f"{file_stub(i, g.start, sc.key)}_{k}_{g.name}.png"
             gpng.parent.mkdir(parents=True, exist_ok=True)
             render_graphic(g.source, gpng, r.style, box)
             layers.append(Layer(gpng, g.start, g.end, 0.4, motion=True))
+            letzte_grafik[schluessel] = layers[-1]
     if args.hintergrund:
         bg = capcut / f"hintergrund{args.hintergrund.suffix.lower()}"
         shutil.copyfile(args.hintergrund, bg)

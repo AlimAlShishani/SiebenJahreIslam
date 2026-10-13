@@ -60,7 +60,7 @@ Nützliche Optionen:
 | `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`) |
 | `--basmala auto/ja/nein` | `auto` = Basmala erwartet, wenn ab Vers 1 gelesen wird (nicht bei Sure 1 und 9) |
 | `--istiadha` | Aufnahme beginnt mit „A'udhu billahi minasch-schaitanir-radschim“ |
-| `--uebersetzung 208` | 208 = Abu Rida (Standard, wie in der App), 27 = Bubenheim, `keine` |
+| `--uebersetzung 208` | 208 = Abu Rida (Standard, wie in der App), 27 = Bubenheim, 20 = Saheeh International (Englisch), 85 = Abdel Haleem (Englisch), `keine` |
 | `--zeitstempel datei.json` | korrigierte `zeitstempel.json` verwenden (siehe unten) |
 | `--modell medium` | genaueres, aber langsameres Whisper-Modell (Standard `small`) |
 | `--methode stille` | ohne Whisper, nur Pausen; deutlich ungenauer, nur als Notlösung |

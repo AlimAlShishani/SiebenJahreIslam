@@ -533,3 +533,95 @@ def herz(x, y, s=1.0, o=1.0):
     P = lambda a, b: f"{x + a * s:.1f},{y + b * s:.1f}"
     return (f'<path d="M{P(0, 26)} C{P(-30, 6)} {P(-34, -22)} {P(-16, -26)} C{P(-6, -28)} {P(0, -20)} {P(0, -14)} '
             f'C{P(0, -20)} {P(6, -28)} {P(16, -26)} C{P(34, -22)} {P(30, 6)} {P(0, 26)}Z" fill="#fff" fill-opacity="{o}"/>')
+
+
+def koran_rahl(x, y, s=1.0, hell=1.0):
+    """Aufgeschlagener Koran auf dem Lesepult (Rahl, X-förmig gekreuzte Bretter). (x, y) = Bodenmitte.
+
+    Seiten hell mit Textzeilen (Verse) in Grau, Einband und Pult dunkler.
+    """
+    P = lambda a, b: f"{x + a * s:.1f},{y + b * s:.1f}"
+    pult = "".join(f'<path d="M{P(a0, b0)} L{P(a1, b1)}" stroke="{grau(.68, hell)}" stroke-width="{10 * s:.1f}" stroke-linecap="round"/>'
+                   for a0, b0, a1, b1 in [(-44, -4, 36, -74), (44, -4, -36, -74)])
+    gelenk = f'<circle cx="{x:.1f}" cy="{y - 39 * s:.1f}" r="{5 * s:.1f}" fill="{grau(.52, hell)}"/>'
+
+    def seite(m, d=0.0):
+        k = lambda a, b: P(m * (a + (d if a else 0)), b + (d if b < -90 else -d))
+        return (f'M{k(0, -64)} C{k(-18, -78)} {k(-42, -80)} {k(-62, -74)} L{k(-62, -120)} '
+                f'C{k(-42, -126)} {k(-18, -124)} {k(0, -110)}Z')
+    einband = "".join(f'<path d="{seite(m, 6)}" fill="{grau(.58, hell)}"/>' for m in (-1, 1))
+    seiten = "".join(f'<path d="{seite(m)}" fill="{grau(.97, hell)}"/>' for m in (-1, 1))
+    zeilen = ""
+    for m in (-1, 1):
+        for t in (.2, .36, .52, .68, .84):
+            y0, y1 = -64 + (-110 + 64) * t, -74 + (-120 + 74) * t      # Spine bzw. Außenkante
+            zeilen += (f'<path d="M{P(m * 8, y0 - 6 * (1 - t) - 3)} Q{P(m * 30, y0 - 12)} {P(m * 54, y1 + 1)}" fill="none" '
+                       f'stroke="{grau(.6, hell)}" stroke-width="{2.4 * s:.1f}" stroke-linecap="round"/>')
+    return f'<g stroke="none">{pult}{gelenk}{einband}{seiten}{zeilen}</g>'
+
+
+def waage(x, y, h=150, neigung=0.0, hell=1.0):
+    """Balkenwaage. (x, y) = Mitte der Standfläche, h = Höhe des Drehpunkts, neigung > 0: linke Schale tiefer.
+
+    Gibt (svg, schale_links, schale_rechts) zurück – die Punkte liegen mitten auf der Schalenoberkante,
+    dort setzt man Gegenstände (Sack, Gewicht …) oder Hände auf.
+    """
+    a = math.radians(neigung)
+    L = h * .64
+    py = y - h
+    enden = [(x - L * math.cos(a), py + L * math.sin(a)), (x + L * math.cos(a), py - L * math.sin(a))]
+    fuss = (f'<path d="{_pfad([(x - 36, y), (x + 36, y), (x + 22, y - 12), (x - 22, y - 12)])}" fill="{grau(.6, hell)}"/>'
+            f'<rect x="{x - 4.5:.1f}" y="{py:.1f}" width="9" height="{h - 12:.1f}" rx="3" fill="{grau(.8, hell)}"/>')
+    balken = (f'<path d="M{enden[0][0]:.1f},{enden[0][1]:.1f} L{enden[1][0]:.1f},{enden[1][1]:.1f}" stroke="{grau(.92, hell)}" '
+              f'stroke-width="8" stroke-linecap="round"/>'
+              f'<circle cx="{x:.1f}" cy="{py:.1f}" r="8" fill="{grau(1, hell)}"/>'
+              f'<circle cx="{x:.1f}" cy="{py - 14:.1f}" r="6" fill="{grau(.9, hell)}"/>')
+    schalen, punkte = "", []
+    for ex, ey in enden:
+        rand = ey + h * .36
+        schalen += (f'<path d="M{ex:.1f},{ey:.1f} L{ex - 27:.1f},{rand:.1f} M{ex:.1f},{ey:.1f} L{ex + 27:.1f},{rand:.1f}" '
+                    f'stroke="{grau(.7, hell)}" stroke-width="2.5" fill="none"/>'
+                    f'<path d="M{ex - 36:.1f},{rand:.1f} L{ex + 36:.1f},{rand:.1f} Q{ex + 28:.1f},{rand + 22:.1f} {ex:.1f},{rand + 22:.1f} '
+                    f'Q{ex - 28:.1f},{rand + 22:.1f} {ex - 36:.1f},{rand:.1f}Z" fill="{grau(.86, hell)}"/>'
+                    f'<circle cx="{ex:.1f}" cy="{ey:.1f}" r="4" fill="{grau(1, hell)}"/>')
+        punkte.append((ex, rand))
+    return f'<g stroke="none">{fuss}{schalen}{balken}</g>', punkte[0], punkte[1]
+
+
+def herz_flecken(x, y, s=1.0, hell=1.0):
+    """Herz mit dunklen Flecken – das bekannte Bild für ein krankes Herz (Zweifel, Heuchelei, Sünden)."""
+    _ids[0] += 1
+    cid = f"herz{_ids[0]}"
+    P = lambda a, b: f"{x + a * s:.1f},{y + b * s:.1f}"
+    form = (f'M{P(0, 26)} C{P(-30, 6)} {P(-34, -22)} {P(-16, -26)} C{P(-6, -28)} {P(0, -20)} {P(0, -14)} '
+            f'C{P(0, -20)} {P(6, -28)} {P(16, -26)} C{P(34, -22)} {P(30, 6)} {P(0, 26)}Z')
+    flecken = "".join(f'<circle cx="{x + a * s:.1f}" cy="{y + b * s:.1f}" r="{r * s:.1f}" fill="{grau(t, hell)}"/>'
+                      for a, b, r, t in [(-14, -11, 6, .42), (11, -2, 7.5, .38), (-4, 10, 4.5, .46), (17, -16, 3.6, .5),
+                                         (-19, 2, 3.2, .5), (4, -17, 2.6, .55), (-9, -1, 2.4, .55)])
+    return (f'<defs><clipPath id="{cid}"><path d="{form}"/></clipPath></defs>'
+            f'<path d="{form}" fill="{grau(.92, hell)}" stroke="none"/><g clip-path="url(#{cid})" stroke="none">{flecken}</g>')
+
+
+def lichtstrahlen(x, y_oben, y_unten, breite=160, n=5, o=0.22):
+    """Lichtstrahlen, die von oben herabfallen (z. B. auf das, was herabgesandt wird)."""
+    out = ""
+    for i in range(n):
+        t = (i - (n - 1) / 2) / max(1, (n - 1) / 2)
+        bx = x + t * breite / 2
+        w = breite / n * .55
+        out += (f'<path d="M{x + t * breite * .12 - 3:.1f},{y_oben:.1f} L{x + t * breite * .12 + 3:.1f},{y_oben:.1f} '
+                f'L{bx + w / 2:.1f},{y_unten:.1f} L{bx - w / 2:.1f},{y_unten:.1f}Z" fill="#fff" fill-opacity="{o * (1 - abs(t) * .4):.2f}" stroke="none"/>')
+    return out
+
+
+def gerader_weg(x, y_unten, y_horizont, b_unten=240, b_oben=8, hell=1.0):
+    """Gerader Weg in Perspektive bis zum Horizont: Belag dunkelgrau, Ränder hell, Mittelstreifen nach hinten kleiner."""
+    flaeche = _pfad([(x - b_unten / 2, y_unten), (x + b_unten / 2, y_unten), (x + b_oben / 2, y_horizont), (x - b_oben / 2, y_horizont)])
+    raender = (f'<path d="M{x - b_unten / 2:.1f},{y_unten:.1f} L{x - b_oben / 2:.1f},{y_horizont:.1f} M{x + b_unten / 2:.1f},{y_unten:.1f} '
+               f'L{x + b_oben / 2:.1f},{y_horizont:.1f}" stroke="{grau(.9, hell)}" stroke-width="4" fill="none" stroke-linecap="round"/>')
+    striche = ""
+    for t0, t1 in [(0, .16), (.27, .4), (.5, .59), (.67, .73), (.79, .83), (.87, .9)]:
+        ya, yb = y_unten + (y_horizont - y_unten) * t0, y_unten + (y_horizont - y_unten) * t1
+        wa, wb = 7 * (1 - t0) + 1, 7 * (1 - t1) + 1
+        striche += f'<path d="{_pfad([(x - wa / 2, ya), (x + wa / 2, ya), (x + wb / 2, yb), (x - wb / 2, yb)])}" fill="{grau(.9, hell)}"/>'
+    return f'<path d="{flaeche}" fill="{grau(.3, hell)}" stroke="none"/>' + raender + f'<g stroke="none">{striche}</g>'
