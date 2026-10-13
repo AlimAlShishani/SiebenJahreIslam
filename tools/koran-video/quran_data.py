@@ -36,6 +36,7 @@ class Word:
     glyphs: dict  # {"v1": (zeichen, seite), "v2": (zeichen, seite)} – Glyphe im jeweiligen Seitenfont
     text: str  # Uthmani-Text des Wortes (leer beim Versende-Zeichen)
     is_end: bool  # Versende-Ornament mit Versnummer
+    meaning: str = ""  # Wort-für-Wort-Bedeutung (Englisch, quran.com) – hilft beim Planen der Grafiken
 
 
 @dataclass
@@ -122,7 +123,8 @@ def _words(verse: dict) -> list[Word]:
     for w in verse["words"]:
         is_end = w["char_type_name"] == "end"
         glyphs = {"v1": (w["code_v1"], int(w["page_number"])), "v2": (w["code_v2"], int(w["v2_page"]))}
-        out.append(Word(glyphs, "" if is_end else w.get("text_uthmani", ""), is_end))
+        meaning = "" if is_end else ((w.get("translation") or {}).get("text") or "")
+        out.append(Word(glyphs, "" if is_end else w.get("text_uthmani", ""), is_end, meaning))
     return out
 
 

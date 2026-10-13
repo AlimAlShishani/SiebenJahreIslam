@@ -18,9 +18,14 @@ Was dabei passiert:
    von [qurancliphelper.com](https://qurancliphelper.com) verlinkt. Mit
    `--glyphen v2` gibt es die neuere Ausgabe wie auf quran.com. Optional kommt
    die deutsche Übersetzung als eigene Ebene dazu.
-3. **Video bauen:** Hintergrund, Verse (mit sanfter Blende) und Audio werden zu
-   `video.mp4` zusammengesetzt.
-4. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
+3. **Grafiken & Abschnitte (Plan):** Claude liest die Übersetzung und legt in
+   `plan.json` fest, wo eine schlichte Grafik den Inhalt zeigt, wo lange Verse
+   an Atempausen in Abschnitte geteilt werden (mit Teil-Übersetzung) und welche
+   Farbstimmung ein Abschnitt hat. Text steht dann oben, die Grafik groß darunter,
+   wie in deinen Referenzvideos.
+4. **Video bauen:** Hintergrund, Partikel, Szenen (mit sanfter Blende, Grafiken
+   schweben leicht) und Audio werden zu `video.mp4` zusammengesetzt.
+5. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
 
 ## Benutzung
 
@@ -34,6 +39,9 @@ Nützliche Optionen:
 
 | Option | Bedeutung |
 |---|---|
+| `--nur-zeitstempel` | nur Zeitstempel + `planung.txt` (Grundlage für den Plan) |
+| `--plan plan.json` | Abschnitte, Teil-Übersetzungen, Farben und Grafiken (Format in `szenen.py`) |
+| `--layout auto/oben/mitte` | Text oben (Grafik darunter) oder mittig; `auto` = oben, sobald der Plan Grafiken hat |
 | `--glyphen v1` / `v2` | V1 = wie das Font-Set der qurancliphelper-FAQ (Standard), V2 = wie quran.com |
 | `--format 16:9` | `16:9` Querformat (Standard), `9:16` (Reels/TikTok/Shorts), `1:1`, `4:5` |
 | `--glow 0.45` | Leuchten um den arabischen Text: `0` aus, `0.45` dezent (Standard), `0.8` kräftig |
@@ -57,7 +65,9 @@ Nützliche Optionen:
 ```
 koran-video-ausgabe/067_001-010/
 ├── video.mp4                 fertiges Video
-├── zeitstempel.txt / .json   Start/Ende jedes Verses
+├── zeitstempel.txt / .json   Start/Ende jedes Verses (+ Wortzeiten, Pausen) und jeder Szene
+├── planung.txt               Übersicht für den Plan (Wörter, Pausen, Motiv-Vorschläge)
+├── plan.json                 der verwendete Plan
 ├── capcut-paket.zip          Inhalt von capcut/ als ZIP
 └── capcut/
     ├── audio.m4a             Rezitation (Stille vorne/hinten abgeschnitten)
@@ -65,6 +75,8 @@ koran-video-ausgabe/067_001-010/
     ├── partikel.mp4          nahtloser 24-s-Loop auf Schwarz → in CapCut Mischmodus „Bildschirm“/„Screen“
     ├── arabisch/01_0m00.00s_67-1.png       ← Startzeit steht im Dateinamen
     ├── uebersetzung/01_0m00.00s_67-1.png
+    ├── grafiken/03_0m21.69s_67-16_2_erde_beben.png
+    ├── farbe/leuchten_FF3B3B.png    farbiges Hintergrund-Leuchten der Szenen
     ├── arabisch.srt          Verse als Untertitel (Uthmani-Text)
     └── uebersetzung.srt
 ```
@@ -105,6 +117,21 @@ python tools/koran-video/koran_video.py rezitation.m4a --sure 67 --von 1 --bis 1
 
 Die Zeiten beziehen sich auf `capcut/audio.m4a` (also nach dem Abschneiden der
 Stille).
+
+## Grafiken
+
+65 schlichte Motive in `grafiken/` (SVG, Liste mit Beschreibung in
+`grafiken/motive.json`, Übersicht: `grafiken/_erzeugen.py`):
+Himmel & Licht (Sterne, Mond, Sonne, sieben Himmel, Lampe …), Wetter & Wasser
+(Regen, Gewitter, Wind, Steinsturm, Meer, zwei Meere, Schiff …), Erde &
+Pflanzen (Berge, Wege, Beben, Keimling, Palme, Garten mit Fluss, Ähren,
+Ruinen, Feuer …), Tiere, Menschen-Piktogramme (stehend, gehend, Gruppe,
+Niederwerfung, Bittgebet, Freude, Verzweiflung, Abwenden …) und Symbole
+(Fragezeichen, Haken, Kreuz, Warnzeichen, Waage, Buch, Sanduhr, Kaaba …).
+
+**Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht,
+keine Darstellung von Allah, Propheten, Engeln oder dem Verborgenen. Keine
+Grafik bei Basmala.
 
 ## CapCut direkt per MCP?
 

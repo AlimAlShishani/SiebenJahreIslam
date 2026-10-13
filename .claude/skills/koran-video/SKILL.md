@@ -1,6 +1,6 @@
 ---
 name: koran-video
-description: Erstellt aus einer hochgeladenen Koran-Rezitation (Audio) ein fertiges Video mit den Versen in Glyphen-Schrift plus CapCut-Paket. IMMER verwenden, wenn der Nutzer eine Rezitation/Aufnahme schickt und Sure/Verse nennt ("Sure 67, Vers 1 bis 10", "67:1-10", "Al-Mulk 1-5"), ein Koran-Video/Reel/Short/Clip will, Zeitstempel einer Rezitation braucht oder Zeiten eines schon erstellten Videos korrigieren will.
+description: Erstellt aus einer hochgeladenen Koran-Rezitation (Audio) ein fertiges Video mit den Versen in Glyphen-Schrift, passenden schlichten Grafiken, Abschnitts-Aufteilung und Farbstimmung plus CapCut-Paket. IMMER verwenden, wenn der Nutzer eine Rezitation/Aufnahme schickt und Sure/Verse nennt ("Sure 67, Vers 1 bis 10", "67:1-10", "Al-Mulk 1-5"), ein Koran-Video/Reel/Short/Clip will, Zeitstempel einer Rezitation braucht oder Zeiten eines schon erstellten Videos korrigieren will.
 ---
 
 # Koran-Video aus Rezitation
@@ -27,31 +27,63 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    „Hochformat“, „Reel“, „Short“, „TikTok“ → `--format 9:16`.
 2. **Abhängigkeiten** (einmal pro Session, ffmpeg muss vorhanden sein):
    `pip install -q -r tools/koran-video/requirements.txt`
-3. **Ausführen** (ca. 1–2 min pro Minute Audio, beim ersten Mal plus Downloads):
+3. **Schritt A – Zeitstempel + Planungsgrundlage** (ca. 1 min pro Minute Audio):
    ```bash
-   python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B \
-     [--istiadha] [--basmala nein] [--hintergrund <datei>] [--format 9:16] \
-     [--glow 0.8] [--glow-farbe "#F6D58E"] [--uebersetzung-font cormorant]
+   python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B --nur-zeitstempel \
+     [--istiadha] [--basmala nein]
    ```
    Die Basmala wird automatisch erwartet, wenn ab Vers 1 gelesen wird (außer
    Sure 1 und 9). Liest der Nutzer sie nicht, `--basmala nein` setzen.
-4. **Selbst prüfen**, bevor du lieferst:
-   - `zeitstempel.txt` lesen: Sind die Längen plausibel (kein Vers < 1 s, lange
-     Verse länger als kurze)? Steht im Log „nicht sicher erkannt“?
-   - Bei Zweifeln 1–2 Frames an verdächtigen Stellen aus `video.mp4` extrahieren
-     und ansehen, notfalls mit `--modell medium` neu laufen lassen.
+   Danach `koran-video-ausgabe/<…>/planung.txt` lesen: Übersetzung je Vers,
+   Wörter mit Nummer und Bedeutung, Atempausen (‖), Motiv-Vorschläge, alle Motive.
+4. **Schritt B – Plan schreiben** (`koran-video-ausgabe/<…>/plan.json`, Format
+   in `tools/koran-video/szenen.py`). Wie in den Referenzvideos des Nutzers:
+   - **Lange Verse in Abschnitte teilen** an den Atempausen (‖) bzw. an
+     Sinneinheiten (`teile` mit `bis_wort`). Jeder Teil bekommt seine eigene
+     **deutsche Teil-Übersetzung**: die Abu-Rida-Übersetzung aus planung.txt
+     passend aufteilen, nicht neu übersetzen. Kurze Verse bleiben ganz.
+   - **Grafiken nur, wo sie den Inhalt wirklich zeigen**: Natur, Dinge, Tiere,
+     Menschen, Handlungen (Erde/Wege, Regen, Vögel, Schiff, Gärten, Feuer,
+     Waage …) und rhetorische Fragen (`fragezeichen`), Warnungen
+     (`ausrufezeichen`), richtig/falsch (`haken`/`kreuz`). Mehrere Grafiken pro
+     Vers sind gut, jede ab dem passenden Wort (`ab_wort`).
+   - **Keine Grafik** bei Basmala, Isti'adha, Aussagen über Allah und Seine
+     Eigenschaften, über das Verborgene (Engel, Thron, Auferstehung …), bei
+     reinen Lobpreisungen und wenn nichts Konkretes passt. Lieber weniger.
+   - **Farbe nach Stimmung** (`farbe`): Standard weiß; `rot` Warnung/Strafe,
+     `gruen` frohe Botschaft/Gläubige/Lohn, `gelb` Schwäche/Fehler des Menschen,
+     `gold` Aussagen über Allah/Erhabenes, `blau`/`rosa` Schöpfung. Sparsam.
+5. **Schritt C – Video rendern** (ca. 3 min pro Minute Audio):
+   ```bash
+   python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B \
+     --zeitstempel koran-video-ausgabe/<…>/zeitstempel.json --plan koran-video-ausgabe/<…>/plan.json \
+     [--hintergrund <datei>] [--format 9:16] [--glow 0.8] [--uebersetzung-font cormorant]
+   ```
+6. **Selbst prüfen**, bevor du lieferst:
+   - `zeitstempel.txt` lesen (Verse und Szenen mit Grafiken): Sind die Längen
+     plausibel (kein Vers < 1 s)? Steht im Log „nicht sicher erkannt“?
+   - Pro Szene mit Grafik einen Frame aus `video.mp4` extrahieren und ansehen
+     (Grafik passend, nicht zu klein, Text lesbar).
    - Wiederholungen (Nutzer stoppt und liest ein paar Wörter erneut) sind normal
      und werden vom Abgleich abgefangen; kein Grund zur Rückfrage.
    - Passt die Anzahl erkannter Verse nicht zur Aufnahme (z. B. andere Verse
      gelesen als angegeben), dem Nutzer sagen, was du hörst.
-5. **Liefern:** `video.mp4` und `capcut-paket.zip` mit SendUserFile schicken
-   und die Zeitstempel-Tabelle in die Antwort schreiben. Kurz sagen, dass
-   Korrekturen einfach als Nachricht gehen.
-6. **Korrekturen** („Vers 3 fängt bei 0:25 an“, „Basmala raus“, „heller
-   Hintergrund“): Bei Zeiten in `koran-video-ausgabe/…/zeitstempel.json` die
-   `start`-Zeit des Verses und die `ende`-Zeit des vorherigen Verses ändern, dann
-   mit `--zeitstempel <json>` neu rendern (keine neue Erkennung). Bei
-   Optik-Wünschen mit geänderten Optionen und `--zeitstempel` neu rendern. Dann
-   wieder liefern.
+7. **Liefern:** `video.mp4` und `capcut-paket.zip` mit SendUserFile schicken,
+   die Szenen-Tabelle (welche Grafik wo) in die Antwort schreiben und kurz
+   sagen, dass Korrekturen einfach als Nachricht gehen.
+8. **Korrekturen** („Vers 3 fängt bei 0:25 an“, „bei Vers 5 lieber Regen“,
+   „Vers 7 nicht teilen“): Zeiten in `zeitstempel.json` (Vers-`start` und
+   `ende` des vorherigen Verses) bzw. `plan.json` ändern und Schritt C erneut
+   ausführen (keine neue Erkennung).
+
+## Regeln für Grafiken (vom Nutzer, nicht verhandelbar)
+
+- **Lebewesen ohne Augen.**
+- **Menschen nur als Piktogramm/Strichmännchen ohne jedes Gesichtsdetail.**
+- Niemals Allah, Propheten, Engel, Dschinn/Satan oder Szenen des Verborgenen
+  bildlich darstellen.
+- Neue Motive: im gleichen Stil in `tools/koran-video/grafiken/_erzeugen.py`
+  ergänzen (`python3 tools/koran-video/grafiken/_erzeugen.py tools/koran-video/grafiken`),
+  das Ergebnis als Bild ansehen und die Regeln prüfen, bevor es verwendet wird.
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.

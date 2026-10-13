@@ -168,8 +168,17 @@ class Renderer:
         width_chars = max(10, int(self.style.text_width / avg))
         return textwrap.wrap(text, width=width_chars)
 
-    def render(self, seg: Segment, out_ar: Path, out_tr: Path | None) -> None:
+    def render(self, seg: Segment, out_ar: Path, out_tr: Path | None, layout: str = "mitte",
+               with_graphic: bool = False) -> int:
+        """Rendert Arabisch + Übersetzung als transparente Vollbild-PNGs.
+
+        layout "mitte": Textblock mittig. layout "oben": Textblock oben (darunter ist Platz für Grafiken).
+        with_graphic: Textblock kompakter halten, damit die Grafik groß genug bleibt.
+        Rückgabe: y-Koordinate der Unterkante des Textblocks.
+        """
         W, H = self.style.width, self.style.height
+        area_top = 0
+        area_h = H
         tr_size = self.style.translation_size or int(self.style.unit * 0.029 * self.latin_scale)
         tr_lines = self._translation_lines(seg.translation, tr_size) if (out_tr and seg.translation) else []
         tr_line_h = int(tr_size * 1.4)
@@ -183,16 +192,19 @@ class Renderer:
             kw = {"direction": "rtl", "language": "ar"} if features.check("raqm") else {}
             bbox = font.getbbox(seg.text, **kw)
             ar_h = bbox[3] - bbox[1]
-            top = int((H - (ar_h + gap + tr_h)) / 2)
+            top = int(H * 0.07) if layout == "oben" else area_top + int((area_h - (ar_h + gap + tr_h)) / 2)
             x = (W - (bbox[2] - bbox[0])) / 2 - bbox[0]
             fill = _hex(self.style.color) + (255,)
             ImageDraw.Draw(ar_img).text((x, top - bbox[1]), seg.text, font=font, fill=fill, **kw)
         else:
-            max_ar_h = int(H * 0.62) - tr_h
-            layout = self._arabic_layout(seg, max(max_ar_h, int(H * 0.25)))
-            ar_h = len(layout[1]) * layout[3]
-            top = int((H - (ar_h + gap + tr_h)) / 2)
-            self._draw_arabic(ar_img, seg, top, layout)
+            max_ar_h = int(H * (0.34 if with_graphic else 0.62)) - (0 if with_graphic else tr_h)
+            ar_layout = self._arabic_layout(seg, max(max_ar_h, int(H * 0.16)))
+            ar_h = len(ar_layout[1]) * ar_layout[3]
+            if layout == "oben":
+                top = int(H * 0.05)
+            else:
+                top = area_top + int((area_h - (ar_h + gap + tr_h)) / 2)
+            self._draw_arabic(ar_img, seg, top, ar_layout)
         _save(ar_img, out_ar, self.style.shadow, self.style.glow, self.style.glow_color, self.style.unit)
 
         if out_tr is not None:
@@ -205,6 +217,22 @@ class Renderer:
                 draw.text(((W - lw) / 2, y), line, font=font, fill=_hex(self.style.color) + (235,))
                 y += tr_line_h
             _save(tr_img, out_tr, self.style.shadow, 0.0, "#FFFFFF", self.style.unit)
+        return top + ar_h + gap + tr_h
+
+
+def graphic_box(style: Style, text_bottom: int) -> tuple[int, int, int, int]:
+    """(x, y, breite, höhe) für eine Grafik unterhalb des Textblocks (Seitenverhältnis 400:260)."""
+    W, H = style.width, style.height
+    top = text_bottom + int(H * 0.04)
+    avail_h = max(int(H * 0.2), H - top - int(H * 0.03))
+    w = min(int(W * (0.62 if W >= H else 0.86)), int(avail_h * 400 / 260))
+    h = int(w * 260 / 400)
+    return (W - w) // 2, top + (avail_h - h) // 2, w, h
+
+
+def save_layer(img: Image.Image, path: Path, style: Style) -> None:
+    """Speichert eine Ebene mit demselben Schatten/Glow wie der arabische Text."""
+    _save(img, path, style.shadow, style.glow, style.glow_color, style.unit)
 
 
 def _google_font(rel: str) -> Path:

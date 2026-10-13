@@ -3,6 +3,9 @@
 
 Beispiel:
     python koran_video.py rezitation.m4a --sure 67 --von 1 --bis 10
+    # mit Grafiken/Abschnitten: erst --nur-zeitstempel, dann plan.json schreiben, dann
+    python koran_video.py rezitation.m4a --sure 67 --von 1 --bis 10 \
+        --zeitstempel …/zeitstempel.json --plan …/plan.json
 
 Ergebnis (Ordner koran-video-ausgabe/067_001-010/):
     video.mp4               fertiges Video (Hintergrund + Verse + Audio)
@@ -27,10 +30,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from dataclasses import dataclass, replace  # noqa: E402
+
 from quran_data import FONT_DIR, Segment, build_segments, chapter_info, download_all_fonts  # noqa: E402
 import effects  # noqa: E402
-from render import FORMATS, Renderer, Style, make_background  # noqa: E402
-from timing import SR, compute_timestamps, detect_silences, load_audio, voice_span  # noqa: E402
+from grafiken import render_graphic, render_tint  # noqa: E402
+from render import FORMATS, Renderer, Style, graphic_box, make_background  # noqa: E402
+from szenen import Screen, build_screens, load_plan, plan_has_graphics, planning_text  # noqa: E402
+from timing import SR, compute_timestamps, detect_silences, finalize_word_times, load_audio, voice_span  # noqa: E402
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
@@ -52,9 +59,19 @@ def fmt_short(t: float) -> str:
     return f"{int(m)}:{s:05.2f}"
 
 
-def file_stub(i: int, seg: Segment) -> str:
-    m, s = divmod(seg.start, 60)
-    return f"{i:02d}_{int(m)}m{s:05.2f}s_{seg.key.replace(':', '-')}"
+def file_stub(i: int, start: float, key: str) -> str:
+    m, s = divmod(start, 60)
+    return f"{i:02d}_{int(m)}m{s:05.2f}s_{key.replace(':', '-')}"
+
+
+@dataclass
+class Layer:
+    """Eine transparente Vollbild-Ebene, die von start bis end eingeblendet wird."""
+    png: Path
+    start: float
+    end: float
+    fade: float
+    motion: bool = False  # sanftes Schweben (Grafiken)
 
 
 # --------------------------------------------------------------------------- Zeitstempel-Dateien
@@ -67,7 +84,11 @@ def write_timestamps(segs: list[Segment], out: Path, info: dict) -> None:
     (out / "zeitstempel.txt").write_text("\n".join(lines) + "\n", "utf-8")
     data = {
         "info": info,
-        "segmente": [{"key": s.key, "art": s.kind, "start": s.start, "ende": s.end} for s in segs],
+        "segmente": [
+            {"key": s.key, "art": s.kind, "start": s.start, "ende": s.end, "wort_zeiten": s.meta.get("wort_zeiten", []),
+             "pausen_nach_wort": s.meta.get("pausen_nach_wort", [])}
+            for s in segs
+        ],
     }
     (out / "zeitstempel.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
 
@@ -79,30 +100,47 @@ def read_timestamps(path: Path, segs: list[Segment]) -> None:
         raise SystemExit("zeitstempel.json passt nicht zu Sure/Versen/Basmala/Isti'adha dieses Aufrufs.")
     for s, e in zip(segs, entries):
         s.start, s.end = float(e["start"]), float(e["ende"])
+        wt = e.get("wort_zeiten") or []
+        # Wortzeiten nur übernehmen, wenn sie noch in den (evtl. korrigierten) Vers passen
+        if wt and wt[0] >= s.start - 0.05 and wt[-1] < s.end:
+            s.meta["wort_zeiten"] = wt
+        else:
+            finalize_word_times(s)
+        s.meta["pausen_nach_wort"] = e.get("pausen_nach_wort", [])
 
 
-def write_srt(segs: list[Segment], path: Path, attr: str) -> None:
+def write_srt(screens: list[Screen], path: Path, attr: str) -> None:
     blocks = []
-    for i, s in enumerate(segs, 1):
-        text = getattr(s, attr)
+    for i, sc in enumerate(screens, 1):
+        text = getattr(sc.view, attr)
         if text:
-            blocks.append(f"{i}\n{fmt_srt(s.start)} --> {fmt_srt(s.end)}\n{text}\n")
+            blocks.append(f"{i}\n{fmt_srt(sc.start)} --> {fmt_srt(sc.end)}\n{text}\n")
     path.write_text("\n".join(blocks), "utf-8")
+
+
+def write_screen_list(screens: list[Screen], out: Path) -> None:
+    lines = ["", "Szenen:"]
+    for i, sc in enumerate(screens, 1):
+        extra = f"  [{sc.color}]" if sc.color else ""
+        lines.append(f"{i:2d}. {sc.label:<16} {fmt_short(sc.start):>9} – {fmt_short(sc.end):>9}{extra}")
+        for g in sc.graphics:
+            lines.append(f"      Grafik {g.motiv:<18} {fmt_short(g.start):>9} – {fmt_short(g.end):>9}")
+    with (out / "zeitstempel.txt").open("a", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
 
 
 # --------------------------------------------------------------------------- Video
 
 
 def build_video(
-    segs: list[Segment],
-    images: list[list[Path]],
+    layers: list[Layer],
+    avoid: list[float],
     audio: Path,
     background: Path,
     size: tuple[int, int],
     duration: float,
     out: Path,
     darken: float,
-    fade: float,
     work: Path,
     particles: Path | None = None,
     glitch: float = 0.0,
@@ -131,22 +169,21 @@ def build_video(
         cur = "base1"
         n_in += 1
 
-    micro = effects.glitch_times(duration, glitch, [s.start for s in segs]) if glitch > 0 else []
-    for i, (seg, pngs) in enumerate(zip(segs, images)):
-        d = max(0.05, seg.end - seg.start)
-        f = min(fade, d / 3)
-        for k, png in enumerate(pngs):
-            inputs += ["-loop", "1", "-framerate", "30", "-t", f"{d:.3f}", "-i", str(png)]
-            lbl = f"o{i}_{k}"
-            chain = f"[{n_in}:v]format=rgba"
-            if f > 0:
-                chain += f",fade=t=in:st=0:d={f:.2f}:alpha=1,fade=t=out:st={d - f:.3f}:d={f:.2f}:alpha=1"
-            chain += f",setpts=PTS-STARTPTS+{seg.start:.3f}/TB[{lbl}]"
-            filters.append(chain)
-            nxt = f"b{i}_{k}"
-            filters.append(f"[{cur}][{lbl}]overlay=0:0:eof_action=pass[{nxt}]")
-            cur = nxt
-            n_in += 1
+    micro = effects.glitch_times(duration, glitch, avoid) if glitch > 0 else []
+    float_amp = max(2, round(H * 0.006))
+    for i, ly in enumerate(layers):
+        d = max(0.05, ly.end - ly.start)
+        f = min(ly.fade, d / 3)
+        inputs += ["-loop", "1", "-framerate", "30", "-t", f"{d:.3f}", "-i", str(ly.png)]
+        chain = f"[{n_in}:v]format=rgba"
+        if f > 0:
+            chain += f",fade=t=in:st=0:d={f:.2f}:alpha=1,fade=t=out:st={d - f:.3f}:d={f:.2f}:alpha=1"
+        chain += f",setpts=PTS-STARTPTS+{ly.start:.3f}/TB[o{i}]"
+        filters.append(chain)
+        y = f"'{float_amp}*sin(2*PI*t/4.5)'" if ly.motion else "0"
+        filters.append(f"[{cur}][o{i}]overlay=x=0:y={y}:eval={'frame' if ly.motion else 'init'}:eof_action=pass[b{i}]")
+        cur = f"b{i}"
+        n_in += 1
     if micro:
         # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
         sh = max(1, round(W * 0.002 * glitch))
@@ -184,6 +221,12 @@ def parse_args(argv=None):
                    help="Zeitstempel per Spracherkennung (genau) oder nur per Pausen (grob)")
     p.add_argument("--modell", default="small", help="Whisper-Modell: tiny, base, small, medium, large-v3 (Standard: small)")
     p.add_argument("--zeitstempel", type=Path, help="eigene/korrigierte zeitstempel.json verwenden statt neu zu erkennen")
+    p.add_argument("--nur-zeitstempel", action="store_true",
+                   help="nur Zeitstempel + planung.txt erstellen (Grundlage für den Plan), keine Bilder/Video")
+    p.add_argument("--plan", type=Path,
+                   help="Plan (JSON): Verse in Teile teilen, Teil-Übersetzungen, Farben, Grafiken – siehe szenen.py")
+    p.add_argument("--layout", choices=["auto", "mitte", "oben"], default="auto",
+                   help="Textposition: oben (Grafik darunter) oder mitte; auto = oben, sobald der Plan Grafiken enthält")
     p.add_argument("--uebersetzung", default="208",
                    help="quran.com-Übersetzungs-ID: 208 = Abu Rida (Standard), 27 = Bubenheim, 'keine' = ohne")
     p.add_argument("--glyphen", choices=["v1", "v2"], default="v1",
@@ -275,28 +318,62 @@ def main(argv=None) -> None:
         info = compute_timestamps(audio, segs, args.methode, args.modell, log)
     info.update({"trim_start": round(cut_start, 2), "trim_ende": round(cut_end, 2), "quelle": audio_in.name})
     write_timestamps(segs, out, info)
-    write_srt(segs, capcut / "arabisch.srt", "text")
-    if tid:
-        write_srt(segs, capcut / "uebersetzung.srt", "translation")
+    (out / "planung.txt").write_text(planning_text(segs), "utf-8")
     log("")
     log((out / "zeitstempel.txt").read_text("utf-8"))
+    if args.nur_zeitstempel:
+        log(f"Planungsgrundlage: {out / 'planung.txt'}  (Zeitstempel: {out / 'zeitstempel.json'})")
+        return
 
-    # 3) Bilder
-    log(f"3/4 Rendere Vers-Bilder (Glyphen-Schrift QCF {args.glyphen.upper()}) …")
+    # 3) Szenen + Bilder
+    plan = load_plan(args.plan)
+    if args.plan and args.plan.resolve() != (out / "plan.json").resolve():
+        shutil.copyfile(args.plan, out / "plan.json")
+    screens = build_screens(segs, plan, args.plan.parent if args.plan else None)
+    layout = args.layout if args.layout != "auto" else ("oben" if plan_has_graphics(plan) else "mitte")
+    write_screen_list(screens, out)
+    write_srt(screens, capcut / "arabisch.srt", "text")
+    if tid:
+        write_srt(screens, capcut / "uebersetzung.srt", "translation")
+
+    log(f"3/4 Rendere {len(screens)} Szenen (Glyphen-Schrift QCF {args.glyphen.upper()}, Layout {layout}) …")
     size = FORMATS[args.format]
-    renderer = Renderer(Style(width=size[0], height=size[1], color=args.farbe,
-                                arabic_size=args.schriftgroesse, glyphs=args.glyphen, glow=args.glow,
-                                glow_color=args.glow_farbe, translation_font=args.uebersetzung_font))
-    for sub in ("arabisch", "uebersetzung"):
+    base_style = Style(width=size[0], height=size[1], color=args.farbe, arabic_size=args.schriftgroesse,
+                       glyphs=args.glyphen, glow=args.glow, glow_color=args.glow_farbe,
+                       translation_font=args.uebersetzung_font)
+    renderers: dict = {}
+
+    def renderer_for(color: str | None) -> Renderer:
+        if color not in renderers:
+            st = base_style if not color else replace(base_style, color=color, glow_color=color)
+            renderers[color] = Renderer(st)
+        return renderers[color]
+
+    for sub in ("arabisch", "uebersetzung", "grafiken", "farbe"):
         if (capcut / sub).exists():
             shutil.rmtree(capcut / sub)
-    images = []
-    for i, seg in enumerate(segs, 1):
-        stub = file_stub(i, seg)
+    layers: list[Layer] = []
+    tints: dict = {}
+    for i, sc in enumerate(screens, 1):
+        r = renderer_for(sc.color)
+        stub = file_stub(i, sc.start, sc.key)
         ar = capcut / "arabisch" / f"{stub}.png"
         tr = capcut / "uebersetzung" / f"{stub}.png" if tid else None
-        renderer.render(seg, ar, tr)
-        images.append([ar] + ([tr] if tr and tr.exists() else []))
+        bottom = r.render(sc.view, ar, tr, layout, with_graphic=bool(sc.graphics))
+        layers.append(Layer(ar, sc.start, sc.end, args.blende))
+        if tr and tr.exists():
+            layers.append(Layer(tr, sc.start, sc.end, args.blende))
+        if sc.color and sc.color != "#FFFFFF":
+            if sc.color not in tints:
+                (capcut / "farbe").mkdir(parents=True, exist_ok=True)
+                tints[sc.color] = render_tint(capcut / "farbe" / f"leuchten_{sc.color.lstrip('#')}.png", base_style, sc.color)
+            layers.insert(0, Layer(tints[sc.color], sc.start, sc.end, 0.5))
+        box = graphic_box(r.style, bottom)
+        for k, g in enumerate(sc.graphics, 1):
+            gpng = capcut / "grafiken" / f"{file_stub(i, g.start, sc.key)}_{k}_{g.motiv}.png"
+            gpng.parent.mkdir(parents=True, exist_ok=True)
+            render_graphic(g.source, gpng, r.style, box)
+            layers.append(Layer(gpng, g.start, g.end, 0.4, motion=True))
     if args.hintergrund:
         bg = capcut / f"hintergrund{args.hintergrund.suffix.lower()}"
         shutil.copyfile(args.hintergrund, bg)
@@ -311,8 +388,8 @@ def main(argv=None) -> None:
         particles = effects.render_particles(capcut / "partikel.mp4", size, args.partikel, args.partikel_farbe)
     if not args.kein_video:
         log("4/4 Erstelle video.mp4 …")
-        build_video(segs, images, audio_out, bg, size, duration, out / "video.mp4",
-                    args.abdunkeln if args.hintergrund else 0.0, args.blende, work, particles, args.glitch)
+        build_video(layers, [sc.start for sc in screens], audio_out, bg, size, duration, out / "video.mp4",
+                    args.abdunkeln if args.hintergrund else 0.0, work, particles, args.glitch)
     shutil.rmtree(work, ignore_errors=True)
     shutil.make_archive(str(out / "capcut-paket"), "zip", capcut)
     log(f"\nFertig in {time.time() - t_start:.0f}s → {out}/")

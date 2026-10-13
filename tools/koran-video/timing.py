@@ -123,17 +123,31 @@ def transcribe(audio: np.ndarray, model_name: str, prompt: str | None, log=print
     return words
 
 
-def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, float]]) -> list[tuple[float | None, float | None]]:
-    """Schätzt (start, ende) je Segment aus dem Buchstaben-Abgleich."""
+def _content_words(seg: Segment):
+    return [w for w in seg.words if not w.is_end]
+
+
+def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, float]]):
+    """Schätzt (start, ende) je Segment und die Startzeit jedes Wortes aus dem Buchstaben-Abgleich.
+
+    Rückgabe: (schätzungen je Segment, rohe Wort-Startzeiten je Segment [None = nicht erkannt])
+    """
     exp_chars: list[str] = []
-    exp_seg: list[int] = []
     seg_ranges = []
-    for si, seg in enumerate(segs):
+    word_ranges: list[list[tuple[int, int]]] = []
+    for seg in segs:
         a = len(exp_chars)
-        for ch in normalize(seg.text):
-            exp_chars.append(ch)
-            exp_seg.append(si)
+        wr = []
+        cws = _content_words(seg)
+        if cws:
+            for w in cws:
+                wa = len(exp_chars)
+                exp_chars.extend(normalize(w.text))
+                wr.append((wa, len(exp_chars)))
+        else:
+            exp_chars.extend(normalize(seg.text))
         seg_ranges.append((a, len(exp_chars)))
+        word_ranges.append(wr)
 
     rec_chars: list[str] = []
     rec_time: list[float] = []
@@ -167,7 +181,65 @@ def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, flo
         start = mapped[idx[0]] - (idx[0] - a) / rate
         end = mapped[idx[-1]] + (b - 1 - idx[-1]) / rate
         estimates.append((start, end))
-    return estimates
+
+    word_raw: list[list[float | None]] = []
+    for wr in word_ranges:
+        times: list[float | None] = []
+        for a, b in wr:
+            hit = next((i for i in range(a, b) if i in mapped), None)
+            # nur wenn der Treffer am Wortanfang liegt, ist er als Startzeit brauchbar
+            times.append(mapped[hit] - (hit - a) / rate if hit is not None and hit - a <= 2 else None)
+        word_raw.append(times)
+    return estimates, word_raw
+
+
+def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: float = 0.25) -> list[int]:
+    """Nach welchen Wörtern (1-basiert) macht der Rezitator innerhalb des Verses eine Atempause?"""
+    t = seg.meta.get("wort_zeiten") or []
+    out = []
+    for i in range(len(t) - 1):
+        if any(e - s >= min_len and s >= t[i] + 0.15 and e <= t[i + 1] + 0.3 for s, e in silences):
+            out.append(i + 1)
+    return out
+
+
+def finalize_word_times(seg: Segment, raw: list[float | None] | None = None) -> None:
+    """Setzt seg.meta["wort_zeiten"]: Startzeit jedes Wortes (ohne Versende-Zeichen), monoton im Vers.
+
+    Nicht erkannte Wörter werden nach Buchstabenzahl zwischen den Nachbarn verteilt.
+    """
+    cws = _content_words(seg)
+    if not cws:
+        seg.meta["wort_zeiten"] = []
+        return
+    lengths = [max(1, len(normalize(w.text))) for w in cws]
+    n = len(cws)
+    t = [None] * n if raw is None else list(raw)
+    # Ausreißer verwerfen: muss im Vers liegen und monoton steigen
+    last = seg.start
+    for i in range(n):
+        if t[i] is not None and not (last - 0.05 <= t[i] <= seg.end - 0.1):
+            t[i] = None
+        if t[i] is not None:
+            last = t[i]
+    t[0] = seg.start if t[0] is None else max(seg.start, min(t[0], seg.start + 0.6))
+    i = 1
+    while i < n:
+        if t[i] is not None:
+            i += 1
+            continue
+        j = i
+        while j < n and t[j] is None:
+            j += 1
+        left = t[i - 1]
+        right = t[j] if j < n else seg.end
+        span_chars = sum(lengths[i - 1 : j])
+        acc = lengths[i - 1]
+        for k in range(i, j):
+            t[k] = left + (right - left) * acc / span_chars
+            acc += lengths[k]
+        i = j
+    seg.meta["wort_zeiten"] = [round(float(x), 2) for x in t]
 
 
 # --------------------------------------------------------------------------- Kombination
@@ -295,7 +367,7 @@ def compute_timestamps(
     if used == "whisper":
         prompt = " ".join(plain(s.text) for s in segs if s.kind == "vers")[:200].rsplit(" ", 1)[0] or None
         words = transcribe(audio, modell, prompt, log)
-        est = align_with_transcript(segs, words)
+        est, word_raw = align_with_transcript(segs, words)
         missing = sum(1 for e in est if e[0] is None)
         if missing:
             log(f"  Hinweis: {missing} Segment(e) nicht sicher erkannt – geschätzt nach Textlänge")
@@ -303,9 +375,12 @@ def compute_timestamps(
         bounds = snap_boundaries(est, silences, onset, offset)
     else:
         bounds = silence_only_boundaries(segs, silences, onset, offset)
+        word_raw = [None] * len(segs)
 
     starts = [0.0] + bounds
     ends = bounds + [duration]
-    for seg, s, e in zip(segs, starts, ends):
+    for i, (seg, s, e) in enumerate(zip(segs, starts, ends)):
         seg.start, seg.end = round(s, 2), round(e, 2)
+        finalize_word_times(seg, word_raw[i])
+        seg.meta["pausen_nach_wort"] = word_pauses(seg, silences)
     return {"methode": used, "dauer": duration, "stimme_start": onset, "stimme_ende": offset, "schwelle_db": threshold}
