@@ -150,7 +150,8 @@ def auto_bounds(seg: Segment, fits: Fits | None) -> list[int]:
         left = 0
         for i in range(a, b):
             left += letters[i - 1]
-            cost = abs(2 * left - total) / total - (0.35 if i in waqf else 0.0)
+            both_fit = ok(a, i) and ok(i + 1, b)
+            cost = (0.0 if both_fit else 1.0) + abs(2 * left - total) / total - (0.5 if i in waqf else 0.0)
             if cost < best_cost:
                 best, best_cost = i, cost
         return split(a, best) + split(best + 1, b)

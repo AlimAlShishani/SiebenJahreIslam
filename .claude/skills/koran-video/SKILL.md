@@ -34,6 +34,10 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    ```
    Die Basmala wird automatisch erwartet, wenn ab Vers 1 gelesen wird (außer
    Sure 1 und 9). Liest der Nutzer sie nicht, `--basmala nein` setzen.
+   Einzelbuchstaben am Sure-Anfang (الم، حم، يس …) werden beim Abgleich wie
+   gesprochen ausgeschrieben („Alif Lām Mīm“). Kurze Aussetzer der
+   Handyaufnahme (< 0,38 s) zählen nicht als Pause; Pausen neben einem
+   Waqf-Zeichen werden dem Waqf zugeordnet.
    Danach `koran-video-ausgabe/<…>/planung.txt` lesen: Übersetzung je Vers,
    Wörter mit Nummer und Bedeutung, Atempausen (‖), Waqf-Zeichen (ۚ) und die
    **automatischen Abschnitte**. Verse werden automatisch geteilt: spätestens bei
@@ -98,12 +102,16 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
 
 - **Lebewesen ohne Augen.**
 - **Menschen nur als Piktogramm ohne jedes Gesichtsdetail.**
+- **Keine schwarzen/dunklen Linien oder Flächen in den Grafiken** (der Nutzer fand
+  dunkle Trennlinien mitten in Figuren und Gegenständen komisch). Alles weiß bzw.
+  halbtransparent weiß; Überlappungen einfach verschmelzen lassen, Details mit
+  weißen Linien. Figur im Feuer/Wasser: `clip_oben(...)` statt Verdecken.
 - Ausdrücklich erlaubt: der Schriftzug „Allah“ (und andere Namen Allahs) als
   Grafik, Menschen im Feuer, Szenen von Strafe und Belohnung.
 - Propheten und Engel nicht als Figur zeichnen (stattdessen z. B. das Buch, Licht,
   oder die Menschen, um die es geht).
 - Jede Grafik vor dem Rendern im Kontaktbogen ansehen und diese Regeln prüfen.
 - Stil: Piktogramm-Figuren (kräftige runde Glieder, Kopf als Kreis), weiße
-  Linien/Flächen, dunkle Trennlinien (`TRENN`) wo Teile überlappen.
+  Linien und weiße bzw. halbtransparent weiße Flächen.
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.

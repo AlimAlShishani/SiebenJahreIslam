@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from baukasten import (TRENN, Figur, bewegung, bird, buch, dot, feld, flammen, ground, haus, huegel,  # noqa: E402,F401
+from baukasten import (Figur, bewegung, bird, buch, dot, feld, flammen, ground, haus, huegel,  # noqa: E402,F401
                        korb, palme, schriftzug, schweiss, speichern, stein, stock, tasche, tree,
                        sparkle, vogel, vorschau, warnschild, zeichen, zittern)
 

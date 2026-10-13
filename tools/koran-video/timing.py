@@ -34,6 +34,22 @@ def normalize(text: str) -> str:
     return _NON_LETTER.sub("", _DIACRITICS.sub("", text).translate(_MAP))
 
 
+# Einzelbuchstaben am Sure-Anfang (Huruf al-Muqatta'at) werden mit ihrem Namen gesprochen:
+# الم → „Alif Lām Mīm“. Für den Abgleich mit der Transkription wird der Text entsprechend ausgeschrieben.
+LETTER_NAMES = {"ا": "الف", "ل": "لام", "م": "ميم", "ر": "را", "ص": "صاد", "ك": "كاف", "ه": "ها", "ي": "يا",
+                "ع": "عين", "ط": "طا", "س": "سين", "ح": "حا", "ق": "قاف", "ن": "نون"}
+MUQATTAAT = {"الم", "المص", "الر", "المر", "كهيعص", "طه", "طسم", "طس", "يس", "ص", "حم", "عسق", "ق", "ن"}
+
+
+def spoken(word_text: str, key: str = "") -> str:
+    """Normalisierter Text eines Wortes, wie er gesprochen wird (Muqatta'at ausgeschrieben)."""
+    n = normalize(word_text)
+    verse = key.split(":")[-1] if key else ""
+    if n in MUQATTAAT and verse in ("1", "2"):
+        return "".join(LETTER_NAMES[c] for c in n)
+    return n
+
+
 def plain(text: str) -> str:
     """Text ohne Vokalzeichen, aber mit Leerzeichen (für den Whisper-Prompt)."""
     words = (_NON_LETTER.sub("", _DIACRITICS.sub("", w).replace("ٱ", "ا")) for w in text.split())
@@ -142,7 +158,7 @@ def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, flo
         if cws:
             for w in cws:
                 wa = len(exp_chars)
-                exp_chars.extend(normalize(w.text))
+                exp_chars.extend(spoken(w.text, seg.key))
                 wr.append((wa, len(exp_chars)))
         else:
             exp_chars.extend(normalize(seg.text))
@@ -193,14 +209,35 @@ def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, flo
     return estimates, word_raw
 
 
-def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: float = 0.22) -> list[int]:
-    """Nach welchen Wörtern (1-basiert) macht der Rezitator innerhalb des Verses eine Atempause?"""
+def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: float = 0.38) -> list[int]:
+    """Nach welchen Wörtern (1-basiert) macht der Rezitator innerhalb des Verses eine Atempause?
+
+    Kurze Aussetzer (< min_len, z. B. vom Handymikrofon) zählen nicht. Das Wort nach einer
+    Pause beginnt am Ende der Pause – die Wortzeit wird darauf korrigiert.
+    """
     t = seg.meta.get("wort_zeiten") or []
-    out = []
+    words = [w for w in seg.words if not w.is_end]
+    out: list[int] = []
     for i in range(len(t) - 1):
-        if any(e - s >= min_len and s >= t[i] + 0.15 and e <= t[i + 1] + 0.3 for s, e in silences):
-            out.append(i + 1)
-    return out
+        lo = t[i] + 0.15
+        hi = t[i + 2] if i + 2 < len(t) else seg.end
+        cands = [(s, e) for s, e in silences if e - s >= min_len and s >= lo and e <= min(hi, t[i + 1] + 1.2)]
+        if cands:
+            s_, e_ = max(cands, key=lambda c: c[1] - c[0])
+            k = i + 1  # Pause nach Wort k (1-basiert)
+            # Rezitatoren halten fast immer an Waqf-Zeichen: liegt eines direkt daneben, gilt es
+            waqf = [j for j in (k, k - 1, k + 1) if 1 <= j < len(t) and _has_waqf(words[j - 1].text)]
+            if waqf and waqf[0] != k and not _has_waqf(words[k - 1].text):
+                k = waqf[0]
+            if k not in out:
+                out.append(k)
+                t[k] = round(e_, 2)
+    seg.meta["wort_zeiten"] = t
+    return sorted(out)
+
+
+def _has_waqf(text: str) -> bool:
+    return any(0x06D6 <= ord(c) <= 0x06DC for c in text)
 
 
 def finalize_word_times(seg: Segment, raw: list[float | None] | None = None) -> None:

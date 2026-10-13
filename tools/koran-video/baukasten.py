@@ -17,7 +17,8 @@ Wichtigste Bausteine:
   sparkle, huegel, feld, haus, stein, flammen(verdecken=), ketten, buch, korb, stock, tasche,
   gebetsteppich, schweiss, bewegung, zittern, zeichen("?"), fragezeichen, haken, kreuz, warnschild,
   schriftzug("ٱللَّهُ"), ground, dot
-  TRENN = dunkle Farbe für Trennlinien zwischen überlappenden Teilen.
+  WICHTIG: keine dunklen/schwarzen Linien oder Flächen in den Grafiken – alles weiß bzw. halbtransparent weiß.
+  clip_oben(svg, y): nur den Teil oberhalb von y zeigen (z. B. Figur knietief im Feuer, im Wasser).
 
 Beispiel (eigenes Skript im Ausgabeordner, Muster: beispiel_mulk_15-19/grafiken_zeichnen.py):
 
@@ -168,7 +169,7 @@ POSES.update({
                          legs=[((-7, 21), (-10, 0)), ((7, 21), (10, 0))]),
 })
 
-TRENN = "#0E141C"   # Trennlinien zwischen überlappenden Teilen (wirkt auf dunklem Grund wie eine Lücke)
+_clip_id = [0]
 _mask_id = [0]
 
 
@@ -228,7 +229,6 @@ class Figur:
                        f'fill="#fff" stroke-width="{4 * s:.1f}"/>')
         for i, (e, h) in enumerate(j["arms"]):
             if i in vorne:
-                out.append(f'<path d="{arm(e, h)}" stroke="{TRENN}" stroke-width="{limb + 5 * s:.1f}"/>')
                 out.append(f'<path d="{arm(e, h)}"/>')
         hx, hy, r = self.kopf()
         if self.kopftuch:
@@ -237,8 +237,9 @@ class Figur:
                        f'L{nx + r * 1.2:.1f},{ny + r * .5:.1f} L{nx - r * 1.2:.1f},{ny + r * .5:.1f}Z" fill="#fff" stroke="none"/>')
         out.append(f'<circle cx="{hx:.1f}" cy="{hy:.1f}" r="{r:.1f}" fill="#fff" stroke="none"/>')
         if self.kappe:
-            out.append(f'<path d="M{hx - r * 1.05:.1f},{hy - r * .25:.1f} A{r * 1.05:.1f},{r * 1.05:.1f} 0 0 1 {hx + r * 1.05:.1f},{hy - r * .25:.1f}Z" '
-                       f'fill="#fff" stroke="{TRENN}" stroke-width="{2.5 * s:.1f}"/>')
+            # Kappe als kleine Kuppel, die seitlich und oben über den Kopf hinausragt (Silhouette)
+            out.append(f'<path d="M{hx - r * 1.2:.1f},{hy - r * .45:.1f} Q{hx:.1f},{hy - r * 1.9:.1f} {hx + r * 1.2:.1f},{hy - r * .45:.1f}Z" '
+                       f'fill="#fff" stroke="none"/>')
         out.append("</g>")
         return "".join(out)
 
@@ -293,15 +294,16 @@ def buch(x, y, s=1.0, offen=True):
     """Buch, Mittelpunkt (x, y)."""
     if offen:
         return (f'<g transform="translate({x},{y}) scale({s})">'
-                f'<path d="M0,-6 C-8,-12 -22,-13 -30,-10 L-30,12 C-22,9 -8,10 0,16 C8,10 22,9 30,12 L30,-10 C22,-13 8,-12 0,-6Z" fill="#fff" stroke-width="3"/>'
-                f'<path d="M0,-6 L0,16 M-24,-4 L-6,-2 M-24,2 L-6,4 M6,-2 L24,-4 M6,4 L24,2" stroke="{TRENN}" stroke-width="2"/></g>')
-    return (f'<g transform="translate({x},{y}) scale({s})"><rect x="-16" y="-20" width="32" height="40" rx="3" fill="#fff" stroke="none"/>'
-            f'<path d="M-10,-12 L10,-12 M-10,-6 L6,-6" stroke="{TRENN}" stroke-width="2.5"/></g>')
+                '<path d="M0,-6 C-8,-12 -22,-13 -30,-10 L-30,12 C-22,9 -8,10 0,16 C8,10 22,9 30,12 L30,-10 C22,-13 8,-12 0,-6Z" '
+                'fill="#fff" fill-opacity="0.22" stroke-width="3.5"/>'
+                '<path d="M0,-6 L0,16 M-24,-4 L-6,-2 M-24,2 L-6,4 M6,-2 L24,-4 M6,4 L24,2" stroke-width="2"/></g>')
+    return (f'<g transform="translate({x},{y}) scale({s})"><rect x="-16" y="-20" width="32" height="40" rx="3" '
+            'fill="#fff" fill-opacity="0.22" stroke-width="3.5"/><path d="M-10,-12 L10,-12 M-10,-6 L6,-6" stroke-width="2.5"/></g>')
 
 
 def korb(x, y, s=1.0, fruechte=True):
     """Korb (Unterkante Mitte bei x, y), optional mit Früchten."""
-    f = "".join(f'<circle cx="{dx}" cy="{dy}" r="{r}" fill="#fff" stroke="{TRENN}" stroke-width="2"/>'
+    f = "".join(f'<circle cx="{dx}" cy="{dy}" r="{r}" fill="#fff" fill-opacity="0.3" stroke-width="2.5"/>'
                 for dx, dy, r in [(-22, -38, 9), (-4, -42, 11), (16, -38, 9), (-12, -46, 7), (8, -50, 7)]) if fruechte else ""
     return (f'<g transform="translate({x},{y}) scale({s})">{f}'
             f'<path d="M-34,-34 L34,-34 L26,0 L-26,0Z" fill="#fff" fill-opacity="0.15"/>'
@@ -317,7 +319,8 @@ def stock(hand, laenge=60, winkel=8):
 
 def tasche(x, y, s=1.0):
     """Umhängetasche/Bündel, Mittelpunkt."""
-    return f'<g transform="translate({x},{y}) scale({s})"><path d="M-12,-8 Q0,-14 12,-8 L14,10 Q0,16 -14,10Z" fill="#fff" stroke="{TRENN}" stroke-width="2"/></g>'
+    return (f'<g transform="translate({x},{y}) scale({s})"><path d="M-12,-8 Q0,-14 12,-8 L14,10 Q0,16 -14,10Z" '
+            'fill="#fff" fill-opacity="0.3" stroke-width="3"/></g>')
 
 
 def gebetsteppich(x, y, w=120, s=1.0):
@@ -361,10 +364,9 @@ def schriftzug(text, x=200, y=170, groesse=110):
             f'font-size="{groesse}" fill="#fff" stroke="none">{text}</text>')
 
 
-def flammen(x, y, breite=220, hoehe=120, n=5, verdecken=True):
-    """Flammenfeld (Unterkante Mitte x, y). verdecken=True: Flammen verdecken, was dahinter steht
-    (z. B. eine Figur, die knietief im Feuer steht – Figur VOR den Flammen zeichnen)."""
-    fill = f'fill="{TRENN}"' if verdecken else F
+def flammen(x, y, breite=220, hoehe=120, n=5):
+    """Flammenfeld (Unterkante Mitte x, y). Figur im Feuer: clip_oben(figur.svg, y_flammen) + flammen(...)."""
+    fill = 'fill="#fff" fill-opacity="0.16"'
     out = []
     for i in range(n):
         fx = x - breite / 2 + breite * (i + .5) / n
@@ -396,7 +398,7 @@ def ketten(x1, y1, x2, y2, glieder=6):
 
 def haus(x, y, w=50, h=40, tuer=True):
     """Haus, linke Unterkante (x, y)."""
-    t = (f'<path d="M{x + w / 2 - 7},{y} L{x + w / 2 - 7},{y - 16} L{x + w / 2 + 7},{y - 16} L{x + w / 2 + 7},{y}" stroke="{TRENN}" stroke-width="3"/>'
+    t = (f'<path d="M{x + w / 2 - 7},{y} L{x + w / 2 - 7},{y - 16} L{x + w / 2 + 7},{y - 16} L{x + w / 2 + 7},{y}" stroke-width="3"/>'
          if tuer else "")
     return f'<path d="M{x},{y} L{x},{y - h} L{x + w / 2},{y - h - 22} L{x + w},{y - h} L{x + w},{y}Z" fill="#fff" fill-opacity="0.15"/>' + t
 
@@ -462,11 +464,20 @@ def vogel(x, y, s=1.0, fluegel="offen", spiegeln=False, o=1.0):
     if fluegel == "offen":
         wings = ('<path d="M-6,-4 C-18,-30 -38,-52 -66,-60 L-58,-50 L-66,-46 L-54,-40 L-60,-33 L-44,-28 C-30,-18 -18,-8 -8,2Z" '
                  'fill="#fff" stroke="none"/>'
-                 f'<path d="M4,-6 C10,-34 28,-58 54,-70 L50,-58 L60,-56 L50,-46 L58,-42 L44,-34 C34,-22 20,-10 10,0Z" '
-                 f'fill="#fff" stroke="{TRENN}" stroke-width="3"/>')
+                 '<path d="M4,-6 C10,-34 28,-58 54,-70 L50,-58 L60,-56 L50,-46 L58,-42 L44,-34 C34,-22 20,-10 10,0Z" '
+                 'fill="#fff" stroke="none"/>')
     else:
-        wings = f'<path d="M-14,-4 C6,-16 26,-12 32,-2 C10,0 -6,4 -14,-4Z" fill="#fff" stroke="{TRENN}" stroke-width="3"/>'
+        wings = '<path d="M-16,-6 C4,-24 26,-20 34,-8 C12,-8 -4,-4 -16,-6Z" fill="#fff" stroke="none"/>'
     return (f'<g transform="translate({x},{y}) scale({m * s},{s})" opacity="{o}">' + body + wings + '</g>')
+
+
+
+def clip_oben(inhalt, y):
+    """Zeigt von inhalt nur den Teil oberhalb von y (z. B. Figur, die im Feuer oder im Wasser steht)."""
+    _clip_id[0] += 1
+    cid = f"oben{_clip_id[0]}"
+    return (f'<clipPath id="{cid}"><rect x="-1000" y="-1000" width="3000" height="{1000 + y}"/></clipPath>'
+            f'<g clip-path="url(#{cid})">{inhalt}</g>')
 
 
 if __name__ == "__main__":
