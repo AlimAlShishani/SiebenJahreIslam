@@ -137,8 +137,8 @@ zweite Versuch (`beispiel_ankabut_1-7/`) ist der Maßstab.
   reicht die Hand). Gewicht und Balance prüfen.
 - **Weiß auf Weiß verschmilzt:** Gegenstand und Körper nicht großflächig
   überlappen lassen (ein Sack auf dem Rücken wurde zum Klumpen; in der nach
-  hinten gestreckten Hand ist er sofort lesbar). Wenn Überlappung nötig ist,
-  dann über einen Grauton absetzen, nie über dunkle Linien.
+  hinten gestreckten Hand ist er sofort lesbar). Gegenstände in einem etwas
+  dunkleren Weiß als die Figur zeichnen, dann bleiben beide klar getrennt.
 - **Sprechblase:** Der Zipfel zeigt vom Rand, der dem Sprecher zugewandt ist,
   auf den Kopf. Bei Aussagen wie „Wir glauben“ den arabischen Wortlaut
   (ءَامَنَّا) in die Blase schreiben.
@@ -152,18 +152,24 @@ zweite Versuch (`beispiel_ankabut_1-7/`) ist der Maßstab.
 
 - **Lebewesen ohne Augen.**
 - **Menschen nur als Piktogramm ohne jedes Gesichtsdetail.**
-- **Keine schwarzen/dunklen Linien oder Flächen in den Grafiken** (der Nutzer fand
-  dunkle Trennlinien mitten in Figuren und Gegenständen komisch). Alles weiß bzw.
-  halbtransparent weiß; Überlappungen einfach verschmelzen lassen, Details mit
-  weißen Linien. Figur im Feuer/Wasser: `clip_oben(...)` statt Verdecken.
+- **Keine schwarzen/dunklen Trennlinien mitten durch Figuren und Gegenstände**
+  (der Nutzer fand das komisch). Figur im Feuer/Wasser: `clip_oben(...)` statt
+  Verdecken.
+- **Weiß ruhig etwas abdunkeln, um Gegenstände und Details hervorzuheben**
+  (ausdrücklicher Wunsch: „don't be scared to darken the white just a little
+  bit“). Mit `grau(wert)` aus `piktogramm.py` (1 = Weiß, 0,85 = etwas dunkler
+  …): Hauptfigur weiß, Gegenstände etwas dunkler (Sack, Hängematte,
+  Teppich, Hammerstiel), Details in einer dritten Stufe (Palmenstamm mit Ringen,
+  Nüsse, Schattenseite, Band am Sack), abgewandte Glieder und Figuren im
+  Hintergrund deckend grau (`hell=`), feine hellgraue Kante, wo ein Arm vor dem
+  Körper liegt (macht `Mensch` in der Seitenansicht automatisch).
 - Ausdrücklich erlaubt: der Schriftzug „Allah“ (und andere Namen Allahs) als
   Grafik, Menschen im Feuer, Szenen von Strafe und Belohnung.
 - Propheten und Engel nicht als Figur zeichnen (stattdessen z. B. das Buch, Licht,
   oder die Menschen, um die es geht).
 - Jede Grafik vor dem Rendern im Kontaktbogen ansehen und diese Regeln prüfen.
 - Stil: Piktogramm-Menschen aus `piktogramm.py` (Körper mit Rumpf und sich
-  verjüngenden Gliedern, Kopf als Kreis mit kleinem Abstand), gefüllte weiße
-  Flächen. Tiefe entsteht über Grautöne (abgewandter Arm und abgewandtes Bein
-  halbtransparent, Felsfacetten in Grautönen).
+  verjüngenden Gliedern, Kopf als Kreis mit kleinem Abstand), gefüllte Flächen in
+  Weiß und hellen Grautönen. Tiefe und Details entstehen über die Abstufungen.
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.

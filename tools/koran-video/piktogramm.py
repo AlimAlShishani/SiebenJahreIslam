@@ -2,8 +2,9 @@
 
 Aufbau statt Strichmännchen: Rumpf als Körper, Schulter- und Hüftgelenk, sich verjüngende
 Glieder, Hände und Füße (zeigen die Richtung), Kopf mit kleinem Abstand zum Körper.
-Kein Gesicht, keine Augen, keine dunklen Linien: Tiefe entsteht dadurch, dass Arm/Bein
-auf der abgewandten Seite etwas transparenter gezeichnet werden.
+Kein Gesicht, keine Augen, keine schwarzen Trennlinien. Tiefe und Details entstehen über
+abgestuftes Weiß (grau()): abgewandter Arm/abgewandtes Bein deckend grau, feine hellgraue
+Kante, wo ein Arm vor dem Körper liegt, Gegenstände etwas dunkler als die Figur.
 
 Posen werden über Gelenkwinkel angegeben (Grad), damit die Proportionen immer stimmen.
 Seitenansicht (ansicht="seite", Figur blickt nach rechts, spiegeln=True → nach links):
@@ -23,7 +24,7 @@ Frontansicht (ansicht="front"): arm_l/arm_r und bein_l/bein_r, Winkel 0 = nach u
     szene = m.svg + ...        m.hand("v"), m.kopf(), m.schulter(), m.becken(), m.fuss("v")
     Frontansicht: m.hand("l"/"r") usw.
 
-Gegenstände (gefüllte Silhouetten, Tiefe über Grautöne, keine dunklen Linien):
+Gegenstände (gefüllte Silhouetten in abgestuftem Weiß, hell= dunkelt das ganze Objekt ab):
     fels(x, y, r, rund=, drehung=)  kantiger Brocken (rund=True: zum Tragen/Fliegen, (x, y) = Mitte)
     sack, palme, baum, haengematte (→ svg, tiefster Punkt), sprechblase(…, spitze=(x, y)),
     richterhammer, sanduhr, gebetsteppich, weltkugel, sonne_horizont, herz, blatt
@@ -39,7 +40,19 @@ KNOECHEL_H = 3.4
 KOPF_R, HALS = 8.2, 4.2
 R = dict(schulter=4.8, ellbogen=3.8, handgelenk=3.2, hand=3.6, huefte=6.4, knie=4.9, knoechel=3.6,
          zehe=2.4, brust=9.6, becken=8.4)
-HINTEN_DECKKRAFT = 0.55
+HINTEN_TON = 0.6      # abgewandter Arm/abgewandtes Bein: deckendes Grau (statt Transparenz)
+KONTUR_TON = 0.72     # feine, etwas dunklere Kante, wo ein Arm vor dem Körper liegt
+_ids = [0]
+
+
+def grau(wert, hell=1.0):
+    """Deckender Grauton: 1 = Weiß, 0.85 = etwas dunkleres Weiß … (hell < 1 dunkelt ganze Figuren/Objekte ab).
+
+    Etwas abgedunkeltes Weiß hebt Gegenstände und Details voneinander ab (Wunsch des Nutzers);
+    nur schwarze/dunkle Trennlinien mitten in Figuren sind tabu.
+    """
+    v = max(0, min(255, round(255 * wert * hell)))
+    return f"#{v:02x}{v:02x}{v:02x}"
 
 POSEN = {
     # --- Seitenansicht (Blick nach rechts)
@@ -97,14 +110,20 @@ class Mensch:
     """Piktogramm-Mensch. (x, y) = Bodenpunkt unter dem Becken, h = Größe einer stehenden Figur.
 
     kleid=True: langes Gewand (Thobe/Kleid), kopftuch=True: Kopftuch. o = Deckkraft.
+    hell < 1: ganze Figur in dunklerem Grau (z. B. Figuren im Hintergrund, frühere Generationen) –
+    deckend, also ohne Durchscheinen. kontur: feine graue Kante um Arme, die vor dem Körper liegen
+    (Standard: nur in der Seitenansicht; in der Frontansicht wirkt sie an den Schultern wie Träger).
     """
 
-    def __init__(self, x, y, h=170, pose="stehen", spiegeln=False, kleid=False, kopftuch=False, o=1.0, **aenderungen):
+    def __init__(self, x, y, h=170, pose="stehen", spiegeln=False, kleid=False, kopftuch=False, o=1.0, hell=1.0,
+                 kontur=None, **aenderungen):
         self.p = dict(POSEN[pose]) if isinstance(pose, str) else dict(pose)
         self.p.update(aenderungen)
         self.s = h / 100.0
         self.m = -1 if spiegeln and self.p.get("ansicht") != "front" else 1
-        self.kleid, self.kopftuch, self.o = kleid, kopftuch, o
+        self.kleid, self.kopftuch, self.o, self.hell = kleid, kopftuch, o, hell
+        self.kontur = (self.p.get("ansicht") != "front") if kontur is None else kontur
+        self.farbe = grau(1.0, hell)
         self._baue()
         # Platzierung: tiefster Punkt auf den Boden, Becken über x
         tief = min(py - r for (px, py), r in self._kontakt)
@@ -211,9 +230,37 @@ class Mensch:
             hl, hr = P("huefte_l"), P("huefte_r")
             pts = [(sl[0] + 1.2 * s, sl[1] - 1.5 * s), (sr[0] - 1.2 * s, sr[1] - 1.5 * s), (hr[0] + 1.6 * s, hr[1]),
                    (hl[0] - 1.6 * s, hl[1])]
-            return (f'<path d="M{" L".join(f"{x:.1f},{y:.1f}" for x, y in pts)}Z" stroke="#fff" '
+            return (f'<path d="M{" L".join(f"{x:.1f},{y:.1f}" for x, y in pts)}Z" stroke="{self.farbe}" '
                     f'stroke-width="{7 * s:.1f}" stroke-linejoin="round"/>')
         return _glied(P("brust"), R["brust"] * s, P("becken"), R["becken"] * s)
+
+    def _rumpf_flaeche(self):
+        """Fläche von Rumpf (und Gewand) ohne Striche – für den Zuschnitt der Arm-Kante."""
+        P, s = self.pt, self.s
+        if self.p.get("ansicht") == "front":
+            sl, sr = P("schulter_l"), P("schulter_r")
+            hl, hr = P("huefte_l"), P("huefte_r")
+            pts = [(sl[0] + 1.2 * s, sl[1] - 1.5 * s), (sr[0] - 1.2 * s, sr[1] - 1.5 * s), (hr[0] + 1.6 * s, hr[1]),
+                   (hl[0] - 1.6 * s, hl[1])]
+            cx, cy = sum(p[0] for p in pts) / 4, sum(p[1] for p in pts) / 4
+            weit = []
+            for px, py in pts:                       # um die halbe Strichbreite (3,5) nach außen
+                d = math.hypot(px - cx, py - cy) or 1
+                weit.append((px + (px - cx) / d * 4.2 * s, py + (py - cy) / d * 4.2 * s))
+            flaeche = f'<path d="{_pfad(weit)}"/>'
+        else:
+            flaeche = _glied(P("brust"), R["brust"] * s, P("becken"), R["becken"] * s)
+        if self.kleid:
+            flaeche += self._gewand()
+        return flaeche
+
+    def _kanten(self, arme):
+        """Feine, etwas dunklere Kante um die Arme – nur dort, wo sie vor Rumpf/Gewand liegen."""
+        _ids[0] += 1
+        cid = f"rumpf{_ids[0]}"
+        return (f'<defs><clipPath id="{cid}">{self._rumpf_flaeche()}</clipPath></defs>'
+                f'<g clip-path="url(#{cid})" fill="none" stroke="{grau(KONTUR_TON, self.hell)}" '
+                f'stroke-width="{2.4 * self.s:.1f}">' + "".join(arme) + "</g>")
 
     def _gewand(self):
         """Langes Gewand vom Hals bis knapp über die Knöchel (Beine darunter sichtbar)."""
@@ -227,7 +274,7 @@ class Mensch:
         bx, by = P("becken")
         pts = [(sch[0] - 7.5 * s, sch[1] - 1 * s), (sch[0] + 7.5 * s, sch[1] - 1 * s), (bx + 8 * s, by),
                (vorne, saum_y), (hinten, saum_y), (bx - 8 * s, by)]
-        return (f'<path d="M{" L".join(f"{x:.1f},{y:.1f}" for x, y in pts)}Z" stroke="#fff" '
+        return (f'<path d="M{" L".join(f"{x:.1f},{y:.1f}" for x, y in pts)}Z" stroke="{self.farbe}" '
                 f'stroke-width="{4 * s:.1f}" stroke-linejoin="round"/>')
 
     def _kopf(self):
@@ -250,13 +297,16 @@ class Mensch:
         front = self.p.get("ansicht") == "front"
         teile = []
         if not front:
-            teile.append(f'<g opacity="{HINTEN_DECKKRAFT}">{self._bein("h")}{self._arm("h")}</g>')
-            vorne = self._bein("v") + self._rumpf() + (self._gewand() if self.kleid else "") + self._arm("v")
+            teile.append(f'<g fill="{grau(HINTEN_TON, self.hell)}">{self._bein("h")}{self._arm("h")}</g>')
+            teile.append(self._bein("v") + self._rumpf() + (self._gewand() if self.kleid else ""))
+            arme = [self._arm("v")]
         else:
-            vorne = (self._bein("l") + self._bein("r") + self._rumpf() + (self._gewand() if self.kleid else "")
-                     + self._arm("l") + self._arm("r"))
-        teile.append(vorne + self._kopf())
-        return f'<g fill="#fff" stroke="none" opacity="{self.o}">' + "".join(teile) + "</g>"
+            teile.append(self._bein("l") + self._bein("r") + self._rumpf() + (self._gewand() if self.kleid else ""))
+            arme = [self._arm("l"), self._arm("r")]
+        if self.kontur:
+            teile.append(self._kanten(arme))
+        teile.append("".join(arme) + self._kopf())
+        return f'<g fill="{self.farbe}" stroke="none" opacity="{self.o}">' + "".join(teile) + "</g>"
 
 
 # ====================================================================== Gegenstände
@@ -266,40 +316,46 @@ def _pfad(pts, schliessen=True):
     return "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts) + ("Z" if schliessen else "")
 
 
-def fels(x, y, r=40, o=1.0, rund=False, drehung=0):
-    """Kantiger Felsbrocken (Low-Poly): Oberseite hell, Seiten in Grautönen – wirkt wie ein Stein.
+def fels(x, y, r=40, o=1.0, rund=False, drehung=0, hell=1.0):
+    """Kantiger Felsbrocken (Low-Poly): Oberseite hell, Seiten in deckenden Grautönen – wirkt wie ein Stein.
 
     (x, y) = Mitte der Unterkante (liegt auf dem Boden); rund=True: rundum kantig
-    (zum Tragen/Fliegen), dann ist (x, y) der Mittelpunkt.
+    (zum Tragen/Fliegen), dann ist (x, y) der Mittelpunkt. o = Deckkraft (zum Ausblenden),
+    hell < 1 = insgesamt dunkler (z. B. im Hintergrund).
     """
     if rund:
         P = {0: (-1.05, .12), 1: (-.92, -.5), 2: (-.38, -.95), 3: (.32, -.92), 4: (.98, -.42), 5: (1.06, .18),
              6: (.62, .72), 7: (-.18, .82), 8: (-.8, .56), "a": (-.3, -.32), "b": (.36, .04)}
-        flaechen = [([1, 2, 3, 4, "b", "a"], .96), ([0, 1, "a", 8], .74), ([8, "a", "b", 6, 7], .58), (["b", 4, 5, 6], .44)]
+        flaechen = [([1, 2, 3, 4, "b", "a"], .97), ([0, 1, "a", 8], .8), ([8, "a", "b", 6, 7], .66), (["b", 4, 5, 6], .54)]
         umriss = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     else:
         P = {0: (-1.02, 0), 1: (-1.14, -.44), 2: (-.8, -.86), 3: (-.18, -1.06), 4: (.46, -.98), 5: (.96, -.6),
              6: (1.1, -.14), 7: (.92, 0), "a": (-.36, -.56), "b": (.34, -.4)}
-        flaechen = [([2, 3, 4, "b", "a"], .96), ([0, 1, 2, "a"], .76), ([0, "a", "b", 7], .6), (["b", 4, 5, 6, 7], .46)]
+        flaechen = [([2, 3, 4, "b", "a"], .97), ([0, 1, 2, "a"], .8), ([0, "a", "b", 7], .66), (["b", 4, 5, 6, 7], .54)]
         umriss = [0, 1, 2, 3, 4, 5, 6, 7]
     a = math.radians(drehung)
     rot = {k: (x + (u * math.cos(a) - v * math.sin(a)) * r, y + (u * math.sin(a) + v * math.cos(a)) * r) for k, (u, v) in P.items()}
-    teile = "".join(f'<path d="{_pfad([rot[i] for i in f])}" fill="#fff" fill-opacity="{t * o:.2f}" stroke="#fff" '
-                    f'stroke-opacity="{t * o:.2f}" stroke-width="1" stroke-linejoin="round"/>' for f, t in flaechen)
-    return teile + (f'<path d="{_pfad([rot[i] for i in umriss])}" fill="none" stroke="#fff" stroke-width="{max(2.5, r * .07):.1f}" '
-                    f'stroke-opacity="{o}" stroke-linejoin="round"/>')
+    teile = "".join(f'<path d="{_pfad([rot[i] for i in f])}" fill="{grau(t, hell)}" stroke="{grau(t, hell)}" '
+                    f'stroke-width="1" stroke-linejoin="round"/>' for f, t in flaechen)
+    return (f'<g opacity="{o}">{teile}<path d="{_pfad([rot[i] for i in umriss])}" fill="none" stroke="{grau(1, hell)}" '
+            f'stroke-width="{max(2.5, r * .07):.1f}" stroke-linejoin="round"/></g>')
 
+def sack(x, y, s=1.0, o=1.0, hell=1.0):
+    """Prall gefüllter, zugebundener Sack. (x, y) = Mitte der Unterkante.
 
-def sack(x, y, s=1.0, o=1.0):
-    """Prall gefüllter, zugebundener Sack (Silhouette). (x, y) = Mitte der Unterkante."""
+    Etwas dunkler als Weiß, mit Schattenseite und dunklerem Band – hebt sich so von der Figur ab.
+    """
     P = lambda a, b: f"{x + a * s:.1f},{y + b * s:.1f}"
-    return (f'<g opacity="{o}"><path d="M{P(-6, -48)} C{P(-30, -46)} {P(-38, -10)} {P(-28, -2)} C{P(-18, 4)} {P(18, 4)} {P(28, -2)} '
-            f'C{P(38, -10)} {P(30, -46)} {P(6, -48)}Z" fill="#fff" stroke="none"/>'
-            f'<path d="M{P(-8, -48)} L{P(-14, -62)} L{P(-2, -56)} L{P(0, -64)} L{P(4, -56)} L{P(14, -62)} L{P(8, -48)}Z" fill="#fff" stroke="none"/>'
-            f'<path d="M{P(-10, -49)} L{P(10, -49)}" stroke="#fff" stroke-width="{4 * s:.1f}"/></g>')
+    return (f'<g opacity="{o}" stroke="none">'
+            f'<path d="M{P(-6, -48)} C{P(-30, -46)} {P(-38, -10)} {P(-28, -2)} C{P(-18, 4)} {P(18, 4)} {P(28, -2)} '
+            f'C{P(38, -10)} {P(30, -46)} {P(6, -48)}Z" fill="{grau(.88, hell)}"/>'
+            f'<path d="M{P(6, -48)} C{P(30, -46)} {P(38, -10)} {P(28, -2)} C{P(22, 2)} {P(12, 4)} {P(4, 4)} '
+            f'C{P(18, -6)} {P(22, -32)} {P(6, -48)}Z" fill="{grau(.72, hell)}"/>'
+            f'<path d="M{P(-8, -48)} L{P(-14, -62)} L{P(-2, -56)} L{P(0, -64)} L{P(4, -56)} L{P(14, -62)} L{P(8, -48)}Z" '
+            f'fill="{grau(.88, hell)}"/>'
+            f'<path d="M{P(-10, -49)} L{P(10, -49)}" stroke="{grau(.56, hell)}" stroke-width="{4.5 * s:.1f}" stroke-linecap="round"/></g>')
 
-
-def blatt(x0, y0, x1, y1, bauch=0.25, biegung=0.0):
+def blatt(x0, y0, x1, y1, bauch=0.25, biegung=0.0, farbe="#fff"):
     """Gefülltes Blatt von (x0,y0) nach (x1,y1); biegung > 0 lässt die Spitze hängen."""
     dx, dy = x1 - x0, y1 - y0
     L = math.hypot(dx, dy)
@@ -307,14 +363,17 @@ def blatt(x0, y0, x1, y1, bauch=0.25, biegung=0.0):
     mx, my = x0 + dx * .5 + nx * biegung * L, y0 + dy * .5 + ny * biegung * L
     w = bauch * L * (1 if biegung >= 0 else -1)   # die dicke Seite folgt dem Bogen
     return (f'<path d="M{x0:.1f},{y0:.1f} Q{mx + nx * w:.1f},{my + ny * w:.1f} {x1:.1f},{y1:.1f} '
-            f'Q{mx - nx * w * .35:.1f},{my - ny * w * .35:.1f} {x0:.1f},{y0:.1f}Z" fill="#fff"/>')
+            f'Q{mx - nx * w * .35:.1f},{my - ny * w * .35:.1f} {x0:.1f},{y0:.1f}Z" fill="{farbe}"/>')
 
+def palme(x, y, h=180, neigung=12, o=1.0, hell=1.0):
+    """Kokos-/Dattelpalme: gebogener Stamm mit Ringen, bogenförmig überhängende Wedel. (x, y) = Fuß des Stammes.
 
-def palme(x, y, h=180, neigung=12, o=1.0):
-    """Kokos-/Dattelpalme: gebogener Stamm, bogenförmig überhängende Wedel. (x, y) = Fuß des Stammes."""
+    Stamm etwas dunkler als die Wedel, hintere Wedel dunkler als vordere, Nüsse dunkel – so bleibt die
+    Palme auch neben weißen Figuren gut lesbar.
+    """
     tx, ty = x + math.sin(math.radians(neigung)) * h * .78, y - h * .8
     cx, cy = x + (tx - x) * .1, y - h * .45
-    links, rechts = [], []
+    links, rechts, mitte = [], [], []
     for i in range(13):
         t = i / 12
         px = (1 - t) ** 2 * x + 2 * (1 - t) * t * cx + t * t * tx
@@ -322,31 +381,41 @@ def palme(x, y, h=180, neigung=12, o=1.0):
         w = h * (0.05 - 0.024 * t)
         links.append((px - w, py))
         rechts.append((px + w, py))
-    stamm = f'<path d="{_pfad(links + rechts[::-1])}" fill="#fff"/>'
-    wedel = ""
-    # (Richtung der Sehne in Grad, 0 = rechts, 90 = oben; Länge; Bogen nach oben)
-    for ang, lang, bogen in [(208, .5, .3), (172, .52, .26), (132, .4, .16), (-28, .5, .3), (8, .52, .26),
-                             (48, .4, .16), (94, .3, .06)]:
+        mitte.append((px, py, w))
+    stamm = f'<path d="{_pfad(links + rechts[::-1])}" fill="{grau(.8, hell)}"/>'
+    ringe = "".join(f'<path d="M{px - w * .92:.1f},{py:.1f} Q{px:.1f},{py + w * .7:.1f} {px + w * .92:.1f},{py:.1f}" fill="none" '
+                    f'stroke="{grau(.64, hell)}" stroke-width="{h * .011:.1f}" stroke-linecap="round"/>'
+                    for px, py, w in mitte[1:11:2])
+    hinten = vorne = ""
+    # (Richtung der Sehne in Grad, 0 = rechts, 90 = oben; Länge; Bogen nach oben; Ton)
+    for ang, lang, bogen, ton in [(132, .4, .16, .82), (48, .4, .16, .82), (94, .3, .06, .82), (208, .5, .3, .97),
+                                  (172, .52, .26, .97), (-28, .5, .3, .97), (8, .52, .26, .97)]:
         a = math.radians(ang)
         ex, ey = tx + math.cos(a) * h * lang, ty - math.sin(a) * h * lang
         # Bogen immer nach oben: Normalenrichtung von blatt() zeigt bei Wedeln nach links nach oben
-        wedel += blatt(tx, ty, ex, ey, .2, bogen if math.cos(a) < 0 else -bogen)
-    nuesse = "".join(f'<circle cx="{tx + dx * h / 180:.1f}" cy="{ty + dy * h / 180:.1f}" r="{h * .026:.1f}" fill="#fff"/>'
+        b = blatt(tx, ty, ex, ey, .2, bogen if math.cos(a) < 0 else -bogen, grau(ton, hell))
+        if ton < .9:
+            hinten += b
+        else:
+            vorne += b
+    nuesse = "".join(f'<circle cx="{tx + dx * h / 180:.1f}" cy="{ty + dy * h / 180:.1f}" r="{h * .028:.1f}" fill="{grau(.6, hell)}"/>'
                      for dx, dy in [(-8, 10), (6, 11), (-1, 17)])
-    return f'<g opacity="{o}">{stamm}{wedel}{nuesse}</g>'
+    return f'<g opacity="{o}" stroke="none">{hinten}{stamm}{ringe}{vorne}{nuesse}</g>'
 
+def haengematte(x1, x2, y_aufh, durchhang=40, hell=1.0):
+    """Hängematte zwischen zwei Aufhängepunkten (x1|y_aufh) und (x2|y_aufh). Gibt (svg, tiefster Punkt) zurück.
 
-def haengematte(x1, x2, y_aufh, durchhang=40):
-    """Hängematte zwischen zwei Aufhängepunkten (x1|y_aufh) und (x2|y_aufh). Gibt (svg, tiefster Punkt) zurück."""
+    Stoff in dunklerem Grau, damit die (weiße) Figur darin klar hervortritt.
+    """
     a1, a2 = x1 + (x2 - x1) * .14, x2 - (x2 - x1) * .14
     yb = y_aufh + durchhang * .45
     tief = y_aufh + durchhang
     mx = (a1 + a2) / 2
-    svg = (f'<path d="M{x1},{y_aufh} L{a1:.1f},{yb:.1f} M{x2},{y_aufh} L{a2:.1f},{yb:.1f}" stroke="#fff" stroke-width="3"/>'
+    svg = (f'<path d="M{x1},{y_aufh} L{a1:.1f},{yb:.1f} M{x2},{y_aufh} L{a2:.1f},{yb:.1f}" stroke="{grau(.66, hell)}" stroke-width="3"/>'
            f'<path d="M{a1:.1f},{yb:.1f} Q{mx:.1f},{tief + durchhang * .55:.1f} {a2:.1f},{yb:.1f} '
-           f'Q{mx:.1f},{tief + durchhang * .2:.1f} {a1:.1f},{yb:.1f}Z" fill="#fff" fill-opacity="0.55" stroke="#fff" stroke-width="3"/>')
+           f'Q{mx:.1f},{tief + durchhang * .2:.1f} {a1:.1f},{yb:.1f}Z" fill="{grau(.62, hell)}" stroke="{grau(.84, hell)}" '
+           f'stroke-width="3" stroke-linejoin="round"/>')
     return svg, tief + durchhang * .12
-
 
 def sprechblase(x, y, w, h, text="", groesse=44, spitze=None):
     """Sprechblase (Mitte x, y) mit arabischem Text; spitze = (x, y) wohin der Zipfel zeigt.
@@ -374,58 +443,66 @@ def sprechblase(x, y, w, h, text="", groesse=44, spitze=None):
     return f'<path d="{body}" fill="#fff" fill-opacity="0.16" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>' + t
 
 
-def richterhammer(x, y, s=1.0, winkel=-32):
-    """Richterhammer über dem Schallblock. (x, y) = Mitte der Unterkante des Blocks."""
-    block = (f'<rect x="{x - 52 * s:.1f}" y="{y - 16 * s:.1f}" width="{104 * s:.1f}" height="{16 * s:.1f}" rx="{5 * s:.1f}" fill="#fff"/>'
-             f'<rect x="{x - 40 * s:.1f}" y="{y - 26 * s:.1f}" width="{80 * s:.1f}" height="{12 * s:.1f}" rx="{4 * s:.1f}" fill="#fff" fill-opacity="0.7"/>')
+def richterhammer(x, y, s=1.0, winkel=-32, hell=1.0):
+    """Richterhammer über dem Schallblock. (x, y) = Mitte der Unterkante des Blocks.
+
+    Kopf hell mit weißen Ringen, Stiel und Block in dunkleren Grautönen – die Teile sind klar getrennt.
+    """
+    block = (f'<rect x="{x - 52 * s:.1f}" y="{y - 16 * s:.1f}" width="{104 * s:.1f}" height="{16 * s:.1f}" rx="{5 * s:.1f}" fill="{grau(.62, hell)}"/>'
+             f'<rect x="{x - 40 * s:.1f}" y="{y - 26 * s:.1f}" width="{80 * s:.1f}" height="{12 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(.86, hell)}"/>')
     hx, hy = x - 8 * s, y - 62 * s
     hammer = (f'<g transform="rotate({winkel} {hx:.1f} {hy:.1f})">'
-              f'<rect x="{hx - 4 * s:.1f}" y="{hy - 4 * s:.1f}" width="{96 * s:.1f}" height="{12 * s:.1f}" rx="{6 * s:.1f}" fill="#fff"/>'
-              f'<rect x="{hx - 30 * s:.1f}" y="{hy - 22 * s:.1f}" width="{56 * s:.1f}" height="{44 * s:.1f}" rx="{9 * s:.1f}" fill="#fff"/>'
-              f'<rect x="{hx - 36 * s:.1f}" y="{hy - 26 * s:.1f}" width="{10 * s:.1f}" height="{52 * s:.1f}" rx="{4 * s:.1f}" fill="#fff"/>'
-              f'<rect x="{hx + 20 * s:.1f}" y="{hy - 26 * s:.1f}" width="{10 * s:.1f}" height="{52 * s:.1f}" rx="{4 * s:.1f}" fill="#fff"/></g>')
+              f'<rect x="{hx - 4 * s:.1f}" y="{hy - 4 * s:.1f}" width="{96 * s:.1f}" height="{12 * s:.1f}" rx="{6 * s:.1f}" fill="{grau(.74, hell)}"/>'
+              f'<rect x="{hx - 30 * s:.1f}" y="{hy - 22 * s:.1f}" width="{56 * s:.1f}" height="{44 * s:.1f}" rx="{9 * s:.1f}" fill="{grau(.9, hell)}"/>'
+              f'<rect x="{hx - 36 * s:.1f}" y="{hy - 26 * s:.1f}" width="{10 * s:.1f}" height="{52 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(1, hell)}"/>'
+              f'<rect x="{hx + 20 * s:.1f}" y="{hy - 26 * s:.1f}" width="{10 * s:.1f}" height="{52 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(1, hell)}"/></g>')
     ix, iy = x - 4 * s, y - 26 * s                  # Aufschlagpunkt: Strahlen rundherum (links und rechts)
     schlag = "".join(f'<path d="M{ix + math.cos(math.radians(a)) * 64 * s:.1f},{iy - math.sin(math.radians(a)) * 30 * s:.1f} '
                      f'l{math.cos(math.radians(a)) * 18 * s:.1f},{-math.sin(math.radians(a)) * 18 * s:.1f}" '
-                     f'stroke="#fff" stroke-width="{4.5 * s:.1f}" stroke-linecap="round"/>'
+                     f'stroke="{grau(1, hell)}" stroke-width="{4.5 * s:.1f}" stroke-linecap="round"/>'
                      for a in (150, 172, 194, 30, 8, -14))
-    return block + hammer + schlag
+    return f'<g stroke="none">{block}{hammer}</g>' + schlag
 
+def sanduhr(x, y, h=200, oben=.35, hell=1.0):
+    """Sanduhr, (x, y) = Mitte der Unterkante. oben = Anteil Sand noch oben (0..1).
 
-def sanduhr(x, y, h=200, oben=.35):
-    """Sanduhr, (x, y) = Mitte der Unterkante. oben = Anteil Sand noch oben (0..1)."""
+    Gestell etwas dunkler, Glas weiß umrandet, Sand weiß – der Sand ist das, worauf es ankommt.
+    """
     s = h / 200
     P = lambda a, b: (x + a * s, y + b * s)
-    platte = lambda yy: f'<rect x="{x - 62 * s:.1f}" y="{y + yy * s:.1f}" width="{124 * s:.1f}" height="{14 * s:.1f}" rx="{5 * s:.1f}" fill="#fff"/>'
-    pfosten = "".join(f'<rect x="{x + dx * s:.1f}" y="{y - 186 * s:.1f}" width="{7 * s:.1f}" height="{172 * s:.1f}" rx="{3 * s:.1f}" fill="#fff"/>'
-                      for dx in (-56, 49))
+    platte = lambda yy: (f'<rect x="{x - 62 * s:.1f}" y="{y + yy * s:.1f}" width="{124 * s:.1f}" height="{14 * s:.1f}" '
+                         f'rx="{5 * s:.1f}" fill="{grau(.8, hell)}" stroke="none"/>')
+    pfosten = "".join(f'<rect x="{x + dx * s:.1f}" y="{y - 186 * s:.1f}" width="{7 * s:.1f}" height="{172 * s:.1f}" rx="{3 * s:.1f}" '
+                      f'fill="{grau(.72, hell)}" stroke="none"/>' for dx in (-56, 49))
     glas = [P(-38, -186), P(38, -186), P(38, -170), P(6, -104), P(6, -96), P(38, -30), P(38, -14), P(-38, -14), P(-38, -30),
             P(-6, -96), P(-6, -104), P(-38, -170)]
     so = 66 * oben
     sand_o = _pfad([P(-6 - 30 * oben, -104 - so), P(6 + 30 * oben, -104 - so), P(6, -104), P(-6, -104)])
     su = 20 + 46 * (1 - oben)
     sand_u = f"M{P(-36, -16)[0]:.1f},{P(-36, -16)[1]:.1f} Q{P(0, -16 - su * 1.6)[0]:.1f},{P(0, -16 - su * 1.6)[1]:.1f} {P(36, -16)[0]:.1f},{P(36, -16)[1]:.1f}Z"
-    return (f'<path d="{_pfad(glas)}" fill="#fff" fill-opacity="0.12" stroke="#fff" stroke-width="{4 * s:.1f}" stroke-linejoin="round"/>'
-            f'<path d="{sand_o}" fill="#fff"/><path d="{sand_u}" fill="#fff"/>'
-            f'<path d="M{x:.1f},{y - 100 * s:.1f} L{x:.1f},{y - 30 * s:.1f}" stroke="#fff" stroke-width="{3 * s:.1f}" stroke-dasharray="{4 * s:.1f} {5 * s:.1f}"/>'
-            + platte(-200) + platte(-14) + pfosten)
+    return (pfosten
+            + f'<path d="{_pfad(glas)}" fill="#fff" fill-opacity="0.12" stroke="{grau(1, hell)}" stroke-width="{4 * s:.1f}" stroke-linejoin="round"/>'
+            f'<path d="{sand_o}" fill="{grau(1, hell)}" stroke="none"/><path d="{sand_u}" fill="{grau(1, hell)}" stroke="none"/>'
+            f'<path d="M{x:.1f},{y - 100 * s:.1f} L{x:.1f},{y - 30 * s:.1f}" stroke="{grau(1, hell)}" stroke-width="{3 * s:.1f}" '
+            f'stroke-dasharray="{4 * s:.1f} {5 * s:.1f}"/>'
+            + platte(-200) + platte(-14))
 
-
-def baum(x, y, h=120, o=1.0):
-    """Laubbaum als Silhouette (Krone aus Kreisen), (x, y) = Stammfuß."""
+def baum(x, y, h=120, o=1.0, hell=1.0):
+    """Laubbaum als Silhouette, (x, y) = Stammfuß. Krone zweitönig (unten dunkler) für Volumen, Stamm dunkler."""
     s = h / 120
     stamm = _pfad([(x - 7 * s, y), (x - 4 * s, y - 50 * s), (x + 4 * s, y - 50 * s), (x + 7 * s, y)])
-    krone = "".join(f'<circle cx="{x + dx * s:.1f}" cy="{y + dy * s:.1f}" r="{r * s:.1f}"/>'
-                    for dx, dy, r in [(0, -92, 30), (-26, -74, 24), (26, -74, 24), (-14, -60, 20), (14, -60, 20)])
-    return f'<g fill="#fff" opacity="{o}"><path d="{stamm}"/>{krone}</g>'
+    kreise = lambda liste, ton: "".join(f'<circle cx="{x + dx * s:.1f}" cy="{y + dy * s:.1f}" r="{r * s:.1f}" fill="{grau(ton, hell)}"/>'
+                                         for dx, dy, r in liste)
+    hinten = kreise([(-26, -70, 24), (26, -70, 24), (-12, -58, 20), (12, -58, 20)], .74)
+    vorne = kreise([(0, -94, 29), (-22, -82, 21), (22, -82, 21), (0, -72, 22)], .92)
+    return f'<g opacity="{o}" stroke="none"><path d="{stamm}" fill="{grau(.66, hell)}"/>{hinten}{vorne}</g>'
 
-
-def gebetsteppich(x, y, breite=150):
-    """Gebetsteppich in Seitenansicht (flach), (x, y) = linke Unterkante."""
-    fr = "".join(f'<path d="M{x + dx:.1f},{y - 3:.1f} l{-6 if dx < breite / 2 else 6},0" stroke="#fff" stroke-width="2.5"/>'
+def gebetsteppich(x, y, breite=150, hell=1.0):
+    """Gebetsteppich in Seitenansicht, (x, y) = linke Unterkante. Dunkler als die Figur, mit hellem Musterband und Fransen."""
+    fr = "".join(f'<path d="M{x + dx:.1f},{y - 5:.1f} l{-7 if dx < breite / 2 else 7},0" stroke="{grau(.8, hell)}" stroke-width="2.5"/>'
                  for dx in (0, breite))
-    return f'<rect x="{x}" y="{y - 8}" width="{breite}" height="8" rx="2" fill="#fff" fill-opacity="0.75"/>' + fr
-
+    return (f'<rect x="{x}" y="{y - 10}" width="{breite}" height="10" rx="2" fill="{grau(.6, hell)}" stroke="none"/>'
+            f'<rect x="{x + 4}" y="{y - 10}" width="{breite - 8}" height="3.2" rx="1.5" fill="{grau(.88, hell)}" stroke="none"/>' + fr)
 
 def weltkugel(x, y, r=46):
     """Weltkugel mit Längen- und Breitengraden, Mittelpunkt (x, y)."""

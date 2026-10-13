@@ -150,7 +150,8 @@ Schriftzug ٱللَّه bzw. der genannte Name. Vollständiges Beispiel:
 `python3 tools/koran-video/beispiel_ankabut_1-7/grafiken_zeichnen.py` ausführen).
 
 **Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht, keine
-dunklen Linien in den Grafiken. Erlaubt: Schriftzug „Allah“ als Grafik, Menschen
+schwarzen Trennlinien mitten durch Figuren. Abgestuftes Weiß (etwas dunklere Töne) ist
+erwünscht, um Gegenstände und Details hervorzuheben. Erlaubt: Schriftzug „Allah“ als Grafik, Menschen
 im Feuer. Propheten und Engel werden nicht als Figur gezeichnet. Keine Grafik bei
 Basmala.
 

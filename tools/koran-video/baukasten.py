@@ -5,8 +5,9 @@ und setzt sie zusammen – konkret und mit Details zum Inhalt (Gegenstände,
 Interaktion zwischen Figuren, Gefühls-Zeichen, Umgebung), keine Symbolbilder.
 
 Leinwand 400×260 (wird ins Video skaliert), weiße Linien/Flächen, runde Enden.
-Regeln des Nutzers: Lebewesen OHNE Augen, Menschen OHNE Gesichtsdetails,
-KEINE dunklen/schwarzen Linien oder Flächen – Tiefe nur über Grautöne (halbtransparentes Weiß).
+Regeln des Nutzers: Lebewesen OHNE Augen, Menschen OHNE Gesichtsdetails, KEINE schwarzen
+Trennlinien mitten durch Figuren – aber Weiß ruhig etwas abdunkeln (piktogramm.grau), um
+Gegenstände und Details hervorzuheben.
 Erlaubt sind z. B. der Schriftzug ٱللَّه als Grafik und Menschen im Feuer.
 
 Menschen und die wichtigsten Gegenstände kommen aus piktogramm.py

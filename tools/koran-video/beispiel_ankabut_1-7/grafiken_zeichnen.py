@@ -26,7 +26,7 @@ S["29-2_sorglos"] = (palme(104, 250, 160, -4) + palme(296, 250, 160, 4) + ground
 
 # ---------------------------------------------------------------- 29:2 Teil 2
 # „… wenn sie bloß sagten: ‚Wir glauben‘“ – zwei Menschen, einer spricht: Sprechblase ءَامَنَّا
-a = Mensch(78, 238, 158, "stehen", o=.55)
+a = Mensch(78, 238, 158, "stehen", hell=.62)
 b = Mensch(138, 238, 176, "sprechen")
 kx, ky, kr = b.kopf()
 S["29-2_amanna"] = (a.svg + b.svg + ground(240, 30, 200, .5)
@@ -41,10 +41,10 @@ S["29-2_pruefung"] = (fels(hx - 22, hy + 30, 56, rund=True, drehung=-12) + m.svg
 # ---------------------------------------------------------------- 29:3
 # Teil 1 „Wir stellten die auf die Probe, die vor ihnen waren“ – frühere Generationen, jede mit ihrer Last
 teile = []
-for x, h, o in [(96, 118, .38), (196, 146, .65), (310, 176, 1.0)]:
-    m = Mensch(x, 238, h, "last_ruecken", o=o)
+for x, h, hell in [(96, 118, .5), (196, 146, .72), (310, 176, 1.0)]:   # je früher, desto dunkler
+    m = Mensch(x, 238, h, "last_ruecken", hell=hell)
     hx, hy = m.hand("v")
-    teile.append(fels(hx - h * .12, hy + h * .16, h * .3, o=o, rund=True, drehung=-12) + m.svg)
+    teile.append(fels(hx - h * .12, hy + h * .16, h * .3, hell=hell, rund=True, drehung=-12) + m.svg)
 S["29-3_frueher"] = "".join(teile) + ground(240, 20, 380, .45)
 # Teil 2 „… die wahrhaftig sind“ (grün) – stemmt die Last aufrecht und standhaft, Häkchen
 m = Mensch(150, 244, 158, "front_last_hoch")
