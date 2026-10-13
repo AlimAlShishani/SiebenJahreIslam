@@ -39,7 +39,7 @@ Nützliche Optionen:
 | `--glow 0.45` | Leuchten um den arabischen Text: `0` aus, `0.45` dezent (Standard), `0.8` kräftig |
 | `--glow-farbe "#F6D58E"` | Farbe des Leuchtens (Standard weiß; `#F6D58E` = warmes Gold) |
 | `--partikel 0.5` | schwebende Lichtpartikel: `0` aus, `0.5` dezent (Standard), `1` viele/hell; `--partikel-farbe` |
-| `--glitch 0.5` | kurzer Glitch beim Erscheinen jedes Verses + vereinzelt ein leichter Farbversatz: `0` aus, `0.5` dezent (Standard) |
+| `--glitch 0.5` | ganz leichter Farbversatz (2 px, 1–2 Frames) etwa alle 14 s, nie beim Verswechsel: `0` aus, `0.5` dezent (Standard) |
 | `--uebersetzung-font marcellus` | `marcellus` (Standard), `cormorant`, `ebgaramond`, `lora` (kursiv), `system` oder Pfad zu einer .ttf |
 | `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`) |
 | `--basmala auto/ja/nein` | `auto` = Basmala erwartet, wenn ab Vers 1 gelesen wird (nicht bei Sure 1 und 9) |

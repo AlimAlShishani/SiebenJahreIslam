@@ -131,9 +131,7 @@ def build_video(
         cur = "base1"
         n_in += 1
 
-    verse_glitch, micro = [], []
-    if glitch > 0:
-        verse_glitch, micro = effects.glitch_times([s.start for s in segs], duration, glitch)
+    micro = effects.glitch_times(duration, glitch, [s.start for s in segs]) if glitch > 0 else []
     for i, (seg, pngs) in enumerate(zip(segs, images)):
         d = max(0.05, seg.end - seg.start)
         f = min(fade, d / 3)
@@ -149,18 +147,10 @@ def build_video(
             filters.append(f"[{cur}][{lbl}]overlay=0:0:eof_action=pass[{nxt}]")
             cur = nxt
             n_in += 1
-        windows = [(a, b) for a, b, vi in verse_glitch if vi == i]
-        if windows:
-            gpng = effects.glitch_variant(pngs[0], work / f"glitch_{i:03d}.png", glitch, seed=i)
-            inputs += ["-loop", "1", "-framerate", "30", "-t", f"{d:.3f}", "-i", str(gpng)]
-            enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in windows)
-            filters.append(f"[{n_in}:v]format=rgba,setpts=PTS-STARTPTS+{seg.start:.3f}/TB[g{i}]")
-            filters.append(f"[{cur}][g{i}]overlay=0:0:eof_action=pass:enable='{enable}'[gb{i}]")
-            cur = f"gb{i}"
-            n_in += 1
-    if micro or verse_glitch:
-        sh = max(2, int(W * 0.004 * glitch))
-        enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in micro + [(a, b) for a, b, _ in verse_glitch])
+    if micro:
+        # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
+        sh = max(1, round(W * 0.002 * glitch))
+        enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in micro)
         filters.append(f"[{cur}]rgbashift=rh={sh}:bh=-{sh}:enable='{enable}'[gl]")
         cur = "gl"
     filters.append(f"[{cur}]format=yuv420p[vout]")
@@ -205,7 +195,7 @@ def parse_args(argv=None):
     p.add_argument("--glow-farbe", default="#FFFFFF", help="Farbe des Leuchtens, z. B. #F6D58E für warmes Gold")
     p.add_argument("--partikel", type=float, default=0.5, help="schwebende Lichtpartikel: 0 = aus, 0.5 = dezent (Standard), 1 = viele/hell")
     p.add_argument("--partikel-farbe", default="#FFE9B8", help="Farbe der Partikel (Standard warmes Weiß)")
-    p.add_argument("--glitch", type=float, default=0.5, help="Glitch beim Verswechsel + vereinzelt: 0 = aus, 0.5 = dezent (Standard), 1 = stärker")
+    p.add_argument("--glitch", type=float, default=0.5, help="ganz leichter, seltener Farbversatz (Glitch): 0 = aus, 0.5 = dezent (Standard), 1 = etwas deutlicher")
     p.add_argument("--uebersetzung-font", default="marcellus",
                    help="Schrift der Übersetzung: marcellus (Standard), cormorant, ebgaramond, lora (kursiv), system oder Pfad zu .ttf")
     p.add_argument("--hintergrund", type=Path, help="Hintergrundbild oder -video (Standard: dunkler Verlauf)")

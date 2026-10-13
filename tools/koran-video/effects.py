@@ -4,9 +4,8 @@ Partikel: eine nahtlos loopende Videoebene auf Schwarz (partikel.mp4). Im Video
 wird sie per „Screen“-Mischung über den Hintergrund gelegt; in CapCut genauso
 (Mischmodus „Bildschirm“/„Screen“).
 
-Glitch: beim Erscheinen eines Verses kurz versetzte Bildstreifen und
-Farbkanäle (eigene PNG-Variante je Vers) plus ab und zu ein winziger
-RGB-Versatz über das ganze Bild.
+Glitch: nur ab und zu ein winziger RGB-Versatz über das ganze Bild für ein
+bis zwei Frames – unabhängig vom Verswechsel.
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 
 FPS = 30
 
@@ -93,41 +91,15 @@ def render_particles(out: Path, size: tuple[int, int], strength: float = 0.5, co
     return out
 
 
-def glitch_variant(src: Path, dst: Path, strength: float = 0.5, seed: int = 0) -> Path:
-    """Erzeugt aus einem transparenten Text-PNG eine Glitch-Variante."""
+def glitch_times(duration: float, strength: float, avoid: list[float] = (), seed: int = 11) -> list[tuple[float, float]]:
+    """Seltene, sehr kurze Zeitfenster für den leichten Farbversatz (unabhängig von den Versen)."""
     rng = np.random.default_rng(seed)
-    img = np.asarray(Image.open(src).convert("RGBA")).astype(np.int16)
-    h, w, _ = img.shape
-    shift = max(2, int(w * 0.004 * strength))
-    out = img.copy()
-    # Farbkanäle gegeneinander verschieben (chromatische Aberration)
-    out[..., 0] = np.roll(img[..., 0], shift, axis=1)
-    out[..., 2] = np.roll(img[..., 2], -shift, axis=1)
-    out[..., 3] = np.maximum(np.maximum(np.roll(img[..., 3], shift, axis=1), np.roll(img[..., 3], -shift, axis=1)), img[..., 3])
-    # einige horizontale Streifen seitlich versetzen
-    ys = np.nonzero(img[..., 3].max(axis=1) > 0)[0]
-    if len(ys):
-        top, bottom = ys.min(), ys.max()
-        for _ in range(int(2 + 3 * strength)):
-            sh = int(rng.integers(max(2, h // 220), max(4, h // 70)))
-            y = int(rng.integers(top, max(top + 1, bottom - sh)))
-            dx = (1 if rng.random() < 0.5 else -1) * int(rng.integers(shift, shift * 3 + 1))
-            out[y:y + sh] = np.roll(out[y:y + sh], dx, axis=1)
-    Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA").save(dst)
-    return dst
-
-
-def glitch_times(starts: list[float], duration: float, strength: float, seed: int = 11) -> tuple[list, list]:
-    """Zeitfenster: (Vers-Glitches [(start, ende, vers_index)], kleine RGB-Zucker [(start, ende)])."""
-    rng = np.random.default_rng(seed)
-    verse = []
-    for i, t in enumerate(starts):
-        verse.append((t + 0.02, t + 0.09, i))
-        verse.append((t + 0.16, t + 0.21, i))
-    micro = []
-    t = rng.uniform(3, 6)
-    gap = 9.0 / max(strength, 0.1)
+    out = []
+    gap = 7.0 / max(strength, 0.1)  # bei 0.5 etwa alle 14 s
+    t = rng.uniform(4, 8)
     while t < duration - 0.5:
-        micro.append((t, t + rng.uniform(0.04, 0.09)))
-        t += rng.uniform(0.6, 1.4) * gap
-    return verse, micro
+        # nie in der Nähe eines Verswechsels, damit es nicht wie ein Übergangs-Effekt wirkt
+        if all(abs(t - a) > 1.0 for a in avoid):
+            out.append((t, t + rng.uniform(0.03, 0.07)))
+        t += rng.uniform(0.7, 1.3) * gap
+    return out
