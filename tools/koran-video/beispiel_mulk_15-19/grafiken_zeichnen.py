@@ -1,105 +1,122 @@
-"""Grafiken für al-Mulk 15–19, pro Abschnitt gezeichnet (Baukasten, Piktogramm-Stil).
+"""Grafiken für al-Mulk 15–19 – pro Abschnitt gezeichnet, konkret zum Inhalt.
 
-Regeln: Lebewesen ohne Augen, Menschen ohne Gesicht, nichts Verborgenes.
+Muster dafür, wie Claude bei jedem Video die Grafiken baut:
+eine Szene pro Abschnitt (bzw. ab einem bestimmten Wort), aus den Bausteinen von
+baukasten.py, mit Details (Gegenstände, Umgebung, Gefühls-Zeichen).
+Regeln: Lebewesen ohne Augen, Menschen ohne Gesichtsdetails.
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from baukasten import F, FS, bird, dot, ground, person, speichern, vorschau  # noqa: E402
+from baukasten import (TRENN, Figur, bewegung, bird, buch, dot, feld, flammen, ground, haus, huegel,  # noqa: E402,F401
+                       korb, palme, schriftzug, schweiss, speichern, stein, stock, tasche, tree,
+                       sparkle, vogel, vorschau, warnschild, zeichen, zittern)
 
 D = Path(__file__).parent / "grafiken"
 
-
-def hills(y0=170):
-    return (f'<path d="M0,{y0} Q80,{y0 - 50} 170,{y0 - 15} Q260,{y0 + 20} 400,{y0 - 40}" stroke-opacity="0.75"/>'
-            f'<path d="M0,{y0 + 50} Q120,{y0 + 5} 230,{y0 + 35} Q320,{y0 + 60} 400,{y0 + 25}"/>')
-
-
-def path_dotted(points, r=4.5):
-    return "".join(dot(x, y, r * (0.55 + 0.45 * i / max(1, len(points) - 1)), 0.75) for i, (x, y) in enumerate(points))
+# eigene Posen für diese Szenen
+HACKEN = dict(neck=(8, 74), hip=(0, 42), head=(13, 90), arms=[((18, 62), (30, 50)), ((14, 60), (26, 46))],
+              legs=[((-8, 21), (-14, 0)), ((10, 21), (14, 0))], vorne=(1,))
+HINWEISEN = dict(neck=(-2, 78), hip=(0, 42), head=(-4, 96), arms=[((-14, 72), (-30, 80)), ((10, 62), (12, 44))],
+                 legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))])
 
 
-def small_tree(x, y, s=1.0):
-    return (f'<path d="M{x},{y} L{x},{y - 22 * s}" stroke-width="5"/>'
-            f'<circle cx="{x}" cy="{y - 36 * s:.1f}" r="{16 * s:.1f}" {F}/>')
+def hacke(hand):
+    x, y = hand
+    return (f'<path d="M{x - 18:.1f},{y - 22:.1f} L{x + 34:.1f},{y + 52:.1f}" stroke-width="5"/>'
+            f'<path d="M{x + 30:.1f},{y + 46:.1f} L{x + 50:.1f},{y + 44:.1f} L{x + 44:.1f},{y + 58:.1f}Z" fill="#fff" stroke-width="3"/>')
 
 
-def palm(x, y, s=1.0):
-    P = lambda dx, dy: f"{x + dx * s:.1f},{y + dy * s:.1f}"
-    fr = "".join(f'<path d="M{P(4, -118)} Q{P(4 + dx * .5, -118 + dy - 26)} {P(4 + dx, -118 + dy)}"/>'
-                 for dx, dy in [(-62, 12), (-46, 40), (-20, 50), (62, 8), (48, 38), (24, 52), (-14, -40), (24, -38)])
-    dates = "".join(dot(x + dx * s, y + dy * s, 5 * s, .95) for dx, dy in [(-4, -104), (6, -100), (0, -94), (-10, -96)])
-    return f'<path d="M{P(-2, 0)} C{P(2, -40)} {P(-6, -80)} {P(4, -118)}" stroke-width="7"/>' + fr + dates
+def berg_pfad():
+    return ('<path d="M0,250 L120,90 L190,170 L270,60 L400,250" fill="#fff" fill-opacity="0.07"/>'
+            '<path d="M104,112 L120,90 L136,112" stroke-width="5"/><path d="M254,82 L270,60 L288,86" stroke-width="5"/>'
+            '<path d="M60,250 C140,236 220,226 196,206 C170,186 250,176 236,156 C222,138 280,128 268,106" '
+            'stroke-dasharray="10 9" stroke-opacity="0.85"/>')
 
 
-def question_mark(x, y, s=1.0):
-    P = lambda dx, dy: f"{x + dx * s:.1f},{y + dy * s:.1f}"
-    return (f'<path d="M{P(-26, -46)} C{P(-26, -78)} {P(-4, -90)} {P(10, -90)} C{P(32, -90)} {P(46, -74)} {P(46, -54)} '
-            f'C{P(46, -30)} {P(22, -24)} {P(14, -8)} L{P(14, 4)}" stroke-width="{16 * s:.1f}"/>'
-            f'<circle cx="{x + 14 * s:.1f}" cy="{y + 28 * s:.1f}" r="{9 * s:.1f}" {FS}/>')
+def riss_boden(y=200):
+    return (f'<path d="M10,{y} L140,{y + 6} L168,{y - 12} L188,{y + 18} L214,{y - 6} L240,{y + 8} L390,{y - 4}" stroke-width="6"/>'
+            f'<path d="M188,{y + 18} L178,{y + 44} L196,{y + 60} M168,{y - 12} L160,{y + 10}" stroke-opacity="0.75"/>')
 
 
-def house(x, y, w=44, h=38):
-    return (f'<path d="M{x},{y} L{x},{y - h} L{x + w / 2},{y - h - 22} L{x + w},{y - h} L{x + w},{y}" {F}/>'
-            f'<path d="M{x + w / 2 - 7},{y} L{x + w / 2 - 7},{y - 16} L{x + w / 2 + 7},{y - 16} L{x + w / 2 + 7},{y}"/>')
+def eingestuerzt(x, y):
+    """Eingestürztes Haus: Wände schief, Dach abgerutscht."""
+    return (f'<path d="M{x},{y} L{x + 4},{y - 44} L{x + 30},{y - 58} L{x + 52},{y - 40} L{x + 56},{y}" fill="#fff" fill-opacity="0.12"/>'
+            f'<path d="M{x + 30},{y - 58} L{x + 70},{y - 30}" stroke-dasharray="6 6" stroke-opacity="0.7"/>'
+            f'<path d="M{x + 20},{y} L{x + 20},{y - 18} L{x + 34},{y - 18} L{x + 34},{y}" stroke-opacity="0.7"/>')
 
 
-def stone(x, y, r):
-    return f'<path d="M{x},{y} l{r},{-r * .45:.1f} l{r * .7:.1f},{r * .8:.1f} l{-r * .5:.1f},{r * .75:.1f} l{-r * 1.1:.1f},{-r * .2:.1f}Z" {FS} fill-opacity="0.85"/>'
+szenen = {}
 
+# ---------------------------------------------------------------- 67:15 Teil 1
+# „Er ist es, Der euch die Erde untertan gemacht hat“ – bestelltes Land: Feld mit Furchen,
+# ein Mensch hackt den Boden, Haus und Weg im Hintergrund.
+f = Figur(118, 232, 135, HACKEN)
+szenen["67-15_erde"] = (huegel(120, .5) + feld(150, 240, 230, 70, 7) + haus(292, 150, 46, 34) + tree(350, 152, .45)
+                        + '<path d="M300,150 C280,170 250,186 236,240" stroke-dasharray="8 8" stroke-opacity="0.6"/>'
+                        + f.svg + hacke(f.hand(1)) + ground(242, 20, 150, .6))
 
-# Posen für diese Szenen (ohne Gesicht, nur Haltung)
-ZEIGEN = dict(neck=(0, 78), hip=(0, 42), head=(1, 96), arms=[((12, 88), (24, 104)), ((-12, 62), (-15, 44))],
-              legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))])
-SCHUETZEN = dict(neck=(8, 74), hip=(0, 40), head=(13, 90), arms=[((22, 92), (6, 102)), ((24, 80), (34, 92))],
-                 legs=[((-12, 20), (-22, 0)), ((10, 20), (14, 0))])
-STEHEN_RUHIG = dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-12, 60), (-4, 46)), ((12, 60), (4, 46))],
-                    legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))])
+# ---------------------------------------------------------------- 67:15 Teil 2
+# „wandert also auf ihren Wegen (Flanken)“ – Wanderer mit Stock und Bündel auf einem Bergpfad.
+f = Figur(150, 238, 120, "walk")
+szenen["67-15_wandern"] = berg_pfad() + f.svg + stock(f.hand(1), 64, -12) + tasche(*f.pt((-14, 70)), .9)
+# ab „und genießt Seine Versorgung“ – sitzt unter der Dattelpalme und isst aus dem Korb.
+f = Figur(140, 236, 150, "sitzen_essen")
+szenen["67-15_versorgung"] = palme(322, 238, 1.2) + korb(250, 236, 1.0) + f.svg + ground(238, 60, 380, .5)
 
-szenen = {
-    # 67:15 Teil 1 – die Erde gefügig gemacht: weites Hügelland mit Weg
-    "67-15_erde": hills(160) + path_dotted([(210, 250), (200, 226), (214, 204), (236, 186), (252, 170), (262, 158), (270, 148)])
-                  + small_tree(70, 128, 1.1) + small_tree(330, 112, 0.9) + small_tree(108, 144, .7),
-    # 67:15 Teil 2 – „so wandert auf ihren Wegen …“
-    "67-15_wandern": '<path d="M0,120 Q100,96 200,112 Q300,128 400,100" stroke-opacity="0.6"/>'
-                     + '<path d="M40,258 C110,200 170,150 196,112 M360,258 C290,200 236,150 214,112" stroke-opacity="0.85"/>'
-                     + path_dotted([(206, 120), (206, 136), (206, 156), (205, 180)], 4.5)
-                     + small_tree(60, 160, .9) + small_tree(350, 170, 1.0) + small_tree(320, 118, .55)
-                     + person(200, 246, 120, "walk"),
-    # 67:15 Teil 2 ab „und esst von Seiner Versorgung“ – Dattelpalme und Korb mit Früchten
-    "67-15_versorgung": palm(150, 236, 1.6) + ground(238, 60, 360, .5)
-                        + '<path d="M236,236 L226,196 L326,196 L316,236Z" fill="#fff" fill-opacity="0.12"/>'
-                        + '<path d="M232,210 L320,210 M236,222 L316,222" stroke-width="2.5" stroke-opacity="0.6"/>'
-                        + "".join(f'<circle cx="{x}" cy="{y}" r="{r}" {F}/>' for x, y, r in [(246, 184, 13), (270, 178, 15), (296, 182, 13), (316, 188, 10)]),
-    # 67:16 Teil 1 – „Fühlt ihr euch sicher …?“ Mensch steht ruhig, darüber ein Fragezeichen
-    "67-16_sicher": person(200, 236, 150, STEHEN_RUHIG) + ground(238, 90, 310, .7) + question_mark(268, 126, 1.05),
-    # 67:16 Teil 2 – die Erde gerät ins Wanken: Boden reißt, Mensch hält sich den Kopf
-    "67-16_wanken": person(200, 196, 140, "verzweifelt")
-                    + '<path d="M20,200 L150,206 L176,190 L198,214 L222,196 L250,204 L380,194" stroke-width="6"/>'
-                    + '<path d="M198,214 L190,236 L204,252 M176,190 L168,212" stroke-opacity="0.7"/>'
-                    + '<path d="M40,226 L140,232 M262,226 L370,218" stroke-opacity="0.4"/>'
-                    + '<path d="M90,150 Q78,126 92,104 M60,160 Q46,132 62,106 M310,150 Q322,126 308,104 M340,160 Q354,132 338,106" stroke-width="3.5" stroke-opacity="0.6"/>',
-    # 67:17 Teil 1 ab „schickt“ – Sturm mit Steinen, Mensch schützt sich
-    "67-17_steinsturm": '<path d="M10,70 L230,70 C272,70 280,28 246,26" stroke-opacity="0.8"/>'
-                        + '<path d="M30,116 L270,116" stroke-opacity="0.55"/><path d="M10,160 L200,160 C240,160 246,200 214,202" stroke-opacity="0.8"/>'
-                        + "".join(stone(x, y, r) for x, y, r in [(250, 80, 13), (300, 60, 9), (290, 120, 15), (340, 100, 10), (320, 160, 12), (360, 140, 8), (270, 170, 7)])
-                        + person(110, 236, 120, SCHUETZEN) + ground(238, 30, 380, .5),
-    # 67:17 Teil 2 – „wie Meine Warnung war“: Warnzeichen
-    "67-17_warnung": '<path d="M200,26 L334,240 L66,240Z" fill="#fff" fill-opacity="0.1" stroke-width="9"/>'
-                     + '<path d="M200,96 L200,172" stroke-width="20"/><circle cx="200" cy="208" r="12" fill="#fff" stroke="none"/>',
-    # 67:18 – die vor ihnen leugneten: verlassene, eingestürzte Häuser
-    "67-18_ruinen": house(50, 236, 60, 60)
-                    + '<path d="M150,236 L150,170 L172,154 L190,178 L190,236" fill="#fff" fill-opacity="0.08"/>'
-                    + '<path d="M230,236 L230,150 L320,150 L320,190 L292,214 L292,236" fill="#fff" fill-opacity="0.08"/>'
-                    + '<path d="M250,170 L272,170 L272,190 L250,190Z" stroke-opacity="0.6"/>'
-                    + stone(200, 228, 10) + stone(332, 226, 12) + stone(120, 230, 8) + ground(238, 20, 380, .7),
-    # 67:19 Teil 1 – „Haben sie nicht die Vögel über sich gesehen …“: Mensch zeigt nach oben, Vögel mit ausgebreiteten Flügeln
-    "67-19_voegel": person(110, 236, 130, ZEIGEN) + ground(238, 50, 200, .5)
-                    + bird(240, 70, 50) + bird(330, 50, 32, .9) + bird(300, 120, 28, .85) + bird(190, 120, 22, .7, 3)
-                    + bird(360, 160, 18, .6, 3) + bird(250, 170, 14, .5, 3),
-}
+# ---------------------------------------------------------------- 67:15 Teil 3
+# „Und zu Ihm führt die Auferstehung“ – Schriftzug ٱللَّه
+szenen["67-15_allah"] = schriftzug("ٱللَّهُ", 200, 196, 170)
+
+# ---------------------------------------------------------------- 67:16
+# Teil 1 „Fühlt ihr euch sicher …?“ – Mensch steht selbstsicher vor seinem Haus, daneben ein Fragezeichen.
+f = Figur(210, 236, 150, "selbstsicher")
+szenen["67-16_sicher"] = (haus(60, 236, 90, 70) + tree(130, 236, .55) + f.svg + ground(238, 30, 370, .6)
+                          + zeichen(280, 120, "?", 90))
+# Teil 2 „… die Erde unter euch versinken lässt und sie ins Wanken gerät“ – Boden reißt auf, Haus kippt,
+# Mensch stürzt.
+f = Figur(214, 190, 130, "fallen")
+szenen["67-16_wanken"] = ('<g transform="rotate(-9 90 200)">' + haus(40, 200, 80, 60) + '</g>' + riss_boden(200) + f.svg
+                          + zittern(214, 120, 70, 2.4) + stein(300, 226, 9) + stein(130, 230, 7)
+                          + schweiss(f.kopf()[0] + 30, f.kopf()[1] - 4, 1.1))
+
+# ---------------------------------------------------------------- 67:17
+# Teil 1 ab „schickt einen Steinsturm“ – Mensch schützt den Kopf, Steine fliegen, Palme biegt sich.
+f = Figur(130, 236, 140, "schuetzen")
+szenen["67-17_steinsturm"] = ('<g transform="rotate(14 330 238)">' + palme(330, 238, 1.2, datteln=False) + '</g>'
+                              + '<path d="M10,70 L230,70 C272,70 280,28 246,26" stroke-opacity="0.75"/>'
+                              + '<path d="M20,120 L170,120" stroke-opacity="0.5"/>'
+                              + "".join(stein(x, y, r) for x, y, r in [(250, 80, 13), (300, 52, 9), (226, 128, 15), (280, 150, 10), (196, 90, 8), (320, 110, 7)])
+                              + bewegung(250, 100, -1, 3, 30) + f.svg + ground(238, 20, 380, .6))
+# Teil 2 „Dann werdet ihr wissen, wie Meine Warnung war!“ – Warnschild, Mensch kniet erschrocken davor.
+f = Figur(120, 238, 120, "verzweifelt")
+szenen["67-17_warnung"] = warnschild(270, 240, .95) + f.svg + schweiss(f.kopf()[0] + 22, f.kopf()[1] - 8, 1.1) + zeichen(60, 110, "!", 60)
+
+# ---------------------------------------------------------------- 67:18
+# „Und schon jene vor ihnen leugneten“ – das Buch (die Botschaft) leuchtet, die Gruppe wendet sich ab
+# und hält abwehrend die Hand dagegen.
+a = Figur(196, 236, 150, "abwenden")
+b = Figur(118, 236, 135, "walk", spiegeln=True, o=.85)
+c = Figur(52, 236, 120, "walk", spiegeln=True, o=.7)
+szenen["67-18_leugnen"] = (c.svg + b.svg + a.svg + buch(316, 150, 1.6) + sparkle(266, 100, 10) + sparkle(368, 104, 8)
+                           + sparkle(316, 82, 12) + '<path d="M316,190 L316,236" stroke-opacity="0.5"/>' + ground(238, 20, 380, .6))
+# ab „wie war dann (die Folge) Meiner Verleugnung“ – ihre Häuser liegen eingestürzt und verlassen.
+szenen["67-18_ruinen"] = (eingestuerzt(40, 236) + eingestuerzt(150, 236) + eingestuerzt(270, 236)
+                          + stein(130, 230, 8) + stein(250, 228, 11) + stein(360, 230, 7)
+                          + '<path d="M100,236 L104,200 L118,196 L120,236" stroke-opacity="0.7"/>' + ground(238, 10, 390, .7))
+
+# ---------------------------------------------------------------- 67:19
+# Teil 1 ab „die Vögel über ihnen, wie sie die Flügel ausbreiten und einziehen“ – Mensch zeigt nach oben,
+# ein Vogel breitet die Flügel aus, einer gleitet mit angelegten Flügeln.
+f = Figur(90, 238, 120, "zeigen")
+szenen["67-19_voegel"] = (f.svg + ground(240, 30, 160, .5) + vogel(240, 96, 1.25, "offen") + vogel(320, 176, .7, "offen", o=.85)
+                          + bird(160, 150, 22, .75) + bird(360, 70, 18, .7, 3) + bird(300, 214, 14, .55, 3))
+# Teil 2 „Kein Anderer als der Allerbarmer hält sie zurück“ – Schriftzug ٱلرَّحْمَٰن, kleine Vögel darüber.
+szenen["67-19_rahman"] = (schriftzug("ٱلرَّحْمَٰنُ", 200, 220, 120) + bird(150, 52, 22, .8) + bird(250, 40, 18, .7, 3)
+                          + bird(200, 70, 12, .55, 3))
 
 for name, body in szenen.items():
     speichern(D / f"{name}.svg", body)
-print(vorschau([D / f"{n}.svg" for n in szenen], D / "vorschau.jpg", spalten=3))
+if __name__ == "__main__":
+    print(vorschau([D / f"{n}.svg" for n in szenen], D / "vorschau.jpg", spalten=4))

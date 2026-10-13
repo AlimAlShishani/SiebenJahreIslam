@@ -28,20 +28,31 @@ def render_graphic(source: Path, out: Path, style: Style, box: tuple[int, int, i
     if source.suffix.lower() == ".svg":
         import resvg_py
 
-        png = resvg_py.svg_to_bytes(svg_path=str(source), width=w, height=h)
+        from baukasten import FONT_FILES
+
+        png = resvg_py.svg_to_bytes(svg_path=str(source), width=w, height=h, font_files=FONT_FILES)
         art = Image.open(io.BytesIO(bytes(png))).convert("RGBA")
-        # Linien etwas kräftiger, damit sie im Video so präsent wirken wie der Text
+        # Linien etwas kräftiger, damit sie im Video so präsent wirken wie der Text.
+        # Neu sichtbare Randpixel bekommen die Nachbarfarbe (sonst dunkle Säume); dunkle
+        # Trennlinien innerhalb der Figur bleiben erhalten.
         grow = max(3, (w // 260) | 1)
-        art.putalpha(art.getchannel("A").filter(ImageFilter.MaxFilter(grow)))
+        alpha = art.getchannel("A")
+        grown = alpha.filter(ImageFilter.MaxFilter(grow))
+        spread = art.convert("RGB").filter(ImageFilter.MaxFilter(grow))
+        rgb = Image.composite(art.convert("RGB"), spread, alpha.point(lambda a: 255 if a > 0 else 0))
+        art = rgb.convert("RGBA")
+        art.putalpha(grown)
     else:
         art = Image.open(source).convert("RGBA")
         art.thumbnail((w, h))
-    # Linienfarbe = Textfarbe der Szene (die SVGs sind weiß gezeichnet)
+    # Farbe der Szene: weiße Linien → Szenenfarbe, dunkle Trennlinien bleiben dunkel (multiplizieren)
     color = tuple(int(style.color.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
     if color != (255, 255, 255):
-        tint = Image.new("RGBA", art.size, color + (255,))
-        tint.putalpha(art.getchannel("A"))
-        art = tint
+        from PIL import ImageChops
+
+        tinted = ImageChops.multiply(art.convert("RGB"), Image.new("RGB", art.size, color)).convert("RGBA")
+        tinted.putalpha(art.getchannel("A"))
+        art = tinted
     canvas = Image.new("RGBA", (style.width, style.height), (0, 0, 0, 0))
     canvas.alpha_composite(art, (x + (w - art.width) // 2, y + (h - art.height) // 2))
     save_layer(canvas, out, style)

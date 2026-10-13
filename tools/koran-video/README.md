@@ -131,14 +131,19 @@ Stille).
 ## Grafiken
 
 Es gibt keine fertigen Motive. Claude zeichnet die Grafiken bei jedem Video passend
-zum Abschnitt neu, mit dem Baukasten `baukasten.py`: Piktogramm-Menschen mit
-frei einstellbaren Posen, Vögel, Wolken, Wellen, Sonne, Mond, Bäume, Feuer,
-Funkeln usw. plus eigene SVG-Pfade. `grafiken/beispiele.py` erzeugt
-Stil-Beispiele zum Nachschlagen.
+zum Abschnitt neu, mit dem Baukasten `baukasten.py`: Piktogramm-Menschen
+(`Figur`) mit frei einstellbaren Posen, Gewand, Kopftuch, Gebetskappe und
+Gegenständen in der Hand, detaillierte Vögel, Flammen, Häuser, Felder, Palmen,
+Wolken, Wellen, Kalligrafie usw. plus eigene SVG-Pfade.
 
-**Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht,
-keine Darstellung von Allah, Propheten, Engeln oder dem Verborgenen. Keine
-Grafik bei Basmala.
+Die Grafiken sind konkret zum Abschnitt: Figuren mit passender Haltung und
+Gegenständen (Buch, Stock, Korb …), Interaktion, Umgebung, Gefühls-Zeichen
+(Schweißtropfen, ?/!), bei Aussagen über Allah der Schriftzug ٱللَّه bzw. der
+genannte Name. Vollständiges Beispiel: `beispiel_mulk_15-19/`.
+
+**Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht.
+Erlaubt: Schriftzug „Allah“ als Grafik, Menschen im Feuer. Propheten und Engel
+werden nicht als Figur gezeichnet. Keine Grafik bei Basmala.
 
 ## CapCut direkt per MCP?
 

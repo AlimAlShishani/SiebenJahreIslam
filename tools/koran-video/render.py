@@ -229,9 +229,9 @@ class Renderer:
 def graphic_box(style: Style, text_bottom: int) -> tuple[int, int, int, int]:
     """(x, y, breite, höhe) für eine Grafik unterhalb des Textblocks (Seitenverhältnis 400:260)."""
     W, H = style.width, style.height
-    top = text_bottom + int(H * 0.04)
-    avail_h = max(int(H * 0.2), H - top - int(H * 0.03))
-    w = min(int(W * (0.62 if W >= H else 0.86)), int(avail_h * 400 / 260))
+    top = text_bottom + int(H * 0.02)
+    avail_h = max(int(H * 0.2), H - top - int(H * 0.02))
+    w = min(int(W * (0.75 if W >= H else 0.94)), int(avail_h * 400 / 260))
     h = int(w * 260 / 400)
     return (W - w) // 2, top + (avail_h - h) // 2, w, h
 

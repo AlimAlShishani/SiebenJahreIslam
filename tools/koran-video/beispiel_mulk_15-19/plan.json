@@ -1,12 +1,13 @@
 {
-  "_hinweis": "al-Mulk 15-19: Grafiken pro Abschnitt selbst gezeichnet (grafiken_zeichnen.py). Keine Grafik bei Aussagen über Allah / Auferstehung.",
+  "_hinweis": "al-Mulk 15-19: Grafiken pro Abschnitt selbst gezeichnet (grafiken_zeichnen.py), konkret zum Inhalt.",
   "67:15": {
     "teile": [
       {"bis_wort": 6, "uebersetzung": "Er ist es, Der euch die Erde untertan gemacht hat;",
        "grafiken": [{"datei": "grafiken/67-15_erde.svg"}]},
       {"bis_wort": 12, "uebersetzung": "wandert also auf ihren Wegen und genießt Seine Versorgung.",
        "grafiken": [{"datei": "grafiken/67-15_wandern.svg"}, {"datei": "grafiken/67-15_versorgung.svg", "ab_wort": 10}]},
-      {"uebersetzung": "Und zu Ihm führt die Auferstehung.", "farbe": "gold"}
+      {"uebersetzung": "Und zu Ihm führt die Auferstehung.", "farbe": "gold",
+       "grafiken": [{"datei": "grafiken/67-15_allah.svg"}]}
     ]
   },
   "67:16": {
@@ -22,17 +23,18 @@
     "farbe": "rot",
     "teile": [
       {"bis_wort": 9, "uebersetzung": "Oder fühlt ihr euch sicher davor, daß Der, Der im Himmel ist, nicht einen Sandsturm gegen euch schickt?",
-       "grafiken": [{"datei": "grafiken/67-17_steinsturm.svg", "ab_wort": 7}]},
+       "grafiken": [{"datei": "grafiken/67-16_sicher.svg"}, {"datei": "grafiken/67-17_steinsturm.svg", "ab_wort": 7}]},
       {"uebersetzung": "Dann werdet ihr wissen, wie Meine Warnung war!",
        "grafiken": [{"datei": "grafiken/67-17_warnung.svg"}]}
     ]
   },
-  "67:18": {"grafiken": [{"datei": "grafiken/67-18_ruinen.svg"}]},
+  "67:18": {"grafiken": [{"datei": "grafiken/67-18_leugnen.svg"}, {"datei": "grafiken/67-18_ruinen.svg", "ab_wort": 6}]},
   "67:19": {
     "teile": [
       {"bis_wort": 7, "uebersetzung": "Haben sie nicht die Vögel über sich gesehen, wie sie ihre Flügel ausbreiten und sie dann einziehen?",
        "grafiken": [{"datei": "grafiken/67-19_voegel.svg", "ab_wort": 4}]},
-      {"uebersetzung": "Kein Anderer als der Allerbarmer hält sie zurück. Wahrlich, Er durchschaut alle Dinge.", "farbe": "gold"}
+      {"uebersetzung": "Kein Anderer als der Allerbarmer hält sie zurück. Wahrlich, Er durchschaut alle Dinge.", "farbe": "gold",
+       "grafiken": [{"datei": "grafiken/67-19_rahman.svg"}]}
     ]
   }
 }

@@ -41,30 +41,33 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    (16:9) bzw. zwei Zeilen (9:16) passt, bevorzugt an Waqf-Zeichen. Daneben liegt
    `plan_vorlage.json` mit diesen Teilen.
 4. **Schritt B – Grafiken zeichnen und Plan schreiben.** Es gibt KEINE fertigen
-   Motive: Du zeichnest bei jedem Video für jeden passenden Abschnitt eine eigene,
-   schlichte Grafik, die genau diesen Inhalt zeigt.
+   Motive: Du zeichnest bei jedem Video für jeden passenden Abschnitt eine eigene
+   Grafik, die **genau diesen Inhalt** zeigt – mit Details zum Kontext wie in den
+   Referenzvideos des Nutzers: Figuren mit passender Haltung und Gegenständen
+   (Buch in der Hand, Stock und Bündel beim Wandern, Korb mit Früchten),
+   Interaktion zwischen Figuren (geben, abwenden, helfen), Umgebung (Feld, Haus,
+   Berg, Palme), Gefühls-Zeichen (Schweißtropfen, ?/!, Zitter- und
+   Bewegungslinien). Keine allgemeinen Symbolbilder.
    - **Zeichnen:** Skript `koran-video-ausgabe/<…>/grafiken_zeichnen.py` mit dem
-     Baukasten `tools/koran-video/baukasten.py` schreiben (Piktogramm-Menschen
-     mit beliebigen Posen, Vögel, Wolken, Wellen, Sonne, Mond, Bäume, Feuer …,
-     plus eigene SVG-Pfade). Muster: `tools/koran-video/beispiel_mulk_15-19/`
-     (Zeichen-Skript + Plan eines fertigen Videos); Stil-Beispiele:
-     `python3 tools/koran-video/grafiken/beispiele.py <ordner>`.
-     SVGs nach `koran-video-ausgabe/<…>/grafiken/` speichern, mit
-     `vorschau(...)` einen Kontaktbogen erzeugen und **ansehen** (Read): passt
-     die Grafik zum Inhalt, ist nichts abgeschnitten oder überlappt, sind die
-     Regeln unten eingehalten? Sonst nachbessern.
+     Baukasten `tools/koran-video/baukasten.py` schreiben (Docstring lesen:
+     `Figur` mit Posen/Gewand/Kopftuch/Kappe und Hand-Positionen, Requisiten,
+     `vogel`, `flammen`, `schriftzug` …; eigene Posen und eigene SVG-Pfade sind
+     ausdrücklich erwünscht). Muster: `tools/koran-video/beispiel_mulk_15-19/`
+     (Zeichen-Skript + Plan eines fertigen Videos). SVGs nach
+     `koran-video-ausgabe/<…>/grafiken/` speichern, mit `vorschau(...)` einen
+     Kontaktbogen erzeugen und **ansehen** (Read): erkennt man sofort, worum es
+     im Abschnitt geht? Nichts abgeschnitten, nichts unglücklich überlappt
+     (Hände, die Nachbarn „berühren“ usw.), Regeln eingehalten? Sonst nachbessern.
    - **Plan** `koran-video-ausgabe/<…>/plan.json` aus der Vorlage (Format in
      `tools/koran-video/szenen.py`): Teile übernehmen oder nach Sinn anpassen
      (nie über eine Atempause hinweg, nie mehr als die erlaubten Zeilen). Jeder
      Teil bekommt seine **deutsche Teil-Übersetzung**: die Abu-Rida-Übersetzung
      sinngemäß passend aufteilen, nicht neu übersetzen (die Vorlage teilt nur grob).
-   - **Grafiken nur, wo sie den Inhalt wirklich zeigen**: Natur, Dinge, Tiere,
-     Menschen, Handlungen, und Symbole für rhetorische Fragen (Fragezeichen),
-     Warnungen (Warnzeichen), richtig/falsch (Haken/Kreuz). Mehrere Grafiken pro
-     Abschnitt sind gut, jede ab dem passenden Wort (`ab_wort`).
-   - **Keine Grafik** bei Basmala, Isti'adha, Aussagen über Allah und Seine
-     Eigenschaften, über das Verborgene (Engel, Thron, Auferstehung …), bei
-     reinen Lobpreisungen und wenn nichts Konkretes passt. Lieber weniger.
+   - **Grafiken überall dort, wo der Abschnitt etwas Konkretes sagt**, mehrere
+     pro Abschnitt sind gut, jede ab dem passenden Wort (`ab_wort`). Bei
+     Aussagen über Allah passt der Schriftzug (`schriftzug("ٱللَّهُ")`, oder der
+     genannte Name wie `ٱلرَّحْمَٰنُ`). Szenen von Strafe (Mensch im Feuer) und
+     Belohnung (Garten, Freude) sind erlaubt. Keine Grafik bei Basmala/Isti'adha.
    - **Farbe nach Stimmung** (`farbe`): Standard weiß; `rot` Warnung/Strafe,
      `gruen` frohe Botschaft/Gläubige/Lohn, `gelb` Schwäche/Fehler des Menschen,
      `gold` Aussagen über Allah/Erhabenes, `blau`/`rosa` Schöpfung. Sparsam.
@@ -94,11 +97,13 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
 ## Regeln für Grafiken (vom Nutzer, nicht verhandelbar)
 
 - **Lebewesen ohne Augen.**
-- **Menschen nur als Piktogramm/Strichmännchen ohne jedes Gesichtsdetail.**
-- Niemals Allah, Propheten, Engel, Dschinn/Satan oder Szenen des Verborgenen
-  bildlich darstellen.
+- **Menschen nur als Piktogramm ohne jedes Gesichtsdetail.**
+- Ausdrücklich erlaubt: der Schriftzug „Allah“ (und andere Namen Allahs) als
+  Grafik, Menschen im Feuer, Szenen von Strafe und Belohnung.
+- Propheten und Engel nicht als Figur zeichnen (stattdessen z. B. das Buch, Licht,
+  oder die Menschen, um die es geht).
 - Jede Grafik vor dem Rendern im Kontaktbogen ansehen und diese Regeln prüfen.
-- Stil: Piktogramm-Figuren (kräftige runde Glieder, Kopf als Kreis), schlichte
-  weiße Linien, wenig Details – wie die Beispiele aus dem Baukasten.
+- Stil: Piktogramm-Figuren (kräftige runde Glieder, Kopf als Kreis), weiße
+  Linien/Flächen, dunkle Trennlinien (`TRENN`) wo Teile überlappen.
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.
