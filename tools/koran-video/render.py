@@ -236,9 +236,13 @@ def graphic_box(style: Style, text_bottom: int) -> tuple[int, int, int, int]:
     return (W - w) // 2, top + (avail_h - h) // 2, w, h
 
 
-def save_layer(img: Image.Image, path: Path, style: Style) -> None:
-    """Speichert eine Ebene mit demselben Schatten/Glow wie der arabische Text."""
-    _save(img, path, style.shadow, style.glow, style.glow_color, style.unit)
+def save_layer(img: Image.Image, path: Path, style: Style, grafik: bool = False) -> None:
+    """Speichert eine Ebene mit demselben Schatten/Glow wie der arabische Text.
+
+    grafik=True: Das Leuchten bleibt außen um die Grafik und ist etwas schwächer, damit
+    die Grautöne (abgewandte Glieder, Felsfacetten) grau bleiben und die Formen scharf.
+    """
+    _save(img, path, style.shadow, style.glow, style.glow_color, style.unit, grafik)
 
 
 def _google_font(rel: str) -> Path:
@@ -274,7 +278,8 @@ def _balance(lines, space, max_w):
     return out
 
 
-def _save(img: Image.Image, path: Path, shadow: bool, glow: float, glow_color: str, unit: float) -> None:
+def _save(img: Image.Image, path: Path, shadow: bool, glow: float, glow_color: str, unit: float,
+          grafik: bool = False) -> None:
     alpha = img.getchannel("A")
     if alpha.getbbox():
         layers = []
@@ -286,9 +291,17 @@ def _save(img: Image.Image, path: Path, shadow: bool, glow: float, glow_color: s
             import numpy as np
 
             # zwei Unschärfen: enger heller Kern + weiter weicher Schein
-            inner = np.asarray(alpha.filter(ImageFilter.GaussianBlur(unit / 160)), np.float32) / 255
-            outer = np.asarray(alpha.filter(ImageFilter.GaussianBlur(unit / 45)), np.float32) / 255
-            g = np.clip((inner * 1.4 + outer * 2.2) * glow, 0, 0.95)
+            quelle = alpha
+            if grafik:
+                # halbtransparente Teile (Grautöne für Tiefe) leuchten kaum
+                quelle = alpha.point(lambda a: a * a // 255)
+            inner = np.asarray(quelle.filter(ImageFilter.GaussianBlur(unit / 160)), np.float32) / 255
+            outer = np.asarray(quelle.filter(ImageFilter.GaussianBlur(unit / 45)), np.float32) / 255
+            g = np.clip((inner * 1.4 + outer * 2.2) * glow * (0.6 if grafik else 1.0), 0, 0.95)
+            if grafik:
+                # unter der Grafik kein Leuchten, sonst füllt es die Grautöne mit voller Farbe auf
+                fuss = alpha.point(lambda a: 255 if a > 10 else 0).filter(ImageFilter.GaussianBlur(max(1.5, unit / 700)))
+                g *= 1 - np.asarray(fuss, np.float32) / 255
             layer = Image.new("RGBA", img.size, _hex(glow_color) + (0,))
             layer.putalpha(Image.fromarray((g * 255).astype("uint8"), "L"))
             layers.append(layer)

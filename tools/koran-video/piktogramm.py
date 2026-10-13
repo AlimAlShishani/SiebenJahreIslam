@@ -233,6 +233,12 @@ class Mensch:
     def _kopf(self):
         x, y, r = self.kopf()
         out = f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.2f}"/>'
+        if self.p.get("ansicht") == "front" and max(self.p.get("arm_l", (0, 0))[0], self.p.get("arm_r", (0, 0))[0]) > 100:
+            # Arme hoch: Hals schließen, sonst bildet der Spalt unter dem Kopf mit den Armen
+            # einen dunklen Bogen, der wie ein Mund wirkt
+            bx, by = self.pt("brust")
+            out = (f'<path d="M{bx - r * .42:.1f},{by:.1f} L{x - r * .42:.1f},{y:.1f} L{x + r * .42:.1f},{y:.1f} '
+                   f'L{bx + r * .42:.1f},{by:.1f}Z"/>' + out)
         if self.kopftuch:
             bx, by = self.pt("brust")
             out = (f'<path d="M{x - r * 1.28:.1f},{y:.1f} A{r * 1.28:.1f},{r * 1.28:.1f} 0 0 1 {x + r * 1.28:.1f},{y:.1f} '

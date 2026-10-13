@@ -98,7 +98,11 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    - `zeitstempel.txt` lesen (Verse und Szenen mit Grafiken): Sind die Längen
      plausibel (kein Vers < 1 s)? Steht im Log „nicht sicher erkannt“?
    - Pro Szene mit Grafik einen Frame aus `video.mp4` extrahieren und ansehen
-     (Grafik passend, nicht zu klein, Text lesbar).
+     (Grafik passend, nicht zu klein, Text lesbar). Gerade in roten/grünen
+     Szenen prüfen, ob die Tiefe erhalten bleibt (abgewandte Glieder und
+     Felsfacetten dunkler als der Rest) und nichts zu einem Farbklumpen
+     verschmilzt. Das Leuchten liegt bei Grafiken nur außen um die Form
+     (`save_layer(..., grafik=True)`); früher füllte es die Grautöne auf.
    - Wiederholungen (Nutzer stoppt und liest ein paar Wörter erneut) sind normal
      und werden vom Abgleich abgefangen; kein Grund zur Rückfrage.
    - Passt die Anzahl erkannter Verse nicht zur Aufnahme (z. B. andere Verse

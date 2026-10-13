@@ -1,6 +1,6 @@
 """Grafiken einer Szene ins Video-Format rendern.
 
-Die Grafiken zeichnet Claude pro Video passend zum Abschnitt neu (baukasten.py),
+Die Grafiken zeichnet Claude pro Video passend zum Abschnitt neu (piktogramm.py, baukasten.py),
 der Plan (szenen.py) sagt, welche Datei ab welchem Wort erscheint.
 Regeln: Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht.
 """
@@ -33,8 +33,7 @@ def render_graphic(source: Path, out: Path, style: Style, box: tuple[int, int, i
         png = resvg_py.svg_to_bytes(svg_path=str(source), width=w, height=h, font_files=FONT_FILES)
         art = Image.open(io.BytesIO(bytes(png))).convert("RGBA")
         # Linien etwas kräftiger, damit sie im Video so präsent wirken wie der Text.
-        # Neu sichtbare Randpixel bekommen die Nachbarfarbe (sonst dunkle Säume); dunkle
-        # Trennlinien innerhalb der Figur bleiben erhalten.
+        # Neu sichtbare Randpixel bekommen die Nachbarfarbe (sonst dunkle Säume).
         grow = max(3, (w // 260) | 1)
         alpha = art.getchannel("A")
         grown = alpha.filter(ImageFilter.MaxFilter(grow))
@@ -45,7 +44,7 @@ def render_graphic(source: Path, out: Path, style: Style, box: tuple[int, int, i
     else:
         art = Image.open(source).convert("RGBA")
         art.thumbnail((w, h))
-    # Farbe der Szene: weiße Linien → Szenenfarbe, dunkle Trennlinien bleiben dunkel (multiplizieren)
+    # Farbe der Szene: Weiß → Szenenfarbe (multiplizieren), Grautöne bleiben als dunklere Stufen erhalten
     color = tuple(int(style.color.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
     if color != (255, 255, 255):
         from PIL import ImageChops
@@ -55,7 +54,7 @@ def render_graphic(source: Path, out: Path, style: Style, box: tuple[int, int, i
         art = tinted
     canvas = Image.new("RGBA", (style.width, style.height), (0, 0, 0, 0))
     canvas.alpha_composite(art, (x + (w - art.width) // 2, y + (h - art.height) // 2))
-    save_layer(canvas, out, style)
+    save_layer(canvas, out, style, grafik=True)
     return out
 
 
