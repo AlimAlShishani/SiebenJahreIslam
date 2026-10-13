@@ -189,18 +189,20 @@ def build_video(
         filters.append(f"[{cur}][o{i}]overlay=x=0:y={y}:eval={'frame' if ly.motion else 'init'}:eof_action=pass[b{i}]")
         cur = f"b{i}"
         n_in += 1
-    heat, vhs_ev = effects.stoer_ereignisse(duration, hitze, vhs, avoid)
-    verzerrung = effects.verzerrung_ausdruck(heat, vhs_ev, H, hitze, vhs)
-    if verzerrung:
-        # Hitzeflimmern + VHS-Linie: Verschiebungskarte (hängt nur von Zeile und Zeit ab → 2 px breit
-        # berechnen und strecken), angewendet mit „displace“
-        e = verzerrung
-        filters.append(f"nullsrc=s=2x{H}:r=30:d={duration:.3f},format=gbrp,geq=r='{e}':g='{e}':b='{e}',"
+    durchlaeufe = effects.vhs_durchlaeufe(duration, vhs)
+    ex = effects.verschiebung_x(H, hitze, vhs, durchlaeufe)
+    ey = effects.verschiebung_y(W, H, hitze)
+    if ex or ey:
+        # Hitzeflimmern (ständig) + VHS-Linie (wandert ab und zu von oben nach unten) über ffmpeg „displace“.
+        # Die x-Verschiebung hängt nur von Zeile und Zeit ab, die y-Verschiebung nur von Spalte und Zeit:
+        # beide Karten schmal berechnen und strecken (schnell).
+        ex, ey = ex or "128", ey or "128"
+        filters.append(f"nullsrc=s=2x{H}:r=30:d={duration:.3f},format=gbrp,geq=r='{ex}':g='{ex}':b='{ex}',"
                        f"scale={W}:{H}:flags=neighbor[xmap]")
-        filters.append(f"color=c=0x808080:s={W}x{H}:r=30:d={duration:.3f},format=gbrp[ymap]")
+        filters.append(f"nullsrc=s={W}x2:r=30:d={duration:.3f},format=gbrp,geq=r='{ey}':g='{ey}':b='{ey}',"
+                       f"scale={W}:{H}:flags=neighbor[ymap]")
         filters.append(f"[{cur}]format=gbrp[dsrc]")
-        linien = effects.vhs_linien_filter(vhs_ev, H, vhs)
-        filters.append("[dsrc][xmap][ymap]displace=edge=smear,format=rgba" + ("," + linien if linien else "") + "[dsp]")
+        filters.append("[dsrc][xmap][ymap]displace=edge=smear,format=rgba[dsp]")
         cur = "dsp"
     if micro:
         # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
@@ -263,9 +265,9 @@ def parse_args(argv=None):
     p.add_argument("--partikel", type=float, default=0.5, help="schwebende Lichtpartikel: 0 = aus, 0.5 = dezent (Standard), 1 = viele/hell")
     p.add_argument("--partikel-farbe", default="#FFE9B8", help="Farbe der Partikel (Standard warmes Weiß)")
     p.add_argument("--hitze", type=float, default=0.5,
-                   help="Hitzeflimmern in kurzen Schüben (Zeilen wellenförmig versetzt): 0 = aus, 0.5 = Standard, 1 = stark")
+                   help="Hitzeflimmern: ständiges sanftes Wabern des Bildes (Schleife): 0 = aus, 0.5 = Standard, 1 = stark")
     p.add_argument("--vhs", type=float, default=0.5,
-                   help="ab und zu eine versetzte VHS-Linie quer durchs Bild: 0 = aus, 0.5 = Standard, 1 = stark")
+                   help="VHS-Linie: ab und zu wandert eine feine Versatz-Linie von oben nach unten: 0 = aus, 0.5 = Standard, 1 = stärker")
     p.add_argument("--glitch", type=float, default=0.5, help="ganz leichter, seltener Farbversatz (Glitch): 0 = aus, 0.5 = dezent (Standard), 1 = etwas deutlicher")
     p.add_argument("--uebersetzung-font", default="marcellus",
                    help="Schrift der Übersetzung: marcellus (Standard), cormorant, ebgaramond, lora (kursiv), system oder Pfad zu .ttf")

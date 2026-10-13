@@ -7,11 +7,10 @@ wird sie per „Screen“-Mischung über den Hintergrund gelegt; in CapCut genau
 Glitch: nur ab und zu ein winziger RGB-Versatz über das ganze Bild für ein
 bis zwei Frames – unabhängig vom Verswechsel.
 
-Hitzeflimmern und VHS-Linie (wie in den Referenzvideos des Nutzers): eine Verschiebungskarte
-(ffmpeg „displace“) verschiebt Bildzeilen waagerecht. Hitzeflimmern = kurze Schübe, in denen die
-Zeilen wellenförmig gegeneinander versetzt werden (Schrift wirkt „zerschnitten“); VHS-Linie = ein
-dünner waagerechter Streifen, der für einen Moment seitlich versetzt durchs Bild läuft. Beides nie
-in der Nähe eines Verswechsels.
+Hitzeflimmern und VHS-Linie (wie in den Referenzvideos des Nutzers) über eine Verschiebungskarte
+(ffmpeg „displace“): Hitzeflimmern = ständiges, sanftes Wabern des ganzen Bildes als nahtlose
+Schleife; VHS-Linie = ab und zu wandert eine feine, leicht versetzte Zeile mit weichem Verlauf
+in ein paar Sekunden von oben nach unten durchs Bild (keine helle Linie, nichts Hartes).
 """
 
 from __future__ import annotations
@@ -111,56 +110,43 @@ def glitch_times(duration: float, strength: float, avoid: list[float] = (), seed
     return out
 
 
-def stoer_ereignisse(duration: float, hitze: float, vhs: float, avoid: list[float] = (), seed: int = 23):
-    """Zeitfenster für Hitzeflimmern-Schübe und VHS-Linien (zufällig, aber reproduzierbar)."""
+
+def vhs_durchlaeufe(duration: float, vhs: float, seed: int = 23) -> list[tuple[float, float]]:
+    """Zeitfenster, in denen eine VHS-Linie einmal von oben nach unten durchs Bild wandert."""
+    if vhs <= 0:
+        return []
     rng = np.random.default_rng(seed)
-
-    def reihe(staerke, abstand, d_min, d_max, start):
-        out = []
-        if staerke <= 0:
-            return out
-        gap = abstand / max(staerke, 0.1)
-        t = start
-        while t < duration - 1.5:
-            d = rng.uniform(d_min, d_max)
-            if all(t + d < a - 1.0 or t > a + 1.0 for a in avoid):
-                out.append((t, t + d))
-            t += rng.uniform(0.7, 1.3) * gap
-        return out
-
-    return (reihe(hitze, 6.0, 0.7, 1.2, rng.uniform(5, 9)),     # bei 0.5 etwa alle 12 s
-            reihe(vhs, 4.5, 0.18, 0.4, rng.uniform(3, 6)))       # bei 0.5 etwa alle 9 s
-
-
-def verzerrung_ausdruck(heat, vhs_ev, H: int, hitze: float, vhs: float, seed: int = 5) -> str | None:
-    """geq-Ausdruck der waagerechten Verschiebung je Bildzeile (128 = keine Verschiebung)."""
-    terme = []
-    if heat:
-        amp = max(1, round(H * 0.0075 * hitze))                      # 0.5 → ~4 px bei 1080p
-        env = "+".join(f"between(T,{a:.3f},{b:.3f})*sin(PI*(T-{a:.3f})/{b - a:.3f})" for a, b in heat)
-        terme.append(f"{amp}*({env})*(0.65*sin(2*PI*(Y/{H * 0.013:.1f}+T*3))+0.35*sin(2*PI*(Y/{H * 0.034:.1f}-T*1.7)))")
-    for (a, b), (y0, h, shift) in zip(vhs_ev, vhs_streifen(vhs_ev, H, vhs, seed)):
-        an = f"between(T,{a:.3f},{b:.3f})"
-        terme.append(f"{shift}*{an}*between(Y,{y0},{y0 + h})")
-        terme.append(f"{round(shift / 3)}*{an}*between(Y,{y0 + h},{y0 + h * 3})")   # schwächerer Nachzieher
-    return ("128+" + "+".join(terme)) if terme else None
-
-
-def vhs_streifen(vhs_ev, H: int, vhs: float, seed: int = 5) -> list[tuple[int, int, int]]:
-    """Lage der VHS-Streifen: (y oben, Höhe, waagerechter Versatz in px) je Ereignis."""
-    rng = np.random.default_rng(seed)
-    out = []
-    for _ in vhs_ev:
-        h = max(4, round(H * rng.uniform(0.006, 0.013)))
-        out.append((round(rng.uniform(0.15, 0.85) * H), h, round(H * 0.05 * vhs) * int(rng.choice([-1, 1]))))
+    out, gap = [], 4.0 / max(vhs, 0.1)                 # bei 0.5 etwa alle 8 s ein Durchlauf
+    t = rng.uniform(2, 5)
+    while t < duration - 1.0:
+        d = rng.uniform(2.6, 3.8)                      # so lange braucht die Linie von oben nach unten
+        out.append((t, min(t + d, duration)))
+        t += d + rng.uniform(0.6, 1.4) * gap
     return out
 
 
-def vhs_linien_filter(vhs_ev, H: int, vhs: float, seed: int = 5) -> str:
-    """Feine helle Linien an den VHS-Streifen (sonst wäre der Versatz auf dunklem Grund unsichtbar)."""
-    teile = []
-    for (a, b), (y0, h, _) in zip(vhs_ev, vhs_streifen(vhs_ev, H, vhs, seed)):
-        an = f"between(t,{a:.3f},{b:.3f})"
-        teile.append(f"drawbox=x=0:y={y0}:w=iw:h={max(2, h // 3)}:color=white@{0.10 + 0.08 * vhs:.2f}:t=fill:enable='{an}'")
-        teile.append(f"drawbox=x=0:y={y0 + h}:w=iw:h={max(2, h)}:color=white@{0.04 + 0.04 * vhs:.2f}:t=fill:enable='{an}'")
-    return ",".join(teile)
+def verschiebung_x(H: int, hitze: float, vhs: float, durchlaeufe) -> str | None:
+    """geq-Ausdruck: waagerechte Verschiebung je Bildzeile (128 = keine).
+
+    Hitzeflimmern: ständig, sanft wabernd, nahtlose Schleife (Periode 6 s).
+    VHS-Linie: ein dünner Streifen mit weichem Verlauf (Mitte am stärksten), der von oben nach unten wandert.
+    """
+    terme = []
+    if hitze > 0:
+        a = H * 0.0048 * hitze                          # 0.5 → ~2,6 px bei 1080p
+        terme.append(f"{a:.2f}*(0.6*sin(2*PI*(Y/{H * 0.11:.1f}-T/3))+0.4*sin(2*PI*(Y/{H * 0.045:.1f}+T/2)))")
+    if durchlaeufe:
+        amp = H * 0.018 * vhs                           # 0.5 → ~10 px Versatz in der Mitte des Streifens
+        h = max(4.0, H * 0.008)                         # halbe Streifenhöhe (~9 px bei 1080p)
+        for a, b in durchlaeufe:
+            y = f"(-{h:.1f}+{H + 2 * h:.1f}*(T-{a:.3f})/{b - a:.3f})"
+            terme.append(f"{amp:.1f}*between(T,{a:.3f},{b:.3f})*max(0,1-abs(Y-{y})/{h:.1f})")
+    return ("128+" + "+".join(terme)) if terme else None
+
+
+def verschiebung_y(W: int, H: int, hitze: float) -> str | None:
+    """geq-Ausdruck: senkrechte Verschiebung je Bildspalte – das Hitzeflimmern wabert auch leicht auf und ab."""
+    if hitze <= 0:
+        return None
+    a = H * 0.0028 * hitze                              # 0.5 → ~1,5 px
+    return f"128+{a:.2f}*(0.6*sin(2*PI*(X/{W * 0.07:.1f}+T/3))+0.4*sin(2*PI*(X/{W * 0.031:.1f}-T/1.5)))"

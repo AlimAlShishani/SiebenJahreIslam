@@ -22,8 +22,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    Sure oder Verse fehlen. Erwähnt der Nutzer Isti'adha, Hintergrund oder Format,
    die passenden Optionen setzen; sonst Standard: **16:9 Querformat**, dunkler
    Verlauf, V1-Glyphen, dezenter Glow, schwebende Partikel, sehr leichter seltener
-   Glitch (nie beim Verswechsel), kurze Hitzeflimmern-Schübe und ab und zu eine VHS-Linie
-   (beides wie in den Referenzvideos, nie beim Verswechsel), Übersetzung (Abu Rida) in Marcellus. „Mit englischer
+   Glitch (nie beim Verswechsel), ständiges leichtes Hitzeflimmern (Schleife) und ab und zu
+   eine feine VHS-Versatzlinie, die von oben nach unten wandert (beides wie in den Referenzvideos), Übersetzung (Abu Rida) in Marcellus. „Mit englischer
    Übersetzung“ → `--uebersetzung 20` (Saheeh International, in beiden Schritten A und C);
    die Teil-Übersetzungen im Plan dann aus diesem englischen Text aufteilen. „Ohne Effekte“ →
    `--partikel 0 --glitch 0 --hitze 0 --vhs 0`.
