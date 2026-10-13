@@ -147,6 +147,8 @@ def build_video(
     work: Path,
     particles: Path | None = None,
     glitch: float = 0.0,
+    hitze: float = 0.0,
+    vhs: float = 0.0,
 ) -> None:
     W, H = size
     bg_is_image = background.suffix.lower() in IMAGE_EXT
@@ -187,6 +189,19 @@ def build_video(
         filters.append(f"[{cur}][o{i}]overlay=x=0:y={y}:eval={'frame' if ly.motion else 'init'}:eof_action=pass[b{i}]")
         cur = f"b{i}"
         n_in += 1
+    heat, vhs_ev = effects.stoer_ereignisse(duration, hitze, vhs, avoid)
+    verzerrung = effects.verzerrung_ausdruck(heat, vhs_ev, H, hitze, vhs)
+    if verzerrung:
+        # Hitzeflimmern + VHS-Linie: Verschiebungskarte (hängt nur von Zeile und Zeit ab → 2 px breit
+        # berechnen und strecken), angewendet mit „displace“
+        e = verzerrung
+        filters.append(f"nullsrc=s=2x{H}:r=30:d={duration:.3f},format=gbrp,geq=r='{e}':g='{e}':b='{e}',"
+                       f"scale={W}:{H}:flags=neighbor[xmap]")
+        filters.append(f"color=c=0x808080:s={W}x{H}:r=30:d={duration:.3f},format=gbrp[ymap]")
+        filters.append(f"[{cur}]format=gbrp[dsrc]")
+        linien = effects.vhs_linien_filter(vhs_ev, H, vhs)
+        filters.append("[dsrc][xmap][ymap]displace=edge=smear,format=rgba" + ("," + linien if linien else "") + "[dsp]")
+        cur = "dsp"
     if micro:
         # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
         sh = max(1, round(W * 0.002 * glitch))
@@ -247,6 +262,10 @@ def parse_args(argv=None):
     p.add_argument("--glow-farbe", default="#FFFFFF", help="Farbe des Leuchtens, z. B. #F6D58E für warmes Gold")
     p.add_argument("--partikel", type=float, default=0.5, help="schwebende Lichtpartikel: 0 = aus, 0.5 = dezent (Standard), 1 = viele/hell")
     p.add_argument("--partikel-farbe", default="#FFE9B8", help="Farbe der Partikel (Standard warmes Weiß)")
+    p.add_argument("--hitze", type=float, default=0.5,
+                   help="Hitzeflimmern in kurzen Schüben (Zeilen wellenförmig versetzt): 0 = aus, 0.5 = Standard, 1 = stark")
+    p.add_argument("--vhs", type=float, default=0.5,
+                   help="ab und zu eine versetzte VHS-Linie quer durchs Bild: 0 = aus, 0.5 = Standard, 1 = stark")
     p.add_argument("--glitch", type=float, default=0.5, help="ganz leichter, seltener Farbversatz (Glitch): 0 = aus, 0.5 = dezent (Standard), 1 = etwas deutlicher")
     p.add_argument("--uebersetzung-font", default="marcellus",
                    help="Schrift der Übersetzung: marcellus (Standard), cormorant, ebgaramond, lora (kursiv), system oder Pfad zu .ttf")
@@ -422,7 +441,7 @@ def main(argv=None) -> None:
     if not args.kein_video:
         log("4/4 Erstelle video.mp4 …")
         build_video(layers, [sc.start for sc in screens], audio_out, bg, size, duration, out / "video.mp4",
-                    args.abdunkeln if args.hintergrund else 0.0, work, particles, args.glitch)
+                    args.abdunkeln if args.hintergrund else 0.0, work, particles, args.glitch, args.hitze, args.vhs)
     shutil.rmtree(work, ignore_errors=True)
     shutil.make_archive(str(out / "capcut-paket"), "zip", capcut)
     log(f"\nFertig in {time.time() - t_start:.0f}s → {out}/")
