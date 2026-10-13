@@ -133,6 +133,12 @@ class Renderer:
             lines.append((cur, cur_w))
         return _balance(lines, space, self.style.text_width), space
 
+    def line_count(self, words) -> int:
+        """Wie viele Zeilen ergeben diese Wörter in der Standardgröße?"""
+        size = self.style.arabic_size or int(self.style.unit * 0.066)
+        lines, _ = self._arabic_lines(Segment("vers", "", list(words), "", ""), size)
+        return len(lines)
+
     def _arabic_layout(self, seg: Segment, max_height: int):
         size = self.style.arabic_size or int(self.style.unit * 0.066)
         while True:

@@ -193,7 +193,7 @@ def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, flo
     return estimates, word_raw
 
 
-def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: float = 0.25) -> list[int]:
+def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: float = 0.22) -> list[int]:
     """Nach welchen Wörtern (1-basiert) macht der Rezitator innerhalb des Verses eine Atempause?"""
     t = seg.meta.get("wort_zeiten") or []
     out = []

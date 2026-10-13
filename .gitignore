@@ -44,3 +44,6 @@ dist-ssr
 # Koran-Video-Workflow (tools/koran-video)
 koran-video-ausgabe/
 __pycache__/
+
+# Beispiel: beim Ausführen erzeugte SVGs
+tools/koran-video/beispiel_*/grafiken/

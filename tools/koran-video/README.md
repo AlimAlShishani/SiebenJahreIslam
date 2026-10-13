@@ -18,14 +18,19 @@ Was dabei passiert:
    von [qurancliphelper.com](https://qurancliphelper.com) verlinkt. Mit
    `--glyphen v2` gibt es die neuere Ausgabe wie auf quran.com. Optional kommt
    die deutsche Übersetzung als eigene Ebene dazu.
-3. **Grafiken & Abschnitte (Plan):** Claude liest die Übersetzung und legt in
-   `plan.json` fest, wo eine schlichte Grafik den Inhalt zeigt, wo lange Verse
-   an Atempausen in Abschnitte geteilt werden (mit Teil-Übersetzung) und welche
-   Farbstimmung ein Abschnitt hat. Text steht dann oben, die Grafik groß darunter,
-   wie in deinen Referenzvideos.
-4. **Video bauen:** Hintergrund, Partikel, Szenen (mit sanfter Blende, Grafiken
+3. **Abschnitte:** Verse werden automatisch geteilt, damit nie zu viel
+   arabischer Text auf einmal steht: spätestens bei jeder Atempause im Vers und
+   wenn der Text nicht in eine Zeile (16:9) bzw. zwei Zeilen (9:16) passt,
+   bevorzugt an Waqf-Zeichen. Jeder Abschnitt zeigt seine Teil-Übersetzung, die
+   Versnummer steht am letzten Abschnitt.
+4. **Grafiken & Plan:** Claude zeichnet bei jedem Video für passende Abschnitte
+   eigene schlichte Grafiken (Piktogramm-Stil, `baukasten.py`) und legt in
+   `plan.json` fest, welche Grafik ab welchem Wort erscheint, wie die
+   Übersetzung aufgeteilt wird und welche Farbstimmung ein Abschnitt hat. Text
+   steht dann oben, die Grafik groß darunter, wie in deinen Referenzvideos.
+5. **Video bauen:** Hintergrund, Partikel, Szenen (mit sanfter Blende, Grafiken
    schweben leicht) und Audio werden zu `video.mp4` zusammengesetzt.
-5. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
+6. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
 
 ## Benutzung
 
@@ -41,6 +46,8 @@ Nützliche Optionen:
 |---|---|
 | `--nur-zeitstempel` | nur Zeitstempel + `planung.txt` (Grundlage für den Plan) |
 | `--plan plan.json` | Abschnitte, Teil-Übersetzungen, Farben und Grafiken (Format in `szenen.py`) |
+| `--max-zeilen 1` | höchstens so viele Zeilen arabischer Text pro Abschnitt (Standard 1 bei 16:9, 2 bei 9:16) |
+| `--nicht-teilen` | Verse nicht automatisch teilen |
 | `--layout auto/oben/mitte` | Text oben (Grafik darunter) oder mittig; `auto` = oben, sobald der Plan Grafiken hat |
 | `--glyphen v1` / `v2` | V1 = wie das Font-Set der qurancliphelper-FAQ (Standard), V2 = wie quran.com |
 | `--format 16:9` | `16:9` Querformat (Standard), `9:16` (Reels/TikTok/Shorts), `1:1`, `4:5` |
@@ -66,8 +73,11 @@ Nützliche Optionen:
 koran-video-ausgabe/067_001-010/
 ├── video.mp4                 fertiges Video
 ├── zeitstempel.txt / .json   Start/Ende jedes Verses (+ Wortzeiten, Pausen) und jeder Szene
-├── planung.txt               Übersicht für den Plan (Wörter, Pausen, Motiv-Vorschläge)
+├── planung.txt               Übersicht für den Plan (Wörter, Pausen, automatische Abschnitte)
+├── plan_vorlage.json         Vorlage mit den automatischen Abschnitten
 ├── plan.json                 der verwendete Plan
+├── grafiken_zeichnen.py      Claudes Skript, das die Grafiken dieses Videos zeichnet
+├── grafiken/                 die gezeichneten SVGs + vorschau.jpg
 ├── capcut-paket.zip          Inhalt von capcut/ als ZIP
 └── capcut/
     ├── audio.m4a             Rezitation (Stille vorne/hinten abgeschnitten)
@@ -120,14 +130,11 @@ Stille).
 
 ## Grafiken
 
-65 schlichte Motive in `grafiken/` (SVG, Liste mit Beschreibung in
-`grafiken/motive.json`, Übersicht: `grafiken/_erzeugen.py`):
-Himmel & Licht (Sterne, Mond, Sonne, sieben Himmel, Lampe …), Wetter & Wasser
-(Regen, Gewitter, Wind, Steinsturm, Meer, zwei Meere, Schiff …), Erde &
-Pflanzen (Berge, Wege, Beben, Keimling, Palme, Garten mit Fluss, Ähren,
-Ruinen, Feuer …), Tiere, Menschen-Piktogramme (stehend, gehend, Gruppe,
-Niederwerfung, Bittgebet, Freude, Verzweiflung, Abwenden …) und Symbole
-(Fragezeichen, Haken, Kreuz, Warnzeichen, Waage, Buch, Sanduhr, Kaaba …).
+Es gibt keine fertigen Motive. Claude zeichnet die Grafiken bei jedem Video passend
+zum Abschnitt neu, mit dem Baukasten `baukasten.py`: Piktogramm-Menschen mit
+frei einstellbaren Posen, Vögel, Wolken, Wellen, Sonne, Mond, Bäume, Feuer,
+Funkeln usw. plus eigene SVG-Pfade. `grafiken/beispiele.py` erzeugt
+Stil-Beispiele zum Nachschlagen.
 
 **Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht,
 keine Darstellung von Allah, Propheten, Engeln oder dem Verborgenen. Keine

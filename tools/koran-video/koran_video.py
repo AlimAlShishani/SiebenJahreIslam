@@ -36,7 +36,7 @@ from quran_data import FONT_DIR, Segment, build_segments, chapter_info, download
 import effects  # noqa: E402
 from grafiken import render_graphic, render_tint  # noqa: E402
 from render import FORMATS, Renderer, Style, graphic_box, make_background  # noqa: E402
-from szenen import Screen, build_screens, load_plan, plan_has_graphics, planning_text  # noqa: E402
+from szenen import Screen, build_screens, load_plan, plan_has_graphics, plan_template, planning_text  # noqa: E402
 from timing import SR, compute_timestamps, detect_silences, finalize_word_times, load_audio, voice_span  # noqa: E402
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
@@ -124,7 +124,7 @@ def write_screen_list(screens: list[Screen], out: Path) -> None:
         extra = f"  [{sc.color}]" if sc.color else ""
         lines.append(f"{i:2d}. {sc.label:<16} {fmt_short(sc.start):>9} – {fmt_short(sc.end):>9}{extra}")
         for g in sc.graphics:
-            lines.append(f"      Grafik {g.motiv:<18} {fmt_short(g.start):>9} – {fmt_short(g.end):>9}")
+            lines.append(f"      Grafik {g.name:<22} {fmt_short(g.start):>9} – {fmt_short(g.end):>9}")
     with (out / "zeitstempel.txt").open("a", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
 
@@ -225,6 +225,9 @@ def parse_args(argv=None):
                    help="nur Zeitstempel + planung.txt erstellen (Grundlage für den Plan), keine Bilder/Video")
     p.add_argument("--plan", type=Path,
                    help="Plan (JSON): Verse in Teile teilen, Teil-Übersetzungen, Farben, Grafiken – siehe szenen.py")
+    p.add_argument("--max-zeilen", type=int, default=0,
+                   help="höchstens so viele Zeilen arabischer Text pro Abschnitt (Standard: 1 bei Querformat, 2 bei Hochformat)")
+    p.add_argument("--nicht-teilen", action="store_true", help="Verse nicht automatisch in Abschnitte teilen")
     p.add_argument("--layout", choices=["auto", "mitte", "oben"], default="auto",
                    help="Textposition: oben (Grafik darunter) oder mitte; auto = oben, sobald der Plan Grafiken enthält")
     p.add_argument("--uebersetzung", default="208",
@@ -318,25 +321,8 @@ def main(argv=None) -> None:
         info = compute_timestamps(audio, segs, args.methode, args.modell, log)
     info.update({"trim_start": round(cut_start, 2), "trim_ende": round(cut_end, 2), "quelle": audio_in.name})
     write_timestamps(segs, out, info)
-    (out / "planung.txt").write_text(planning_text(segs), "utf-8")
-    log("")
-    log((out / "zeitstempel.txt").read_text("utf-8"))
-    if args.nur_zeitstempel:
-        log(f"Planungsgrundlage: {out / 'planung.txt'}  (Zeitstempel: {out / 'zeitstempel.json'})")
-        return
 
-    # 3) Szenen + Bilder
-    plan = load_plan(args.plan)
-    if args.plan and args.plan.resolve() != (out / "plan.json").resolve():
-        shutil.copyfile(args.plan, out / "plan.json")
-    screens = build_screens(segs, plan, args.plan.parent if args.plan else None)
-    layout = args.layout if args.layout != "auto" else ("oben" if plan_has_graphics(plan) else "mitte")
-    write_screen_list(screens, out)
-    write_srt(screens, capcut / "arabisch.srt", "text")
-    if tid:
-        write_srt(screens, capcut / "uebersetzung.srt", "translation")
-
-    log(f"3/4 Rendere {len(screens)} Szenen (Glyphen-Schrift QCF {args.glyphen.upper()}, Layout {layout}) …")
+    # 3) Szenen: automatische Abschnitte + Plan
     size = FORMATS[args.format]
     base_style = Style(width=size[0], height=size[1], color=args.farbe, arabic_size=args.schriftgroesse,
                        glyphs=args.glyphen, glow=args.glow, glow_color=args.glow_farbe,
@@ -349,6 +335,35 @@ def main(argv=None) -> None:
             renderers[color] = Renderer(st)
         return renderers[color]
 
+    max_lines = args.max_zeilen or (1 if size[0] >= size[1] else 2)
+
+    def fits(words, with_number: bool) -> bool:
+        return renderer_for(None).line_count(words) <= max_lines
+
+    auto_screens, _ = build_screens(segs, {}, None, fits, auto=not args.nicht_teilen)
+    (out / "planung.txt").write_text(planning_text(segs, auto_screens), "utf-8")
+    (out / "plan_vorlage.json").write_text(
+        json.dumps(plan_template(segs, auto_screens), ensure_ascii=False, indent=2), "utf-8")
+    log("")
+    log((out / "zeitstempel.txt").read_text("utf-8"))
+    if args.nur_zeitstempel:
+        log(f"Planungsgrundlage: {out / 'planung.txt'}, Vorlage: {out / 'plan_vorlage.json'}")
+        return
+
+    plan = load_plan(args.plan)
+    if args.plan and args.plan.resolve() != (out / "plan.json").resolve():
+        shutil.copyfile(args.plan, out / "plan.json")
+    screens, notes = build_screens(segs, plan, args.plan.parent if args.plan else None, fits,
+                                   auto=not args.nicht_teilen)
+    for note in notes:
+        log(f"  Hinweis: {note}")
+    layout = args.layout if args.layout != "auto" else ("oben" if plan_has_graphics(plan) else "mitte")
+    write_screen_list(screens, out)
+    write_srt(screens, capcut / "arabisch.srt", "text")
+    if tid:
+        write_srt(screens, capcut / "uebersetzung.srt", "translation")
+
+    log(f"3/4 Rendere {len(screens)} Szenen (Glyphen-Schrift QCF {args.glyphen.upper()}, Layout {layout}) …")
     for sub in ("arabisch", "uebersetzung", "grafiken", "farbe"):
         if (capcut / sub).exists():
             shutil.rmtree(capcut / sub)
@@ -370,7 +385,7 @@ def main(argv=None) -> None:
             layers.insert(0, Layer(tints[sc.color], sc.start, sc.end, 0.5))
         box = graphic_box(r.style, bottom)
         for k, g in enumerate(sc.graphics, 1):
-            gpng = capcut / "grafiken" / f"{file_stub(i, g.start, sc.key)}_{k}_{g.motiv}.png"
+            gpng = capcut / "grafiken" / f"{file_stub(i, g.start, sc.key)}_{k}_{g.name}.png"
             gpng.parent.mkdir(parents=True, exist_ok=True)
             render_graphic(g.source, gpng, r.style, box)
             layers.append(Layer(gpng, g.start, g.end, 0.4, motion=True))

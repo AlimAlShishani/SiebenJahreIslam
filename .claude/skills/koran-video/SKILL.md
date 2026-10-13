@@ -1,6 +1,6 @@
 ---
 name: koran-video
-description: Erstellt aus einer hochgeladenen Koran-Rezitation (Audio) ein fertiges Video mit den Versen in Glyphen-Schrift, passenden schlichten Grafiken, Abschnitts-Aufteilung und Farbstimmung plus CapCut-Paket. IMMER verwenden, wenn der Nutzer eine Rezitation/Aufnahme schickt und Sure/Verse nennt ("Sure 67, Vers 1 bis 10", "67:1-10", "Al-Mulk 1-5"), ein Koran-Video/Reel/Short/Clip will, Zeitstempel einer Rezitation braucht oder Zeiten eines schon erstellten Videos korrigieren will.
+description: Erstellt aus einer hochgeladenen Koran-Rezitation (Audio) ein fertiges Video mit den Versen in Glyphen-Schrift, pro Abschnitt selbst gezeichneten schlichten Grafiken, automatischer Abschnitts-Aufteilung und Farbstimmung plus CapCut-Paket. IMMER verwenden, wenn der Nutzer eine Rezitation/Aufnahme schickt und Sure/Verse nennt ("Sure 67, Vers 1 bis 10", "67:1-10", "Al-Mulk 1-5"), ein Koran-Video/Reel/Short/Clip will, Zeitstempel einer Rezitation braucht oder Zeiten eines schon erstellten Videos korrigieren will.
 ---
 
 # Koran-Video aus Rezitation
@@ -35,18 +35,33 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    Die Basmala wird automatisch erwartet, wenn ab Vers 1 gelesen wird (außer
    Sure 1 und 9). Liest der Nutzer sie nicht, `--basmala nein` setzen.
    Danach `koran-video-ausgabe/<…>/planung.txt` lesen: Übersetzung je Vers,
-   Wörter mit Nummer und Bedeutung, Atempausen (‖), Motiv-Vorschläge, alle Motive.
-4. **Schritt B – Plan schreiben** (`koran-video-ausgabe/<…>/plan.json`, Format
-   in `tools/koran-video/szenen.py`). Wie in den Referenzvideos des Nutzers:
-   - **Lange Verse in Abschnitte teilen** an den Atempausen (‖) bzw. an
-     Sinneinheiten (`teile` mit `bis_wort`). Jeder Teil bekommt seine eigene
-     **deutsche Teil-Übersetzung**: die Abu-Rida-Übersetzung aus planung.txt
-     passend aufteilen, nicht neu übersetzen. Kurze Verse bleiben ganz.
+   Wörter mit Nummer und Bedeutung, Atempausen (‖), Waqf-Zeichen (ۚ) und die
+   **automatischen Abschnitte**. Verse werden automatisch geteilt: spätestens bei
+   jeder Atempause im Vers, und wenn der arabische Text nicht in eine Zeile
+   (16:9) bzw. zwei Zeilen (9:16) passt, bevorzugt an Waqf-Zeichen. Daneben liegt
+   `plan_vorlage.json` mit diesen Teilen.
+4. **Schritt B – Grafiken zeichnen und Plan schreiben.** Es gibt KEINE fertigen
+   Motive: Du zeichnest bei jedem Video für jeden passenden Abschnitt eine eigene,
+   schlichte Grafik, die genau diesen Inhalt zeigt.
+   - **Zeichnen:** Skript `koran-video-ausgabe/<…>/grafiken_zeichnen.py` mit dem
+     Baukasten `tools/koran-video/baukasten.py` schreiben (Piktogramm-Menschen
+     mit beliebigen Posen, Vögel, Wolken, Wellen, Sonne, Mond, Bäume, Feuer …,
+     plus eigene SVG-Pfade). Muster: `tools/koran-video/beispiel_mulk_15-19/`
+     (Zeichen-Skript + Plan eines fertigen Videos); Stil-Beispiele:
+     `python3 tools/koran-video/grafiken/beispiele.py <ordner>`.
+     SVGs nach `koran-video-ausgabe/<…>/grafiken/` speichern, mit
+     `vorschau(...)` einen Kontaktbogen erzeugen und **ansehen** (Read): passt
+     die Grafik zum Inhalt, ist nichts abgeschnitten oder überlappt, sind die
+     Regeln unten eingehalten? Sonst nachbessern.
+   - **Plan** `koran-video-ausgabe/<…>/plan.json` aus der Vorlage (Format in
+     `tools/koran-video/szenen.py`): Teile übernehmen oder nach Sinn anpassen
+     (nie über eine Atempause hinweg, nie mehr als die erlaubten Zeilen). Jeder
+     Teil bekommt seine **deutsche Teil-Übersetzung**: die Abu-Rida-Übersetzung
+     sinngemäß passend aufteilen, nicht neu übersetzen (die Vorlage teilt nur grob).
    - **Grafiken nur, wo sie den Inhalt wirklich zeigen**: Natur, Dinge, Tiere,
-     Menschen, Handlungen (Erde/Wege, Regen, Vögel, Schiff, Gärten, Feuer,
-     Waage …) und rhetorische Fragen (`fragezeichen`), Warnungen
-     (`ausrufezeichen`), richtig/falsch (`haken`/`kreuz`). Mehrere Grafiken pro
-     Vers sind gut, jede ab dem passenden Wort (`ab_wort`).
+     Menschen, Handlungen, und Symbole für rhetorische Fragen (Fragezeichen),
+     Warnungen (Warnzeichen), richtig/falsch (Haken/Kreuz). Mehrere Grafiken pro
+     Abschnitt sind gut, jede ab dem passenden Wort (`ab_wort`).
    - **Keine Grafik** bei Basmala, Isti'adha, Aussagen über Allah und Seine
      Eigenschaften, über das Verborgene (Engel, Thron, Auferstehung …), bei
      reinen Lobpreisungen und wenn nichts Konkretes passt. Lieber weniger.
@@ -82,8 +97,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
 - **Menschen nur als Piktogramm/Strichmännchen ohne jedes Gesichtsdetail.**
 - Niemals Allah, Propheten, Engel, Dschinn/Satan oder Szenen des Verborgenen
   bildlich darstellen.
-- Neue Motive: im gleichen Stil in `tools/koran-video/grafiken/_erzeugen.py`
-  ergänzen (`python3 tools/koran-video/grafiken/_erzeugen.py tools/koran-video/grafiken`),
-  das Ergebnis als Bild ansehen und die Regeln prüfen, bevor es verwendet wird.
+- Jede Grafik vor dem Rendern im Kontaktbogen ansehen und diese Regeln prüfen.
+- Stil: Piktogramm-Figuren (kräftige runde Glieder, Kopf als Kreis), schlichte
+  weiße Linien, wenig Details – wie die Beispiele aus dem Baukasten.
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.

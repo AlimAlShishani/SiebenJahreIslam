@@ -1,35 +1,25 @@
-"""Motiv-Bibliothek: schlichte Grafiken (SVG) in grafiken/ und ihr Rendering.
+"""Grafiken einer Szene ins Video-Format rendern.
 
-Welche Szene welche Grafik bekommt, steht im Plan (siehe szenen.py).
-Regeln für Motive: Lebewesen ohne Augen, Menschen als Piktogramme ohne Gesicht.
-Neue Motive: in grafiken/_erzeugen.py ergänzen (gleicher Stil) und neu erzeugen.
+Die Grafiken zeichnet Claude pro Video passend zum Abschnitt neu (baukasten.py),
+der Plan (szenen.py) sagt, welche Datei ab welchem Wort erscheint.
+Regeln: Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht.
 """
 
 from __future__ import annotations
 
 import io
-import json
 from pathlib import Path
 
 from PIL import Image, ImageFilter
 
 from render import Style, save_layer
 
-GRAFIK_DIR = Path(__file__).resolve().parent / "grafiken"
-
-
-def library() -> dict:
-    return json.loads((GRAFIK_DIR / "motive.json").read_text("utf-8"))
-
-
-def resolve(motiv: str, base: Path | None = None) -> Path:
-    lib = GRAFIK_DIR / f"{motiv}.svg"
-    if lib.exists():
-        return lib
-    for cand in (Path(motiv), (base / motiv) if base else None):
+def resolve(datei: str, base: Path | None = None) -> Path:
+    """Pfad einer im Plan genannten Grafik (relativ zum Plan oder absolut)."""
+    for cand in ((base / datei) if base else None, Path(datei)):
         if cand and cand.exists() and cand.suffix.lower() in (".svg", ".png"):
             return cand
-    raise SystemExit(f"Grafik-Motiv unbekannt: {motiv!r} (siehe {GRAFIK_DIR / 'motive.json'})")
+    raise SystemExit(f"Grafik nicht gefunden: {datei!r} (SVG/PNG, Pfad relativ zum Plan)")
 
 
 def render_graphic(source: Path, out: Path, style: Style, box: tuple[int, int, int, int]) -> Path:
