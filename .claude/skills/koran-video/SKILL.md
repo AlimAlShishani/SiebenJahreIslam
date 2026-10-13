@@ -46,7 +46,10 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    Wörter mit Nummer und Bedeutung, Atempausen (‖), Waqf-Zeichen (ۚ) und die
    **automatischen Abschnitte**. Verse werden automatisch geteilt: spätestens bei
    jeder Atempause im Vers, und wenn der arabische Text nicht in eine Zeile
-   (16:9) bzw. zwei Zeilen (9:16) passt, bevorzugt an Waqf-Zeichen. Daneben liegt
+   (16:9) bzw. zwei Zeilen (9:16) passt, bevorzugt an Waqf-Zeichen. Ausnahme
+   (Nutzerwunsch): Ein Teil aus nur einem Wort oder unter 2 s – z. B. eine Pause
+   gleich nach أَفِى – wird an den folgenden Teil angehängt, wenn es in die Zeile
+   passt; kein Wort soll kurz allein aufblitzen. Daneben liegt
    `plan_vorlage.json` mit diesen Teilen.
 4. **Schritt B – Grafiken zeichnen und Plan schreiben.** Es gibt KEINE fertigen
    Motive: Du zeichnest bei jedem Video für jeden passenden Abschnitt eine eigene
@@ -79,7 +82,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      nehmen.
    - **Plan** `koran-video-ausgabe/<…>/plan.json` aus der Vorlage (Format in
      `tools/koran-video/szenen.py`): Teile übernehmen oder nach Sinn anpassen
-     (nie über eine Atempause hinweg, nie mehr als die erlaubten Zeilen). Jeder
+     (nie über eine Atempause hinweg – außer der Teil davor wäre nur ein Wort bzw.
+     kürzer als 2 s –, nie mehr als die erlaubten Zeilen). Jeder
      Teil bekommt seine **deutsche Teil-Übersetzung**: die Abu-Rida-Übersetzung
      sinngemäß passend aufteilen, nicht neu übersetzen (die Vorlage teilt nur grob).
    - **Grafiken überall dort, wo der Abschnitt etwas Konkretes sagt**, mehrere

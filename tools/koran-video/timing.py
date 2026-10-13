@@ -338,6 +338,16 @@ def snap_boundaries(est, silences, onset, offset, lead: float = 0.25) -> list[fl
             score = min(e - s, 1.5) - 0.8 * dist
             if score > best_score:
                 best, best_score = (s, e), score
+        if best is None:
+            # Keine Pause in der Nähe der Schätzung – zwischen zwei Versen atmet man aber fast immer.
+            # Häufigster Grund: Whisper schneidet das lang gezogene Versende (Madd, z. B. „…īn“) ab, die
+            # Schätzung liegt also zu früh. Dann ist die nächste deutliche Pause kurz danach die Versgrenze
+            # (Nutzeraufnahme an-Nur 49/50: Schätzung 64,4 s, Pause 65,2–65,7 s).
+            for s, e in silences:
+                if (e - s >= 0.35 and prev_end - 0.3 <= s <= next_start + 2.0 and s > onset + 0.05
+                        and e < offset - 0.05 and not (bounds and e <= bounds[-1] + 0.5)):
+                    best = (s, e)
+                    break
         if best:
             s, e = best
             b = max(s, e - lead)

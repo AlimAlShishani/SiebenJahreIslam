@@ -53,6 +53,7 @@ COLORS = {
     "gold": "#F6D58E",
 }
 LEAD = 0.2         # Teil/Grafik erscheint so viel vor dem ersten Wort
+MIN_TEIL = 2.0     # kürzere Teile (oder nur ein Wort) werden an den folgenden Teil angehängt, wenn es in die Zeile passt
 CROSSFADE = 0.35   # Überlappung aufeinanderfolgender Grafiken in einer Szene
 WAQF = re.compile("[ۖ-ۜ]")
 
@@ -151,7 +152,36 @@ def auto_bounds(seg: Segment, fits: Fits | None) -> list[int]:
     for b in pauses + [n]:
         out += split(a, b)
         a = b + 1
-    return out
+    return _kurze_anhaengen(seg, out, ok)
+
+
+def _kurz(seg: Segment, a: int, b: int, n: int) -> bool:
+    """Teil aus nur einem Wort oder kürzer als MIN_TEIL Sekunden (stünde nur kurz allein im Bild)."""
+    ende = seg.end if b >= n else _word_time(seg, b + 1)
+    return b - a < 1 or ende - _word_time(seg, a) < MIN_TEIL
+
+
+def _kurze_anhaengen(seg: Segment, bounds: list[int], ok) -> list[int]:
+    """Sehr kurze Teile (z. B. eine Atempause gleich nach dem ersten Wort) an den folgenden Teil hängen,
+    sonst an den vorherigen – nur wenn der zusammengelegte Teil noch in die erlaubten Zeilen passt
+    (Wunsch des Nutzers: ein einzelnes Wort soll nicht kurz allein aufblitzen)."""
+    n = bounds[-1]
+    geaendert = True
+    while geaendert and len(bounds) > 1:
+        geaendert = False
+        starts = [1] + [b + 1 for b in bounds[:-1]]
+        for k, (a, b) in enumerate(zip(starts, bounds)):
+            if not _kurz(seg, a, b, n):
+                continue
+            if k + 1 < len(bounds) and ok(a, bounds[k + 1]):
+                del bounds[k]
+            elif k > 0 and ok(starts[k - 1], b):
+                del bounds[k - 1]
+            else:
+                continue
+            geaendert = True
+            break
+    return bounds
 
 
 def split_translation(text: str, weights: list[float]) -> list[str]:
@@ -205,7 +235,8 @@ def build_screens(segs: list[Segment], plan: dict, plan_dir: Path | None = None,
             teile = entry["teile"]
             bounds = [n if i == len(teile) - 1 else int(t.get("bis_wort", 0)) for i, t in enumerate(teile)]
             for p in seg.meta.get("pausen_nach_wort", []):
-                if p not in bounds and p < n:
+                vorher = max([0] + [x for x in bounds if x < p])
+                if p not in bounds and p < n and not _kurz(seg, vorher + 1, p, n):
                     notes.append(f"{seg.key}: Atempause nach Wort {p} liegt mitten in einem geplanten Teil.")
         else:
             bounds = auto_bounds(seg, fits) if auto else [n]

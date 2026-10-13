@@ -21,7 +21,8 @@ Was dabei passiert:
 3. **Abschnitte:** Verse werden automatisch geteilt, damit nie zu viel
    arabischer Text auf einmal steht: spätestens bei jeder Atempause im Vers und
    wenn der Text nicht in eine Zeile (16:9) bzw. zwei Zeilen (9:16) passt,
-   bevorzugt an Waqf-Zeichen. Jeder Abschnitt zeigt seine Teil-Übersetzung, die
+   bevorzugt an Waqf-Zeichen. Ein Teil aus nur einem Wort oder unter 2 s wird an
+   den folgenden angehängt, damit nichts kurz allein aufblitzt. Jeder Abschnitt zeigt seine Teil-Übersetzung, die
    Versnummer steht am letzten Abschnitt.
 4. **Grafiken & Plan:** Claude zeichnet bei jedem Video für passende Abschnitte
    eigene schlichte Grafiken (Piktogramm-Stil, `piktogramm.py`) und legt in
