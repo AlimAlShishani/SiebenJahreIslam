@@ -1,32 +1,33 @@
-"""Grafik-Baukasten: Bausteine für Szenen-Grafiken im Piktogramm-Stil.
+"""Grafik-Baukasten: Leinwand, Kontaktbogen und kleine Bausteine für Szenen-Grafiken.
 
 Claude zeichnet bei jedem Video die Grafiken passend zum jeweiligen Abschnitt NEU
-und setzt sie aus diesen Bausteinen zusammen – konkret und mit Details zum Inhalt
-(Gegenstände in der Hand, Interaktion zwischen Figuren, Gefühls-Zeichen,
-Umgebung), keine allgemeinen Symbolbilder.
+und setzt sie zusammen – konkret und mit Details zum Inhalt (Gegenstände,
+Interaktion zwischen Figuren, Gefühls-Zeichen, Umgebung), keine Symbolbilder.
 
 Leinwand 400×260 (wird ins Video skaliert), weiße Linien/Flächen, runde Enden.
-Regeln des Nutzers: Lebewesen OHNE Augen, Menschen OHNE Gesichtsdetails.
+Regeln des Nutzers: Lebewesen OHNE Augen, Menschen OHNE Gesichtsdetails,
+KEINE dunklen/schwarzen Linien oder Flächen – Tiefe nur über Grautöne (halbtransparentes Weiß).
 Erlaubt sind z. B. der Schriftzug ٱللَّه als Grafik und Menschen im Feuer.
 
-Wichtigste Bausteine:
-  Figur(x, y, h, pose, kleid=, kopftuch=, kappe=, spiegeln=)  .svg, .hand(i), .kopf(), .fuss(i)
-      Posen: abwenden, dua, fallen, freude, geben, halten, knien, qiyam, rennen, schuetzen, selbstsicher, sitzen, sitzen_essen, stand, verzweifelt, walk, zeigen
-      oder eigenes dict(neck=, hip=, head=, arms=[(ellbogen, hand), …], legs=[(knie, fuss), …], vorne=(…))
-  person_sujud, vogel(fluegel="offen"/"angelegt"), bird (einfach), tree, palme, cloud, wave, sun, crescent,
-  sparkle, huegel, feld, haus, stein, flammen(verdecken=), ketten, buch, korb, stock, tasche,
-  gebetsteppich, schweiss, bewegung, zittern, zeichen("?"), fragezeichen, haken, kreuz, warnschild,
-  schriftzug("ٱللَّهُ"), ground, dot
-  WICHTIG: keine dunklen/schwarzen Linien oder Flächen in den Grafiken – alles weiß bzw. halbtransparent weiß.
-  clip_oben(svg, y): nur den Teil oberhalb von y zeigen (z. B. Figur knietief im Feuer, im Wasser).
+Menschen und die wichtigsten Gegenstände kommen aus piktogramm.py
+(Mensch mit Gelenkwinkeln/Posen, fels, sack, palme, baum, sanduhr, richterhammer, …).
+Hier:
+  speichern(pfad, body), vorschau(pfade, ausgabe) – Kontaktbogen; meldet Szenen, deren Inhalt
+      über den Rand ragt (abgeschnitten) und rahmt sie rot ein.
+  Zeichen: zeichen("?"), haken, kreuz, schweiss, bewegung, zittern, sparkle, dot, ground
+  Kalligrafie: schriftzug("ٱللَّهُ")
+  Umgebung/Dinge: flammen, clip_oben(svg, y) (Figur knietief im Feuer/Wasser), ketten, haus, feld,
+      huegel, wave, cloud, sun, crescent, vogel(fluegel="offen"/"angelegt"), bird, buch, korb, stock,
+      tasche, warnschild, stein (klein, z. B. fliegende Steine), tree (Umriss)
 
-Beispiel (eigenes Skript im Ausgabeordner, Muster: beispiel_mulk_15-19/grafiken_zeichnen.py):
+Beispiel (eigenes Skript im Ausgabeordner, Muster: beispiel_ankabut_1-7/grafiken_zeichnen.py):
 
     import sys; sys.path.insert(0, "tools/koran-video")
-    from baukasten import *
-    f = Figur(160, 236, 160, "halten", kleid=True)
-    speichern("grafiken/2-2_buch.svg", f.svg + buch(*f.hand(0), s=.9) + ground(238, 80, 260))
-    vorschau(["grafiken/2-2_buch.svg"], "grafiken/vorschau.jpg")
+    from baukasten import ground, speichern, vorschau, zeichen
+    from piktogramm import Mensch, fels
+    m = Mensch(178, 238, 182, "last_ruecken"); hx, hy = m.hand("v")
+    speichern("grafiken/29-2_pruefung.svg", fels(hx - 22, hy + 30, 56, rund=True) + m.svg + ground(240, 70, 300))
+    vorschau(["grafiken/29-2_pruefung.svg"], "grafiken/vorschau.jpg")
 """
 
 import io
@@ -67,10 +68,29 @@ def vorschau(pfade, ausgabe, spalten=4):
         im = Image.open(io.BytesIO(bytes(png))).convert("RGBA")
         x, y = (i % spalten) * cw, (i // spalten) * ch
         sheet.paste(im, (x + 20, y + 14), im)
-        dr.text((x + 20, y + 290), p.stem, fill=(255, 210, 120))
+        rand = abgeschnitten(im)
+        if rand:
+            print(f"WARNUNG {p.stem}: Inhalt am Rand abgeschnitten ({', '.join(rand)})")
+            dr.rectangle((x + 18, y + 12, x + 421, y + 275), outline=(255, 70, 70), width=2)
+        dr.text((x + 20, y + 290), p.stem + (f"  ABGESCHNITTEN: {', '.join(rand)}" if rand else ""),
+                fill=(255, 90, 90) if rand else (255, 210, 120))
     Path(ausgabe).parent.mkdir(parents=True, exist_ok=True)
     sheet.save(ausgabe, quality=90)
     return ausgabe
+
+
+def abgeschnitten(im, min_px=10):
+    """Seiten, an denen kräftiger Inhalt über den Rand der Grafik hinausragt.
+
+    Dünne Linien (Boden, Fluss), die bewusst bis zum Rand gehen, zählen nicht – nur was
+    breiter als min_px am Rand anliegt (z. B. abgeschnittene Füße, Wedel, Felsen).
+    """
+    a = im.getchannel("A")
+    w, h = a.size
+    px = a.load()
+    seiten = {"links": [px[0, j] for j in range(h)], "rechts": [px[w - 1, j] for j in range(h)],
+              "oben": [px[i, 0] for i in range(w)], "unten": [px[i, h - 1] for i in range(w)]}
+    return [name for name, werte in seiten.items() if sum(v > 128 for v in werte) > min_px]
 
 
 # ----------------------------------------------------------------- Bausteine
@@ -116,147 +136,7 @@ def sun(cx, cy, r, rays=12, l1=1.35, l2=1.8, sw=4):
     return "".join(out)
 
 
-# Piktogramm-Figuren: kräftige runde Glieder, Kopf als Kreis – bewusst OHNE Gesicht.
-POSES = {
-    # Gelenke (x nach rechts, y nach oben, Fußpunkt = 0,0, Größe 110): Hals, Hüfte, Arme [(Ellbogen, Hand)], Beine [(Knie, Fuß)]
-    "stand": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-12, 62), (-15, 44)), ((12, 62), (15, 44))],
-                  legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))]),
-    "walk": dict(neck=(3, 78), hip=(0, 42), head=(5, 96), arms=[((-9, 60), (-17, 46)), ((12, 62), (22, 52))],
-                 legs=[((-9, 22), (-20, 2)), ((9, 22), (11, 0))]),
-    "dua": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-18, 66), (-22, 84)), ((18, 66), (22, 84))],
-                legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))]),
-    "freude": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-20, 86), (-36, 98)), ((20, 86), (36, 98))],
-                   legs=[((-8, 21), (-14, 0)), ((8, 21), (14, 0))]),
-    "verzweifelt": dict(neck=(2, 74), hip=(0, 40), head=(4, 91), arms=[((-16, 80), (-6, 100)), ((20, 80), (12, 101))],
-                        legs=[((-8, 20), (-10, 0)), ((10, 19), (12, 0))]),
-    "abwenden": dict(neck=(-3, 78), hip=(0, 42), head=(-5, 96), arms=[((14, 74), (32, 78)), ((-8, 60), (-12, 44))],
-                     legs=[((-9, 22), (-18, 1)), ((7, 21), (12, 0))]),
-    "sitzen": dict(neck=(-2, 54), hip=(0, 12), head=(-3, 72), arms=[((6, 34), (16, 14)), ((8, 36), (18, 16))],
-                   legs=[((28, 9), (54, 5)), ((28, 9), (54, 5))]),
-}
-
-
-POSES.update({
-    # Gegenstand vor der Brust halten (Buch, Schale …) – Hände bei figur.hand(0/1)
-    "halten": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-13, 62), (-4, 66)), ((13, 62), (4, 66))],
-                   legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))], vorne=(0, 1)),
-    # etwas nach rechts reichen/geben
-    "geben": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-12, 62), (-15, 44)), ((14, 72), (32, 72))],
-                  legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))]),
-    # im Gebet stehen, Hände vor der Brust
-    "qiyam": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-12, 62), (-2, 68)), ((12, 62), (3, 70))],
-                  legs=[((-6, 21), (-7, 0)), ((6, 21), (7, 0))], vorne=(0, 1)),
-    # nach oben zeigen
-    "zeigen": dict(neck=(0, 78), hip=(0, 42), head=(1, 96), arms=[((12, 88), (24, 104)), ((-12, 62), (-15, 44))],
-                   legs=[((-6, 21), (-8, 0)), ((6, 21), (8, 0))]),
-    # Arm schützend über dem Kopf, gegen den Wind gelehnt (nach rechts)
-    "schuetzen": dict(neck=(8, 74), hip=(0, 40), head=(13, 90), arms=[((22, 92), (6, 102)), ((24, 80), (34, 92))],
-                      legs=[((-12, 20), (-22, 0)), ((10, 20), (14, 0))]),
-    # nach hinten fallen, Arme hochgerissen
-    "fallen": dict(neck=(-14, 70), hip=(0, 40), head=(-20, 86), arms=[((-26, 84), (-34, 100)), ((-2, 88), (6, 104))],
-                   legs=[((10, 22), (4, 2)), ((14, 24), (26, 12))]),
-    # rennen (nach rechts)
-    "rennen": dict(neck=(6, 78), hip=(0, 42), head=(9, 95), arms=[((-10, 64), (-20, 72)), ((18, 64), (26, 52))],
-                   legs=[((-14, 24), (-28, 10)), ((14, 22), (14, 0))]),
-    # aufrecht knien (Blick nach rechts), Hände auf den Oberschenkeln
-    "knien": dict(neck=(0, 66), hip=(-2, 30), head=(1, 84), arms=[((4, 48), (10, 30)), ((6, 48), (12, 30))],
-                  legs=[((4, 4), (-24, 3)), ((4, 4), (-24, 3))]),
-    # sitzen und essen (Hand zum Mund)
-    "sitzen_essen": dict(neck=(-2, 54), hip=(0, 12), head=(-3, 72), arms=[((10, 44), (4, 64)), ((8, 36), (18, 16))],
-                         legs=[((28, 9), (54, 5)), ((28, 9), (54, 5))]),
-    # entspannt, Hände in die Hüften (selbstsicher)
-    "selbstsicher": dict(neck=(0, 78), hip=(0, 42), head=(0, 96), arms=[((-18, 62), (-6, 48)), ((18, 62), (6, 48))],
-                         legs=[((-7, 21), (-10, 0)), ((7, 21), (10, 0))]),
-})
-
 _clip_id = [0]
-_mask_id = [0]
-
-
-class Figur:
-    """Piktogramm-Mensch OHNE Gesicht, mit Zugriff auf die Gelenke (um Dinge in die Hand zu geben).
-
-    f = Figur(200, 236, 150, "halten", kleid=True)
-    szene = f.svg + buch(*f.hand(0), s=.8)
-
-    kleid: langes Gewand (Thobe/Kleid) · kopftuch: Kopftuch (Frau) · kappe: Gebetskappe
-    pose: Name aus POSES oder eigenes dict (neck, hip, head, arms, legs, optional vorne=(arm-indizes vor dem Körper)).
-    spiegeln: Figur blickt nach links statt nach rechts.
-    """
-
-    def __init__(self, x, y, h=110, pose="stand", o=1.0, kleid=False, kopftuch=False, kappe=False, spiegeln=False):
-        self.x, self.y, self.s = x, y, h / 110
-        self.j = POSES[pose] if isinstance(pose, str) else pose
-        self.o, self.kleid, self.kopftuch, self.kappe = o, kleid, kopftuch, kappe
-        self.m = -1 if spiegeln else 1
-
-    def pt(self, p):
-        return self.x + self.m * p[0] * self.s, self.y - p[1] * self.s
-
-    def P(self, p):
-        x, y = self.pt(p)
-        return f"{x:.1f},{y:.1f}"
-
-    def hand(self, i=0):
-        return self.pt(self.j["arms"][i][1])
-
-    def fuss(self, i=0):
-        return self.pt(self.j["legs"][i][1])
-
-    def kopf(self):
-        """(x, y, radius) des Kopfes."""
-        x, y = self.pt(self.j["head"])
-        return x, y, 11 * self.s
-
-    @property
-    def svg(self):
-        j, s = self.j, self.s
-        limb, torso = 9 * s, 17 * s
-        vorne = set(j.get("vorne", ()))
-        out = [f'<g opacity="{self.o}" stroke-width="{limb:.1f}">']
-        arm = lambda e, h: f'M{self.P(j["neck"])} L{self.P(e)} L{self.P(h)}'
-        for i, (e, h) in enumerate(j["arms"]):
-            if i not in vorne:
-                out.append(f'<path d="{arm(e, h)}"/>')
-        for knee, foot in j["legs"]:
-            out.append(f'<path d="M{self.P(j["hip"])} L{self.P(knee)} L{self.P(foot)}"/>')
-        out.append(f'<path d="M{self.P(j["neck"])} L{self.P(j["hip"])}" stroke-width="{torso:.1f}"/>')
-        if self.kleid:
-            nx, ny = j["neck"]
-            hx, hy = j["hip"]
-            out.append(f'<path d="M{self.P((nx - 8, ny))} L{self.P((hx - 15, hy))} L{self.P((hx - 22, 10))} '
-                       f'L{self.P((hx + 22, 10))} L{self.P((hx + 15, hy))} L{self.P((nx + 8, ny))}Z" '
-                       f'fill="#fff" stroke-width="{4 * s:.1f}"/>')
-        for i, (e, h) in enumerate(j["arms"]):
-            if i in vorne:
-                out.append(f'<path d="{arm(e, h)}"/>')
-        hx, hy, r = self.kopf()
-        if self.kopftuch:
-            nx, ny = self.pt(j["neck"])
-            out.append(f'<path d="M{hx - r * 1.3:.1f},{hy:.1f} A{r * 1.3:.1f},{r * 1.3:.1f} 0 0 1 {hx + r * 1.3:.1f},{hy:.1f} '
-                       f'L{nx + r * 1.2:.1f},{ny + r * .5:.1f} L{nx - r * 1.2:.1f},{ny + r * .5:.1f}Z" fill="#fff" stroke="none"/>')
-        out.append(f'<circle cx="{hx:.1f}" cy="{hy:.1f}" r="{r:.1f}" fill="#fff" stroke="none"/>')
-        if self.kappe:
-            # Kappe als kleine Kuppel, die seitlich und oben über den Kopf hinausragt (Silhouette)
-            out.append(f'<path d="M{hx - r * 1.2:.1f},{hy - r * .45:.1f} Q{hx:.1f},{hy - r * 1.9:.1f} {hx + r * 1.2:.1f},{hy - r * .45:.1f}Z" '
-                       f'fill="#fff" stroke="none"/>')
-        out.append("</g>")
-        return "".join(out)
-
-
-def person(x, y, h=110, pose="stand", o=1.0, **kw):
-    """Kurzform: Figur(...).svg"""
-    return Figur(x, y, h, pose, o, **kw).svg
-
-
-def person_sujud(x, y, s=1.0):
-    """Niederwerfung (Sudschud), Kopf nach links, Piktogramm-Stil. (x, y) = Knie auf dem Boden."""
-    P = lambda dx, dy: f"{x + dx * s:.1f},{y - dy * s:.1f}"
-    return (f'<g stroke-width="{9 * s:.1f}">'
-            f'<path d="M{P(40, 4)} L{P(2, 5)} L{P(12, 44)}"/>'                       # Unterschenkel, Oberschenkel
-            f'<path d="M{P(-30, 18)} L{P(-38, 4)} L{P(-50, 4)}"/>'                   # Arm, Hand am Boden
-            f'<path d="M{P(10, 44)} L{P(-34, 22)}" stroke-width="{17 * s:.1f}"/>'    # Rücken
-            f'<circle cx="{x - 52 * s:.1f}" cy="{y - 12 * s:.1f}" r="{11 * s:.1f}" {FS}/></g>')
 
 
 def bird(x, y, w=30, o=1.0, sw=4):
@@ -321,13 +201,6 @@ def tasche(x, y, s=1.0):
     """Umhängetasche/Bündel, Mittelpunkt."""
     return (f'<g transform="translate({x},{y}) scale({s})"><path d="M-12,-8 Q0,-14 12,-8 L14,10 Q0,16 -14,10Z" '
             'fill="#fff" fill-opacity="0.3" stroke-width="3"/></g>')
-
-
-def gebetsteppich(x, y, w=120, s=1.0):
-    """Gebetsteppich, linke Unterkante (x, y)."""
-    h = 10 * s
-    return (f'<path d="M{x},{y} L{x + w * s},{y} L{x + w * s - 8 * s},{y - h} L{x + 8 * s},{y - h}Z" fill="#fff" fill-opacity="0.2"/>'
-            f'<path d="M{x + 14 * s},{y - h / 2} L{x + w * s - 14 * s},{y - h / 2}" stroke-width="2" stroke-dasharray="4 5"/>')
 
 
 def schweiss(x, y, s=1.0, n=3):
@@ -443,15 +316,6 @@ def kreuz(x, y, s=1.0):
 def huegel(y=170, op=0.75):
     return (f'<path d="M0,{y} Q80,{y - 50} 170,{y - 15} Q260,{y + 20} 400,{y - 40}" stroke-opacity="{op}"/>'
             f'<path d="M0,{y + 50} Q120,{y + 5} 230,{y + 35} Q320,{y + 60} 400,{y + 25}"/>')
-
-
-def palme(x, y, s=1.0, datteln=True):
-    P = lambda dx, dy: f"{x + dx * s:.1f},{y + dy * s:.1f}"
-    fr = "".join(f'<path d="M{P(4, -118)} Q{P(4 + dx * .5, -118 + dy - 26)} {P(4 + dx, -118 + dy)}"/>'
-                 for dx, dy in [(-62, 12), (-46, 40), (-20, 50), (62, 8), (48, 38), (24, 52), (-14, -40), (24, -38)])
-    d = "".join(dot(x + dx * s, y + dy * s, 5 * s, .95) for dx, dy in [(-4, -104), (6, -100), (0, -94), (-10, -96)]) if datteln else ""
-    return f'<path d="M{P(-2, 0)} C{P(2, -40)} {P(-6, -80)} {P(4, -118)}" stroke-width="7"/>' + fr + d
-
 
 
 def vogel(x, y, s=1.0, fluegel="offen", spiegeln=False, o=1.0):

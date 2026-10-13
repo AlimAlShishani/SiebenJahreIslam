@@ -1,0 +1,165 @@
+{
+  "_hinweis": "al-Ankabut 1-7, Rezitation des Nutzers (ohne Basmala). Keine Grafik bei Alif-Lam-Mim. Grafiken: grafiken_zeichnen.py (piktogramm.py).",
+  "29:2": {
+    "teile": [
+      {
+        "bis_wort": 4,
+        "uebersetzung": "Meinen die Menschen, sie würden in Ruhe gelassen werden,",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-2_sorglos.svg"
+          }
+        ]
+      },
+      {
+        "uebersetzung": "wenn sie bloß sagten: „Wir glauben“, und meinen sie, sie würden nicht auf die Probe gestellt?",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-2_amanna.svg"
+          },
+          {
+            "datei": "grafiken/29-2_pruefung.svg",
+            "ab_wort": 8
+          }
+        ]
+      }
+    ]
+  },
+  "29:3": {
+    "teile": [
+      {
+        "bis_wort": 5,
+        "uebersetzung": "Und Wir stellten doch die auf die Probe, die vor ihnen waren.",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-3_frueher.svg"
+          }
+        ]
+      },
+      {
+        "bis_wort": 9,
+        "uebersetzung": "Also wird Allah gewiß die erkennen, die wahrhaftig sind,",
+        "farbe": "gruen",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-3_wahrhaftig.svg"
+          }
+        ]
+      },
+      {
+        "uebersetzung": "und gewiß wird Er die Lügner erkennen.",
+        "farbe": "rot",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-3_luegner.svg"
+          }
+        ]
+      }
+    ]
+  },
+  "29:4": {
+    "farbe": "rot",
+    "teile": [
+      {
+        "bis_wort": 7,
+        "uebersetzung": "Oder glauben diejenigen, die böse Taten begehen, daß sie Uns entrinnen könnten?",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-4_entkommen.svg"
+          }
+        ]
+      },
+      {
+        "uebersetzung": "Übel ist es, wie sie urteilen.",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-4_urteil.svg"
+          }
+        ]
+      }
+    ]
+  },
+  "29:5": {
+    "teile": [
+      {
+        "bis_wort": 9,
+        "uebersetzung": "Wer mit Allahs Begegnung rechnet, (der soll wissen, daß) Allahs angesetzte Frist sicher abläuft.",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-5_hoffnung.svg"
+          },
+          {
+            "datei": "grafiken/29-5_frist.svg",
+            "ab_wort": 6
+          }
+        ]
+      },
+      {
+        "uebersetzung": "Und Er ist der Allhörende, der Allwissende.",
+        "farbe": "gold",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-5_namen.svg"
+          }
+        ]
+      }
+    ]
+  },
+  "29:6": {
+    "teile": [
+      {
+        "bis_wort": 5,
+        "uebersetzung": "Und wer da eifert, eifert nur für seine eigene Seele;",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-6_muehe.svg"
+          }
+        ]
+      },
+      {
+        "uebersetzung": "denn Allah ist auf niemanden von allen Welten angewiesen.",
+        "farbe": "gold",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-6_ghani.svg"
+          }
+        ]
+      }
+    ]
+  },
+  "29:7": {
+    "farbe": "gruen",
+    "teile": [
+      {
+        "bis_wort": 4,
+        "uebersetzung": "Und jene, die glauben und gute Werke tun –",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-7_glauben.svg"
+          },
+          {
+            "datei": "grafiken/29-7_gutes.svg",
+            "ab_wort": 3
+          }
+        ]
+      },
+      {
+        "bis_wort": 7,
+        "uebersetzung": "wahrlich, Wir werden ihre Übel von ihnen nehmen",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-7_tilgen.svg"
+          }
+        ]
+      },
+      {
+        "uebersetzung": "und ihnen den besten Lohn für ihre Taten geben.",
+        "grafiken": [
+          {
+            "datei": "grafiken/29-7_lohn.svg"
+          }
+        ]
+      }
+    ]
+  }
+}

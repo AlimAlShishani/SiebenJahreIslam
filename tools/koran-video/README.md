@@ -24,7 +24,7 @@ Was dabei passiert:
    bevorzugt an Waqf-Zeichen. Jeder Abschnitt zeigt seine Teil-Übersetzung, die
    Versnummer steht am letzten Abschnitt.
 4. **Grafiken & Plan:** Claude zeichnet bei jedem Video für passende Abschnitte
-   eigene schlichte Grafiken (Piktogramm-Stil, `baukasten.py`) und legt in
+   eigene schlichte Grafiken (Piktogramm-Stil, `piktogramm.py`) und legt in
    `plan.json` fest, welche Grafik ab welchem Wort erscheint, wie die
    Übersetzung aufgeteilt wird und welche Farbstimmung ein Abschnitt hat. Text
    steht dann oben, die Grafik groß darunter, wie in deinen Referenzvideos.
@@ -131,19 +131,28 @@ Stille).
 ## Grafiken
 
 Es gibt keine fertigen Motive. Claude zeichnet die Grafiken bei jedem Video passend
-zum Abschnitt neu, mit dem Baukasten `baukasten.py`: Piktogramm-Menschen
-(`Figur`) mit frei einstellbaren Posen, Gewand, Kopftuch, Gebetskappe und
-Gegenständen in der Hand, detaillierte Vögel, Flammen, Häuser, Felder, Palmen,
-Wolken, Wellen, Kalligrafie usw. plus eigene SVG-Pfade.
+zum Abschnitt neu:
 
-Die Grafiken sind konkret zum Abschnitt: Figuren mit passender Haltung und
-Gegenständen (Buch, Stock, Korb …), Interaktion, Umgebung, Gefühls-Zeichen
-(Schweißtropfen, ?/!), bei Aussagen über Allah der Schriftzug ٱللَّه bzw. der
-genannte Name. Vollständiges Beispiel: `beispiel_mulk_15-19/`.
+- `piktogramm.py`: Piktogramm-Menschen (`Mensch`) mit Posen über Gelenkwinkel
+  (Seiten- und Frontansicht, Gewand, Kopftuch), Gelenkpunkte für Gegenstände in
+  der Hand, und Gegenstände mit klarer Silhouette (Fels, Sack, Palme, Baum,
+  Hängematte, Sprechblase, Richterhammer, Sanduhr, Gebetsteppich, Weltkugel,
+  Sonnenaufgang, Herz).
+- `baukasten.py`: Leinwand, Kontaktbogen `vorschau(...)` (meldet abgeschnittene
+  Szenen) und kleine Bausteine: Zeichen (?, ✓, ✗, Schweißtropfen,
+  Bewegungslinien, Funkeln), Kalligrafie `schriftzug("ٱللَّهُ")`, Flammen, Wellen,
+  Vögel u. a.
 
-**Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht.
-Erlaubt: Schriftzug „Allah“ als Grafik, Menschen im Feuer. Propheten und Engel
-werden nicht als Figur gezeichnet. Keine Grafik bei Basmala.
+Die Grafiken sind konkret zum Abschnitt: Figuren mit passender Körpersprache und
+Gegenständen, Interaktion, Umgebung, Gefühls-Zeichen, bei Aussagen über Allah der
+Schriftzug ٱللَّه bzw. der genannte Name. Vollständiges Beispiel:
+`beispiel_ankabut_1-7/` (Zeichen-Skript und Plan; aus dem Repo-Wurzelverzeichnis
+`python3 tools/koran-video/beispiel_ankabut_1-7/grafiken_zeichnen.py` ausführen).
+
+**Regeln:** Lebewesen ohne Augen, Menschen nur als Piktogramm ohne Gesicht, keine
+dunklen Linien in den Grafiken. Erlaubt: Schriftzug „Allah“ als Grafik, Menschen
+im Feuer. Propheten und Engel werden nicht als Figur gezeichnet. Keine Grafik bei
+Basmala.
 
 ## CapCut direkt per MCP?
 

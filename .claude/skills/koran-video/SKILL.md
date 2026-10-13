@@ -54,16 +54,27 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    Interaktion zwischen Figuren (geben, abwenden, helfen), Umgebung (Feld, Haus,
    Berg, Palme), Gefühls-Zeichen (Schweißtropfen, ?/!, Zitter- und
    Bewegungslinien). Keine allgemeinen Symbolbilder.
-   - **Zeichnen:** Skript `koran-video-ausgabe/<…>/grafiken_zeichnen.py` mit dem
-     Baukasten `tools/koran-video/baukasten.py` schreiben (Docstring lesen:
-     `Figur` mit Posen/Gewand/Kopftuch/Kappe und Hand-Positionen, Requisiten,
-     `vogel`, `flammen`, `schriftzug` …; eigene Posen und eigene SVG-Pfade sind
-     ausdrücklich erwünscht). Muster: `tools/koran-video/beispiel_mulk_15-19/`
-     (Zeichen-Skript + Plan eines fertigen Videos). SVGs nach
-     `koran-video-ausgabe/<…>/grafiken/` speichern, mit `vorschau(...)` einen
-     Kontaktbogen erzeugen und **ansehen** (Read): erkennt man sofort, worum es
-     im Abschnitt geht? Nichts abgeschnitten, nichts unglücklich überlappt
-     (Hände, die Nachbarn „berühren“ usw.), Regeln eingehalten? Sonst nachbessern.
+   - **Zeichnen:** Skript `koran-video-ausgabe/<…>/grafiken_zeichnen.py` schreiben.
+     Menschen und Hauptgegenstände mit `tools/koran-video/piktogramm.py`
+     (Docstring lesen): `Mensch(x, y, h, pose, spiegeln=, kleid=, kopftuch=, o=,
+     arm_v=…)` – Posen über Gelenkwinkel (Seiten- und Frontansicht; eigene Winkel
+     pro Szene sind ausdrücklich erwünscht), Gelenkpunkte über `hand()`, `kopf()`,
+     `schulter()`, `fuss()`, damit Gegenstände wirklich in der Hand liegen. Dazu
+     `fels`, `sack`, `palme`, `baum`, `haengematte`, `sprechblase`,
+     `richterhammer`, `sanduhr`, `gebetsteppich`, `weltkugel`, `sonne_horizont`,
+     `herz`. Kleine Zeichen, Kalligrafie und den Kontaktbogen liefert
+     `baukasten.py` (`zeichen`, `haken`, `kreuz`, `schweiss`, `bewegung`,
+     `sparkle`, `ground`, `schriftzug`, `flammen`, `clip_oben` …). Fehlt ein
+     Gegenstand, ihn selbst als SVG zeichnen (typische Silhouette, gefüllt, Tiefe
+     über Grautöne). Muster: `tools/koran-video/beispiel_ankabut_1-7/`
+     (Zeichen-Skript + Plan). SVGs nach `koran-video-ausgabe/<…>/grafiken/`
+     speichern, mit `vorschau(...)` den Kontaktbogen erzeugen und **ansehen**
+     (Read). `vorschau` meldet abgeschnittene Szenen („WARNUNG … abgeschnitten“,
+     roter Rahmen) – die immer beheben. Dann ehrlich prüfen: Erkennt man sofort,
+     worum es geht? Überlappt nichts unglücklich (Hände, die Nachbarn „berühren“,
+     ein Gegenstand, der mit dem Körper zu einem Klumpen verschmilzt)? Sind die
+     Regeln eingehalten? Sonst Varianten nebeneinander rendern und die klarste
+     nehmen.
    - **Plan** `koran-video-ausgabe/<…>/plan.json` aus der Vorlage (Format in
      `tools/koran-video/szenen.py`): Teile übernehmen oder nach Sinn anpassen
      (nie über eine Atempause hinweg, nie mehr als die erlaubten Zeilen). Jeder
@@ -102,25 +113,36 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
 
 ## Lehren aus dem ersten echten Fall (al-Ankabut 1–7)
 
-Der Nutzer war mit den Grafiken NICHT zufrieden: „einfach schlecht“ und
-„teilweise unerkennbar“. Er will trotzdem ausdrücklich, dass du die
-Piktogramme **selbst zeichnest** – keine Icon-Sets (Font Awesome, Material,
-Tabler o. ä.), keine fertigen Grafiken. Also die Qualität deutlich anheben:
+Beim ersten Versuch war der Nutzer mit den Grafiken NICHT zufrieden: „einfach
+schlecht“ und „teilweise unerkennbar“. Er will trotzdem ausdrücklich, dass du
+die Piktogramme **selbst zeichnest** – keine Icon-Sets (Font Awesome, Material,
+Tabler o. ä.), keine fertigen Grafiken. Daraus entstand `piktogramm.py`; der
+zweite Versuch (`beispiel_ankabut_1-7/`) ist der Maßstab.
 
 - **Erkennbarkeit zuerst:** Jede Grafik muss ohne Text auf einen Blick
-  verständlich sein. Test vor dem Rendern: Kontaktbogen ansehen und für jede
-  Szene ehrlich beantworten „Was sieht ein Fremder hier?“ – wenn die Antwort
-  nicht der Inhalt ist, neu zeichnen.
-- **Wenige, große, klare Elemente** statt vieler kleiner (eine Hauptfigur, ein
-  Gegenstand, höchstens ein Zeichen). Gegenstände groß und mit typischer
-  Silhouette (ein Fels sah wie eine Halbkugel aus, ein Sack wie eine Vase bzw.
-  ein Wesen mit Fühlern, Vögel mit angelegten Flügeln wie Fische).
-- **Figuren wie in den Referenzvideos:** kräftige, gefüllte Piktogramme mit
-  glaubwürdigen Proportionen und eindeutiger Körpersprache; Posen am Kontakt-
-  bogen gegen echte Körperhaltung prüfen (Gewicht, Balance, wohin die Figur
-  schaut/geht), Hände nicht zufällig an Nachbarfiguren.
-- Lieber eine Szene mehr Zeit geben (Entwürfe, Varianten vergleichen) als viele
-  schwache Szenen; bei Zweifel lieber keine Grafik als eine unklare.
+  verständlich sein. Für jede Szene im Kontaktbogen ehrlich beantworten: „Was
+  sieht ein Fremder hier?“ Ist die Antwort nicht der Inhalt, neu zeichnen.
+- **Wenige, große, klare Elemente** statt vieler kleiner: eine Hauptfigur, ein
+  Gegenstand, höchstens ein Zeichen (?, ✓, ✗, Herz). Gegenstände mit typischer
+  Silhouette. Felsen kantig wie ein Brocken (helle Oberseite, dunklere
+  Seiten); Facetten, die von einem Mittelpunkt ausstrahlen, wirken wie ein
+  Schirm oder Wasserball. Palmwedel hängen im Bogen nach unten.
+- **Körpersprache wie in den Referenzvideos:** Haltung zeigt den Inhalt (Last
+  auf dem Rücken: tief gebeugt; Last stemmen: Frontansicht, Arme hoch;
+  Erleichterung: offene Arme; Freude: Arme hoch; Hilfe: einer beugt sich und
+  reicht die Hand). Gewicht und Balance prüfen.
+- **Weiß auf Weiß verschmilzt:** Gegenstand und Körper nicht großflächig
+  überlappen lassen (ein Sack auf dem Rücken wurde zum Klumpen; in der nach
+  hinten gestreckten Hand ist er sofort lesbar). Wenn Überlappung nötig ist,
+  dann über einen Grauton absetzen, nie über dunkle Linien.
+- **Sprechblase:** Der Zipfel zeigt vom Rand, der dem Sprecher zugewandt ist,
+  auf den Kopf. Bei Aussagen wie „Wir glauben“ den arabischen Wortlaut
+  (ءَامَنَّا) in die Blase schreiben.
+- **Bilder über einen Abschnitt hinweg konsistent halten:** z. B. Fels = Last
+  bzw. Prüfung; Lasten, die aufsteigen und zu Licht werden = Sünden, die
+  getilgt werden.
+- Lieber einer Szene mehr Zeit geben (Varianten nebeneinander vergleichen) als
+  viele schwache Szenen; im Zweifel lieber keine Grafik als eine unklare.
 
 ## Regeln für Grafiken (vom Nutzer, nicht verhandelbar)
 
@@ -135,7 +157,9 @@ Tabler o. ä.), keine fertigen Grafiken. Also die Qualität deutlich anheben:
 - Propheten und Engel nicht als Figur zeichnen (stattdessen z. B. das Buch, Licht,
   oder die Menschen, um die es geht).
 - Jede Grafik vor dem Rendern im Kontaktbogen ansehen und diese Regeln prüfen.
-- Stil: Piktogramm-Figuren (kräftige runde Glieder, Kopf als Kreis), weiße
-  Linien und weiße bzw. halbtransparent weiße Flächen.
+- Stil: Piktogramm-Menschen aus `piktogramm.py` (Körper mit Rumpf und sich
+  verjüngenden Gliedern, Kopf als Kreis mit kleinem Abstand), gefüllte weiße
+  Flächen. Tiefe entsteht über Grautöne (abgewandter Arm und abgewandtes Bein
+  halbtransparent, Felsfacetten in Grautönen).
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.
