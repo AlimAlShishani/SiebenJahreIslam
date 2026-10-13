@@ -57,7 +57,7 @@ Nützliche Optionen:
 | `--glow-farbe "#F6D58E"` | Farbe des Leuchtens (Standard weiß; `#F6D58E` = warmes Gold) |
 | `--partikel 0.5` | schwebende Lichtpartikel: `0` aus, `0.5` dezent (Standard), `1` viele/hell; `--partikel-farbe` |
 | `--glitch 0.5` | ganz leichter Farbversatz (2 px, 1–2 Frames) etwa alle 14 s, nie beim Verswechsel: `0` aus, `0.5` dezent (Standard) |
-| `--hitze 0.5` | Hitzeflimmern: das Bild wabert ständig ganz leicht (nahtlose Schleife, ca. 2–3 px): `0` aus, `1` stärker |
+| `--hitze 0.5` | Hitzeflimmern: das Bild wabert ständig langsam in großen, weichen Wellen (nahtlose Schleife, ca. 3–4 px, mit Zwischenpixeln berechnet): `0` aus, `1` stärker |
 | `--vhs 0.5` | VHS-Linie: etwa alle 8–10 s wandert eine feine, leicht versetzte Zeile in ~3 s von oben nach unten: `0` aus, `1` stärker |
 | `--uebersetzung-font marcellus` | `marcellus` (Standard), `cormorant`, `ebgaramond`, `lora` (kursiv), `system` oder Pfad zu einer .ttf |
 | `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`) |

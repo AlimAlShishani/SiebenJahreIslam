@@ -181,28 +181,47 @@ def build_video(
         f = min(ly.fade, d / 3)
         inputs += ["-loop", "1", "-framerate", "30", "-t", f"{d:.3f}", "-i", str(ly.png)]
         chain = f"[{n_in}:v]format=rgba"
+        ox = oy = 0
+        if ly.motion:
+            # nur den Bereich der Grafik bearbeiten (mit Rand fürs Schweben) – spart viel Rechenzeit
+            from PIL import Image
+            with Image.open(ly.png) as im:
+                box = im.getchannel("A").getbbox()
+            if box:
+                rand = float_amp + 4
+                ox, oy = max(0, box[0] - rand) & ~1, max(0, box[1] - rand) & ~1
+                cw, ch = min(W, box[2] + rand) - ox, min(H, box[3] + rand) - oy
+                chain += f",crop={cw}:{ch}:{ox}:{oy}"
         if f > 0:
             chain += f",fade=t=in:st=0:d={f:.2f}:alpha=1,fade=t=out:st={d - f:.3f}:d={f:.2f}:alpha=1"
+        if ly.motion:
+            # sanftes Schweben mit Zwischenpixeln (overlay kann nur ganze Pixel → wirkte ruckelig/pixelig):
+            # die Ebene wird per „perspective“ (bilinear) um einen gebrochenen Betrag verschoben
+            dy = f"{float_amp}*sin(2*PI*({ly.start:.3f}+in/30)/4.5)"
+            chain += (f",format=gbrap,perspective=y0='{dy}':y1='{dy}':y2='H+{dy}':y3='H+{dy}'"
+                      f":sense=destination:eval=frame,format=rgba")
         chain += f",setpts=PTS-STARTPTS+{ly.start:.3f}/TB[o{i}]"
         filters.append(chain)
-        y = f"'{float_amp}*sin(2*PI*t/4.5)'" if ly.motion else "0"
-        filters.append(f"[{cur}][o{i}]overlay=x=0:y={y}:eval={'frame' if ly.motion else 'init'}:eof_action=pass[b{i}]")
+        filters.append(f"[{cur}][o{i}]overlay=x={ox}:y={oy}:eof_action=pass[b{i}]")
         cur = f"b{i}"
         n_in += 1
     durchlaeufe = effects.vhs_durchlaeufe(duration, vhs)
-    ex = effects.verschiebung_x(H, hitze, vhs, durchlaeufe)
-    ey = effects.verschiebung_y(W, H, hitze)
+    # in doppelter Auflösung verschieben und wieder verkleinern: „displace“ kennt nur ganze Pixel,
+    # so bewegt sich das Flimmern weich statt in Pixelstufen
+    W2, H2 = 2 * W, 2 * H
+    ex = effects.verschiebung_x(H2, hitze, vhs, durchlaeufe)
+    ey = effects.verschiebung_y(W2, H2, hitze)
     if ex or ey:
         # Hitzeflimmern (ständig) + VHS-Linie (wandert ab und zu von oben nach unten) über ffmpeg „displace“.
         # Die x-Verschiebung hängt nur von Zeile und Zeit ab, die y-Verschiebung nur von Spalte und Zeit:
         # beide Karten schmal berechnen und strecken (schnell).
         ex, ey = ex or "128", ey or "128"
-        filters.append(f"nullsrc=s=2x{H}:r=30:d={duration:.3f},format=gbrp,geq=r='{ex}':g='{ex}':b='{ex}',"
-                       f"scale={W}:{H}:flags=neighbor[xmap]")
-        filters.append(f"nullsrc=s={W}x2:r=30:d={duration:.3f},format=gbrp,geq=r='{ey}':g='{ey}':b='{ey}',"
-                       f"scale={W}:{H}:flags=neighbor[ymap]")
-        filters.append(f"[{cur}]format=gbrp[dsrc]")
-        filters.append("[dsrc][xmap][ymap]displace=edge=smear,format=rgba[dsp]")
+        filters.append(f"nullsrc=s=2x{H2}:r=30:d={duration:.3f},format=gbrp,geq=r='{ex}':g='{ex}':b='{ex}',"
+                       f"scale={W2}:{H2}:flags=neighbor[xmap]")
+        filters.append(f"nullsrc=s={W2}x2:r=30:d={duration:.3f},format=gbrp,geq=r='{ey}':g='{ey}':b='{ey}',"
+                       f"scale={W2}:{H2}:flags=neighbor[ymap]")
+        filters.append(f"[{cur}]scale={W2}:{H2}:flags=bilinear,format=gbrp[dsrc]")
+        filters.append(f"[dsrc][xmap][ymap]displace=edge=smear,scale={W}:{H}:flags=area,format=rgba[dsp]")
         cur = "dsp"
     if micro:
         # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
