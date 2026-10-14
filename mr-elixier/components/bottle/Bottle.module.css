@@ -1,0 +1,39 @@
+.bottle {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.stop {
+  transition: stop-color 1.4s var(--ease);
+}
+
+.name {
+  font-family: var(--serif);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.info {
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+
+.sweep {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translateX(0) skewX(-18deg);
+  animation: sweep 7.5s var(--ease-in-out) infinite;
+  animation-delay: var(--sweep-delay, 1.2s);
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(0) skewX(-18deg);
+  }
+  28%,
+  100% {
+    transform: translateX(var(--sweep-x, 320px)) skewX(-18deg);
+  }
+}

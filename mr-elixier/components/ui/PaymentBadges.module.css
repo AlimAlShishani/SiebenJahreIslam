@@ -1,0 +1,63 @@
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+}
+
+.dark {
+  color: var(--text-light);
+}
+
+.badge {
+  display: grid;
+  place-items: center;
+  min-width: 52px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.55;
+  font-size: 0.72rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.paypal {
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.paypal b {
+  font-weight: 800;
+  opacity: 0.7;
+}
+
+.visa {
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+}
+
+.wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.g {
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.klarna {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}

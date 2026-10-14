@@ -1,0 +1,201 @@
+@property --num {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 0;
+}
+
+.section {
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.grid {
+  display: grid;
+  gap: 48px;
+  align-items: center;
+}
+
+.figure {
+  position: relative;
+}
+
+.number {
+  display: flex;
+  align-items: flex-start;
+  margin: 18px 0 6px;
+  font-family: var(--serif);
+  font-weight: 300;
+  line-height: 0.82;
+  letter-spacing: -0.04em;
+  font-size: clamp(9rem, 34vw, 17rem);
+}
+
+.digits {
+  --num: 0;
+  counter-reset: num var(--num);
+  background: var(--gold-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: --num 2.4s var(--ease-out) 0.2s;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.digits::before {
+  content: counter(num);
+}
+
+:global(.is-visible) .digits,
+:global(html:not(.js)) .digits {
+  --num: var(--target);
+}
+
+.percent {
+  margin-top: 0.12em;
+  margin-left: 0.04em;
+  font-size: 0.34em;
+  font-style: italic;
+  color: var(--gold-ink);
+}
+
+.caption {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.text {
+  display: grid;
+  gap: 26px;
+}
+
+.levels {
+  display: grid;
+  gap: 18px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.level {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 8px;
+  font-size: 0.82rem;
+}
+
+.levelName {
+  color: var(--text-muted);
+}
+
+.levelRange {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.track {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 3px;
+  background: rgba(27, 23, 19, 0.08);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  background: rgba(27, 23, 19, 0.32);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.6s var(--ease-out);
+  transition-delay: var(--d, 0s);
+}
+
+:global(.is-visible) .fill,
+:global(html:not(.js)) .fill {
+  transform: scaleX(var(--w));
+}
+
+.highlight .levelName,
+.highlight .levelRange {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.highlight .track {
+  height: 5px;
+}
+
+.highlight .fill {
+  background: var(--gold-grad);
+}
+
+.footnote {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.benefits {
+  display: grid;
+  gap: 1px;
+  margin-top: clamp(64px, 9vw, 120px);
+  background: var(--hair-light);
+  border: 1px solid var(--hair-light);
+}
+
+.benefit {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 34px 30px;
+  background: var(--paper);
+}
+
+.benefitIcon {
+  color: var(--gold-ink);
+  margin-bottom: 8px;
+}
+
+.benefitTitle {
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.benefitText {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: clamp(48px, 7vw, 120px);
+  }
+
+  .benefits {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 899px) {
+  .benefit {
+    grid-template-columns: 28px 1fr;
+    column-gap: 16px;
+    row-gap: 4px;
+    padding: 22px 20px;
+  }
+
+  .benefitIcon {
+    grid-row: span 2;
+    margin: 4px 0 0;
+  }
+
+  .benefitTitle {
+    font-size: 1.45rem;
+  }
+}
