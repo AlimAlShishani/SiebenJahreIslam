@@ -19,6 +19,7 @@ import {
   SRGBColorSpace,
   Scene,
   ShaderMaterial,
+  DoubleSide,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -26,7 +27,7 @@ import {
   type BufferGeometry,
   type Texture,
 } from "three";
-import { vivid } from "@/lib/color";
+import { perfumeDepth, perfumeLiquid } from "@/lib/color";
 import type { SizeMl } from "@/lib/config";
 import { drawLabel, type LabelScent } from "./label";
 import { CAP_GAP, SPECS, labelArc, totalHeight } from "./specs";
@@ -92,67 +93,93 @@ const LIQUID_VERTEX = /* glsl */ `
   varying vec3 vNormalView;
   varying vec3 vViewDir;
   varying vec3 vPos;
-  varying vec3 vNormalObj;
+  varying vec3 vWorld;
   void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vec4 mv = viewMatrix * world;
     vNormalView = normalize(normalMatrix * normal);
     vViewDir = normalize(-mv.xyz);
     vPos = position;
-    vNormalObj = normal;
+    vWorld = world.xyz;
     gl_Position = projectionMatrix * mv;
   }
 `;
 
 /**
- * Klare Flüssigkeit. Sie wird nur durch das Glas gesehen (Brechungsbild) und gibt deshalb
- * vormultipliziertes Alpha aus: Der Seitenhintergrund scheint durch, zum Rand wird sie
- * dichter und dunkler. Dazu durchscheinendes Licht, Lichtbündel am Boden, ein Reflex an der
- * Innenwand, das Steigrohr des Zerstäubers und ein heller Rand am Flüssigkeitsspiegel.
+ * Parfümflüssigkeit. Ihr Spiegel ist eine waagerechte Ebene in der Welt: Neigt sich der Flakon,
+ * bleibt er gerade und schwappt nach (alles darüber wird verworfen, die Innenseite der Wand
+ * dahinter zeigt den Spiegel). Gesehen wird sie nur durch das Glas, deshalb vormultipliziertes
+ * Alpha: Der Hintergrund scheint durch. Dazu eine feine dunkle Brechungskante am Rand, ein
+ * schwaches Lichtbündel am Boden und das Steigrohr des Zerstäubers.
  */
 const LIQUID_FRAGMENT = /* glsl */ `
   ${PREMULTIPLY}
   uniform vec3 uColor;
-  uniform vec3 uDeep;
+  uniform float uDensity;
+  uniform float uBacklight;
   uniform float uBottom;
-  uniform float uTop;
-  uniform float uRadius;
   uniform float uTube;
   uniform vec3 uCamera;
+  uniform vec3 uLevel;
+  uniform vec3 uUp;
   varying vec3 vNormalView;
   varying vec3 vViewDir;
   varying vec3 vPos;
-  varying vec3 vNormalObj;
+  varying vec3 vWorld;
   void main() {
+    float above = dot(vWorld - uLevel, uUp);
+    if (above > 0.0) discard;
+
+    // Wasserlinie: heller Meniskus direkt unter dem Spiegel
+    float meniscus = 1.0 - smoothstep(0.0, 0.55, -above);
+
+    if (!gl_FrontFacing) {
+      // Spiegel von oben gesehen: fast klar, mit hellem Rand
+      gl_FragColor = premultiplied(uColor, uColor * 0.12 * meniscus + vec3(0.05) * meniscus, 0.18 + uDensity * 0.18);
+      return;
+    }
+
     vec3 n = normalize(vNormalView);
     float edge = 1.0 - clamp(dot(n, normalize(vViewDir)), 0.0, 1.0);
-    float h = clamp((vPos.y - uBottom) / (uTop - uBottom), 0.0, 1.0);
-    float topFace = step(0.7, normalize(vNormalObj).y);
+    float h = clamp((vPos.y - uBottom) / max(uLevel.y - uBottom, 1.0), 0.0, 1.0);
 
-    float alpha = mix(0.58, 0.94, pow(edge, 1.3));
-    vec3 body = uDeep * (1.0 - 0.5 * pow(edge, 1.6)) * mix(0.82, 1.0, h);
+    float alpha = mix(0.14, 0.5, uDensity) + 0.24 * pow(edge, 2.0);
+    vec3 body = uColor * (1.0 - 0.3 * pow(edge, 1.5)) * mix(0.88, 1.0, h);
+    // feine dunkle Brechungskante innen an der Glaswand
+    float rim = smoothstep(0.86, 0.985, edge);
+    body *= 1.0 - 0.45 * rim;
+    alpha = mix(alpha, 0.8, rim * 0.7);
 
-    float band = exp(-pow(n.x + 0.3, 2.0) / 0.03);
-    vec3 light = uColor * 0.38 * band + vec3(0.03) * band;
-    float caustic = exp(-pow(n.x + 0.02, 2.0) / 0.06) * (1.0 - smoothstep(0.0, 0.22, h));
-    light += uDeep * 0.3 * caustic;
-    light += uColor * 0.3 * exp(-pow(n.x - 0.86, 2.0) / 0.003);
+    // vor dunklem Hintergrund leuchtet das Licht von hinten durch die Flüssigkeit
+    float glow = exp(-pow(n.x + 0.18, 2.0) / 0.22);
+    vec3 light = uColor * uBacklight * (0.05 + 0.2 * glow) * (0.3 + 0.7 * uDensity) * (1.0 - edge) * mix(0.7, 1.0, h);
+    float caustic = exp(-pow(n.x + 0.04, 2.0) / 0.05) * (1.0 - smoothstep(0.0, 0.18, h));
+    light += uColor * 0.06 * caustic;
+    light += vec3(0.05) * meniscus;
 
-    // Steigrohr: Abstand des Sehstrahls von der Flakonachse
+    // Steigrohr aus klarem Kunststoff: zwei feine Kanten, innen etwas heller
     vec2 into = normalize(vPos - uCamera).xz;
     float dist = abs(vPos.x * into.y - vPos.z * into.x) / max(length(into), 1e-4);
-    float onTube = (1.0 - topFace) * step(uBottom + 0.6, vPos.y);
-    float tube = (1.0 - smoothstep(uTube * 0.85, uTube, dist)) * onTube;
-    float core = (1.0 - smoothstep(uTube * 0.45, uTube * 0.75, dist)) * onTube;
-    body *= 1.0 - 0.45 * max(tube - core, 0.0);
-    light += (uColor * 0.18 + vec3(0.03)) * core;
+    float onTube = step(uBottom + 0.5, vPos.y);
+    float wallLine = (smoothstep(uTube * 0.62, uTube * 0.82, dist) - smoothstep(uTube * 0.86, uTube, dist)) * onTube;
+    float core = (1.0 - smoothstep(uTube * 0.3, uTube * 0.6, dist)) * onTube;
+    body *= 1.0 - 0.5 * wallLine;
+    alpha = mix(alpha, 0.75, wallLine * 0.7);
+    light += vec3(0.05) * core;
 
-    if (topFace > 0.5) {
-      float r = length(vPos.xz) / uRadius;
-      alpha = 0.32;
-      body = uDeep * 0.8;
-      light = uColor * 0.35 * smoothstep(0.82, 0.98, r) + vec3(0.1) * smoothstep(0.9, 1.0, r);
-    }
     gl_FragColor = premultiplied(body, light, alpha);
+  }
+`;
+
+/** Steigrohr über der Flüssigkeit: klarer Kunststoff mit hellen Kanten */
+const TUBE_FRAGMENT = /* glsl */ `
+  ${PREMULTIPLY}
+  varying vec3 vNormalView;
+  varying vec3 vViewDir;
+  void main() {
+    float edge = 1.0 - clamp(abs(dot(normalize(vNormalView), normalize(vViewDir))), 0.0, 1.0);
+    float alpha = 0.14 + 0.5 * pow(edge, 2.0);
+    gl_FragColor = premultiplied(vec3(0.9, 0.91, 0.9), vec3(0.0), alpha);
   }
 `;
 
@@ -192,7 +219,7 @@ const BASE_FRAGMENT = /* glsl */ `
     col *= mix(1.0, 0.9 + 0.1 * h, light);
     // gebündeltes Licht im Glasboden
     float caustic = exp(-pow(normalize(vNormalView).x, 2.0) / 0.05) * smoothstep(0.2, 0.95, h);
-    col += uColor * caustic * 0.2;
+    col += uColor * caustic * 0.06;
     float alpha = clamp(mix(0.06, 0.02, light) + mix(0.36, 0.22, light) * h * h + edge * mix(0.22, 0.4, light) + caustic * 0.1, 0.0, 1.0);
     gl_FragColor = premultiplied(col, vec3(0.0), alpha);
   }
@@ -373,31 +400,43 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
   const liquidTop = H - headspace;
   const rl = R - wall;
   const fl = Math.min(f * 1.4, rl * 0.25);
-  const color = new Color(options.scent.tint);
-  const deep = new Color(vivid(options.scent.tint));
+  const color = new Color(perfumeLiquid(options.scent.tint));
+  const tubeRadius = Math.max(0.7, R * 0.045);
   const liquidMaterial = own(
     new ShaderMaterial({
       uniforms: {
         uColor: { value: color.clone() },
-        uDeep: { value: deep.clone() },
+        uDensity: { value: perfumeDepth(options.scent.tint) },
+        uBacklight: { value: lightBackground ? 0 : 1 },
         uBottom: { value: base },
-        uTop: { value: liquidTop },
-        uRadius: { value: rl },
-        uTube: { value: Math.max(0.7, R * 0.045) },
+        uTube: { value: tubeRadius },
         uCamera: { value: new Vector3() },
+        uLevel: { value: new Vector3() },
+        uUp: { value: new Vector3(0, 1, 0) },
       },
       vertexShader: LIQUID_VERTEX,
       fragmentShader: LIQUID_FRAGMENT,
+      side: DoubleSide,
     }),
   );
+  // reicht bis unter die Schulter – der Spiegel schneidet sie waagerecht ab
+  const liquidCeiling = H - Math.min(headspace * 0.35, 2);
   const liquid = new Mesh(
-    track(lathe([[0, base], ...arc(rl - fl, base + fl, fl, -Math.PI / 2, 0), [rl, liquidTop], [0, liquidTop]])),
+    track(lathe([[0, base], ...arc(rl - fl, base + fl, fl, -Math.PI / 2, 0), [rl, liquidCeiling], [0, liquidCeiling]])),
     liquidMaterial,
   );
-  // Kamera im Raum der Flüssigkeit – für das Steigrohr, das sich mit dem Flakon dreht
+  const levelLocal = new Vector3(0, liquidTop, 0);
+  // Kamera im Raum der Flüssigkeit (für das Steigrohr) und Spiegelhöhe in der Welt
   liquid.onBeforeRender = (_renderer, _scene, cam) => {
     liquid.worldToLocal(liquidMaterial.uniforms.uCamera.value.copy(cam.position));
+    liquid.localToWorld(liquidMaterial.uniforms.uLevel.value.copy(levelLocal));
   };
+
+  const tube = new Mesh(
+    track(new CylinderGeometry(tubeRadius, tubeRadius, H - base - 0.5, 24, 1, true)),
+    own(new ShaderMaterial({ vertexShader: BASE_VERTEX, fragmentShader: TUBE_FRAGMENT, side: DoubleSide })),
+  );
+  tube.position.y = base + 0.5 + (H - base - 0.5) / 2;
 
   const baseMaterial = own(
     new ShaderMaterial({
@@ -445,7 +484,7 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       }),
     ),
   );
-  const parts: Mesh[] = [glass, baseBlock, liquid, label, capMesh];
+  const parts: Mesh[] = [glass, baseBlock, tube, liquid, label, capMesh];
   if (cap.ring > 0) {
     const b = 0.3;
     const ring = new Mesh(
@@ -540,6 +579,10 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
   let pointer = { x: 0, y: 0 };
   let tiltX = 0;
   let tiltZ = 0;
+  // Schwappen: gedämpfte Feder, angestoßen von Neigen und Drehen
+  const slosh = { x: 0, z: 0, vx: 0, vz: 0 };
+  let lastSpinY = 0;
+  let lastSpinVelocity = 0;
   let scrollTarget = 0;
   let scrollAngle = 0;
   let dragging = false;
@@ -550,8 +593,8 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
     start: number;
     from: Color;
     to: Color;
-    fromDeep: Color;
-    toDeep: Color;
+    fromDepth: number;
+    toDepth: number;
     next: typeof textures;
     swapped: boolean;
   } = null;
@@ -579,7 +622,7 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       spinAngle = spinBase + e * TURN;
       const c = smooth(0.18, 0.82, p);
       liquidMaterial.uniforms.uColor.value.copy(spinState.from).lerp(spinState.to, c);
-      liquidMaterial.uniforms.uDeep.value.copy(spinState.fromDeep).lerp(spinState.toDeep, c);
+      liquidMaterial.uniforms.uDensity.value = spinState.fromDepth + (spinState.toDepth - spinState.fromDepth) * c;
       baseMaterial.uniforms.uColor.value.copy(liquidMaterial.uniforms.uColor.value);
       if (!spinState.swapped && e >= 0.5) {
         applyTextures(spinState.next);
@@ -613,8 +656,24 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
     const k = 1 - Math.exp(-dt * 3.5);
     tiltX += (pointer.y * 0.2 - tiltX) * k;
     tiltZ += (-pointer.x * 0.1 - tiltZ) * k;
+    const prevTiltX = tilt.rotation.x;
+    const prevTiltZ = tilt.rotation.z;
     tilt.rotation.x = tiltX;
     tilt.rotation.z = tiltZ;
+
+    if (dt > 0) {
+      const spinVelocity = (spin.rotation.y - lastSpinY) / dt;
+      const spinAccel = (spinVelocity - lastSpinVelocity) / dt;
+      lastSpinY = spin.rotation.y;
+      lastSpinVelocity = spinVelocity;
+      const ax = (tiltZ - prevTiltZ) / dt;
+      const az = (tiltX - prevTiltX) / dt;
+      slosh.vx += (-38 * slosh.x - 2.6 * slosh.vx) * dt + ax * 0.35 * dt * 10 + Math.max(-30, Math.min(30, spinAccel)) * 0.0016;
+      slosh.vz += (-38 * slosh.z - 2.6 * slosh.vz) * dt - az * 0.35 * dt * 10;
+      slosh.x = Math.max(-0.14, Math.min(0.14, slosh.x + slosh.vx * dt));
+      slosh.z = Math.max(-0.14, Math.min(0.14, slosh.z + slosh.vz * dt));
+    }
+    liquidMaterial.uniforms.uUp.value.set(slosh.x, 1, slosh.z).normalize();
 
     const float = reduced || !options.idle ? 0 : Math.sin((now - start) * 0.9) * 1.1;
     root.position.y = float + introLift;
@@ -643,12 +702,12 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       next.foil?.dispose();
       return;
     }
-    const to = new Color(scent.tint);
-    const toDeep = new Color(vivid(scent.tint));
+    const to = new Color(perfumeLiquid(scent.tint));
+    const toDepth = perfumeDepth(scent.tint);
     if (reduced || !active) {
       applyTextures(next);
       liquidMaterial.uniforms.uColor.value.copy(to);
-      liquidMaterial.uniforms.uDeep.value.copy(toDeep);
+      liquidMaterial.uniforms.uDensity.value = toDepth;
       baseMaterial.uniforms.uColor.value.copy(to);
       if (!active) renderer.render(scene, camera);
       return;
@@ -657,8 +716,8 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       start: performance.now() / 1000,
       from: liquidMaterial.uniforms.uColor.value.clone(),
       to,
-      fromDeep: liquidMaterial.uniforms.uDeep.value.clone(),
-      toDeep,
+      fromDepth: liquidMaterial.uniforms.uDensity.value,
+      toDepth,
       next,
       swapped: false,
     };

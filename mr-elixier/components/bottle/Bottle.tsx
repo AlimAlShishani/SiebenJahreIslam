@@ -3,7 +3,7 @@
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { SPRITE, WORDMARK } from "@/components/brand/geometry";
 import { CAP_GAP, FRAME, LABEL_LAYOUT, SPECS } from "@/components/bottle3d/specs";
-import { mix, shade, vivid } from "@/lib/color";
+import { mix, perfumeDepth, perfumeLiquid, shade } from "@/lib/color";
 import type { SizeMl } from "@/lib/config";
 import type { Line } from "@/lib/products";
 import styles from "./Bottle.module.css";
@@ -171,7 +171,10 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
   const lr = Math.min(body.r * 1.4, body.rx * 0.25);
   const liquid = liquidPath(left + g.wall, right - g.wall, liquidTop, liquidBottom, lr);
   const surfaceRy = (body.rx - g.wall) * LIFT;
-  const deep = vivid(tint);
+  // Parfümfarbe (Stroh bis Bernstein) und wie dicht sie wirkt
+  const deep = perfumeLiquid(tint);
+  const density = perfumeDepth(tint);
+  const liquidAlpha = 0.32 + density * 0.3;
   const tube = Math.max(1.2, body.rx * 0.05);
   const capL = cx - cap.rx;
   const labelL = cx - label.w / 2;
@@ -202,20 +205,20 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         </linearGradient>
         {/* klare Flüssigkeit: satte Farbe, halb durchsichtig – zum Rand dichter */}
         <linearGradient id={id("liq")} x1="0" x2="1" y1="0" y2="0">
-          {stop(0, shade(deep, -0.35), 0.95)}
-          {stop(0.12, deep, 0.8)}
-          {stop(0.5, deep, 0.66)}
-          {stop(0.88, deep, 0.8)}
-          {stop(1, shade(deep, -0.35), 0.95)}
+          {stop(0, shade(deep, -0.4), 0.85)}
+          {stop(0.06, deep, liquidAlpha + 0.18)}
+          {stop(0.5, deep, liquidAlpha)}
+          {stop(0.94, deep, liquidAlpha + 0.18)}
+          {stop(1, shade(deep, -0.4), 0.85)}
         </linearGradient>
         {/* durchscheinendes Licht: helles Band links der Mitte, rechts ein schmaler Reflex */}
         <linearGradient id={id("vol")} x1="0" x2="1" y1="0" y2="0">
-          {stop(0.2, tint, 0)}
-          {stop(0.31, mix(tint, "#ffffff", 0.35), 0.62)}
-          {stop(0.42, tint, 0)}
-          {stop(0.89, tint, 0)}
-          {stop(0.925, mix(tint, "#ffffff", 0.3), 0.45)}
-          {stop(0.95, tint, 0)}
+          {stop(0.2, deep, 0)}
+          {stop(0.31, mix(deep, "#ffffff", 0.4), 0.22)}
+          {stop(0.42, deep, 0)}
+          {stop(0.89, deep, 0)}
+          {stop(0.925, mix(deep, "#ffffff", 0.4), 0.18)}
+          {stop(0.95, deep, 0)}
         </linearGradient>
         {/* nach unten satter, am Boden bündelt sich Licht */}
         <linearGradient id={id("depth")} x1="0" x2="0" y1="0" y2="1">
@@ -225,8 +228,8 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
           <stop offset="1" stopColor="#000" stopOpacity="0.2" />
         </linearGradient>
         <radialGradient id={id("caustic")}>
-          {stop(0, mix(tint, "#ffffff", 0.45), 0.75)}
-          {stop(1, tint, 0)}
+          {stop(0, mix(deep, "#ffffff", 0.3), 0.4)}
+          {stop(1, deep, 0)}
         </radialGradient>
         <linearGradient id={id("surface")} x1="0" x2="0" y1="0" y2="1">
           {stop(0, deep, 0.35)}
@@ -234,8 +237,8 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         </linearGradient>
         {/* massiver Glasboden: spiegelt oben die Duftfarbe, wird nach unten klarer */}
         <linearGradient id={id("base")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, tint, 0.55)}
-          {stop(0.4, tint, 0.24)}
+          {stop(0, deep, 0.45)}
+          {stop(0.4, deep, 0.2)}
           <stop offset="0.82" stopColor="#fff" stopOpacity="0.1" />
           <stop offset="1" stopColor="#fff" stopOpacity="0.36" />
         </linearGradient>
