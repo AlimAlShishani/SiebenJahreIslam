@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Coffret, Tube, WindowBox } from "@/components/bottle/Packaging";
+import { usePhoto } from "@/components/bottle/PhotoContext";
 import { ProductVisual } from "@/components/bottle/ProductVisual";
+import { BottleViewer } from "@/components/bottle3d/BottleViewer";
 import { useCart } from "@/components/cart/CartProvider";
 import { CheckIcon, DropIcon, GiftIcon, MinusIcon, PlusIcon, TruckIcon } from "@/components/ui/Icons";
 import { DEFAULT_SIZE, MAX_QTY, SHIPPING, SHOP, SIZES, getSize, type SizeMl } from "@/lib/config";
@@ -25,6 +27,8 @@ export function ProductDetail({ scent }: { scent: Scent }) {
   const [showBar, setShowBar] = useState(false);
   const buyRef = useRef<HTMLDivElement>(null);
   const size = getSize(ml) ?? SIZES[1];
+  // mit Produktfoto zeigt die Galerie das Foto, sonst den drehbaren 3D-Flakon
+  const photo = usePhoto(scent.slug, ml);
   const lineLabel = scent.line === "mrs" ? "Mrs. Elixier" : "Mr. Elixier";
 
   useEffect(() => {
@@ -57,7 +61,13 @@ export function ProductDetail({ scent }: { scent: Scent }) {
             <div className={styles.aura} aria-hidden="true" />
             {view === "flakon" ? (
               <div key={`b-${ml}`} className={styles.visual} style={{ height: VISUAL_HEIGHT[ml] }}>
-                <ProductVisual scent={scent} ml={ml} sweep priority sizes="(min-width: 900px) 40vw, 80vw" />
+                {photo ? (
+                  <ProductVisual scent={scent} ml={ml} priority sizes="(min-width: 900px) 40vw, 80vw" />
+                ) : (
+                  <BottleViewer scent={scent} ml={ml} background="#eee6d8">
+                    <ProductVisual scent={scent} ml={ml} sweep />
+                  </BottleViewer>
+                )}
               </div>
             ) : (
               <div key={`p-${ml}`} className={`${styles.visual} ${styles.pack} ${styles[`pack${ml}`]}`}>

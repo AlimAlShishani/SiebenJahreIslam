@@ -37,14 +37,6 @@ export const SIZES: readonly SizeOption[] = [
 
 export const DEFAULT_SIZE: SizeMl = 50;
 
-export type CapFinish = "gold" | "black";
-
-/** Aussehen der Platzhalter-Flakons, solange noch keine Produktfotos hinterlegt sind */
-export const BOTTLE_STYLE: { cap: CapFinish } = {
-  /** "gold" = polierte Goldkappe, "black" = glänzend schwarze Kappe mit Chromring */
-  cap: "gold",
-};
-
 export const SHIPPING = {
   carrier: "Deutsche Post",
   /** Versandkosten in Cent */

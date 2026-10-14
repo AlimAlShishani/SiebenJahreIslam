@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { usePhotoMap } from "@/components/bottle/PhotoContext";
 import { BOTTLE_ASPECT } from "@/components/bottle/Bottle";
+import { usePhotoMap } from "@/components/bottle/PhotoContext";
 import { ProductVisual } from "@/components/bottle/ProductVisual";
+import type { Stage } from "@/components/bottle3d/stage";
 import { SHOP } from "@/lib/config";
 import type { Scent } from "@/lib/products";
 import { GoldDust } from "./GoldDust";
+import { HeroBottle3D } from "./HeroBottle3D";
 import styles from "./Hero.module.css";
 
 const ROTATE_MS = 5200;
@@ -22,11 +24,36 @@ export function Hero({ scents, total }: { scents: HeroScent[]; total: number }) 
   const [layers, setLayers] = useState<number[]>([0]);
   const [reduced, setReduced] = useState(false);
   const current = scents[index];
+  // Bis der 3D-Flakon geladen ist (oder ohne WebGL) zeigt der Hero die gezeichnete Version.
   // Mit Produktfotos werden ganze Bilder überblendet. Ohne Fotos bleibt es ein einziger
   // Flakon, dessen Flüssigkeit und Etikett wechseln – zwei halbtransparente Gläser
   // übereinander würden sonst milchig wirken.
   const photos = usePhotoMap();
   const photoMode = scents.some((s) => photos[s.slug]?.["50"] ?? photos[s.slug]?.all);
+
+  // 3D-Bühne: dreht sich beim Duftwechsel, folgt Maus und Scrollen
+  const bottleRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<Stage | null>(null);
+  const shownRef = useRef(current.slug);
+  const currentRef = useRef(current);
+  const [is3d, setIs3d] = useState(false);
+  const onStage = useCallback((stage: Stage | null) => {
+    stageRef.current = stage;
+    setIs3d(stage !== null);
+    // falls während des Ladens schon ein anderer Duft dran war
+    if (stage && shownRef.current !== currentRef.current.slug) {
+      shownRef.current = currentRef.current.slug;
+      void stage.setScent(currentRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    currentRef.current = current;
+    if (stageRef.current && shownRef.current !== current.slug) {
+      shownRef.current = current.slug;
+      void stageRef.current.setScent(current);
+    }
+  }, [current]);
 
   const goTo = useCallback((next: number) => {
     setIndex(next);
@@ -64,6 +91,7 @@ export function Hero({ scents, total }: { scents: HeroScent[]; total: number }) 
       el.style.setProperty("--my", my.toFixed(3));
       const progress = Math.min(1, Math.max(0, window.scrollY / Math.max(1, el.offsetHeight)));
       el.style.setProperty("--sp", progress.toFixed(3));
+      stageRef.current?.setScroll(progress);
     };
     const queue = () => {
       if (!raf) raf = requestAnimationFrame(apply);
@@ -149,22 +177,25 @@ export function Hero({ scents, total }: { scents: HeroScent[]; total: number }) 
             </text>
           </svg>
 
-          <div className={styles.bottleWrap}>
-            <div className={styles.bottle} style={{ aspectRatio: BOTTLE_ASPECT[50] }}>
-              {photoMode ? (
-                layers.map((layerIndex, i) => (
-                  <div
-                    key={layerIndex}
-                    className={`${styles.layer} ${i === layers.length - 1 && layers.length > 1 ? styles.enter : ""}`}
-                  >
-                    <ProductVisual scent={scents[layerIndex]} ml={50} sweep priority sizes="(min-width: 900px) 30vw, 60vw" />
+          <div className={`${styles.bottleWrap} ${is3d ? styles.is3d : ""}`}>
+            <div ref={bottleRef} className={styles.bottle} style={{ aspectRatio: BOTTLE_ASPECT[50] }}>
+              <div className={styles.fallback}>
+                {photoMode ? (
+                  layers.map((layerIndex, i) => (
+                    <div
+                      key={layerIndex}
+                      className={`${styles.layer} ${i === layers.length - 1 && layers.length > 1 ? styles.enter : ""}`}
+                    >
+                      <ProductVisual scent={scents[layerIndex]} ml={50} sweep priority sizes="(min-width: 900px) 30vw, 60vw" />
+                    </div>
+                  ))
+                ) : (
+                  <div className={styles.layer}>
+                    <ProductVisual scent={current} ml={50} sweep />
                   </div>
-                ))
-              ) : (
-                <div className={styles.layer}>
-                  <ProductVisual scent={current} ml={50} sweep />
-                </div>
-              )}
+                )}
+              </div>
+              <HeroBottle3D scent={current} dragTarget={bottleRef} onStage={onStage} />
             </div>
             <div className={styles.reflection} aria-hidden="true">
               <ProductVisual scent={current} ml={50} shadow={false} />

@@ -199,8 +199,45 @@
 
 .bottle {
   position: relative;
+}
+
+/* gezeichneter Flakon – sichtbar, bis der 3D-Flakon geladen ist (oder ohne WebGL) */
+.fallback {
+  position: absolute;
+  inset: 0;
   animation: float 7s ease-in-out infinite;
   filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.55));
+  transition:
+    opacity 0.8s var(--ease),
+    visibility 0s linear 0.8s;
+}
+
+/* 3D-Flakon: die Zeichenfläche ragt über die Box hinaus, damit Neigen und Schweben Platz haben */
+.stage3d {
+  position: absolute;
+  inset: -10% -30%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s var(--ease);
+}
+
+.is3d .stage3d {
+  opacity: 1;
+}
+
+.is3d .fallback,
+.is3d .reflection {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.is3d .bottle {
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.is3d .bottle:active {
+  cursor: grabbing;
 }
 
 .layer {
@@ -223,6 +260,9 @@
   -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 38%);
   mask-image: linear-gradient(to top, #000 0%, transparent 38%);
   animation: float 7s ease-in-out infinite reverse;
+  transition:
+    opacity 0.8s var(--ease),
+    visibility 0s linear 0.8s;
 }
 
 .pool {

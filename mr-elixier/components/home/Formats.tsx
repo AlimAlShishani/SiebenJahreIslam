@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Coffret, Tube, WindowBox } from "@/components/bottle/Packaging";
-import { BOTTLE_STYLE, SIZES } from "@/lib/config";
+import { SIZES } from "@/lib/config";
 import { formatBasePrice, formatPriceShort } from "@/lib/format";
 import type { Scent } from "@/lib/products";
 import styles from "./Formats.module.css";
@@ -17,7 +17,7 @@ export function Formats({ small, medium, large }: { small: ScentLike; medium: Sc
     {
       visual: <Tube scent={medium} />,
       tag: "Der Klassiker",
-      text: `Der elegante Begleiter für jeden Tag – im massiven Glasflakon mit ${BOTTLE_STYLE.cap === "gold" ? "goldener" : "schwarzer"} Kappe.`,
+      text: "Der elegante Begleiter für jeden Tag – im massiven Glasflakon mit schwarzer Kappe.",
     },
     {
       visual: <Coffret scent={large} />,

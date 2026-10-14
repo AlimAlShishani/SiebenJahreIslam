@@ -41,10 +41,11 @@ npm run typecheck            # TypeScript prüfen
 
 ## Produktfotos hinzufügen
 
-Bis echte Fotos da sind, zeigt der Shop gezeichnete Flakons im Stil von Produktfotos (satiniertes Glas, 15 ml
-schlanker Zylinder, 50 ml mit weißem Etikett, 100 ml mit schwarzem Etikett) – mit der Farbe des jeweiligen Duftes
-und MR./MRS.-Etikett. Die Kappe ist Gold; `BOTTLE_STYLE.cap = "black"` in `lib/config.ts` zeigt stattdessen eine
-schwarze Kappe mit Chromring.
+Bis echte Fotos da sind, zeigt der Shop die Flakons im Mr.-Elixier-Design: klares Glas mit der Farbe des
+jeweiligen Duftes, glänzend schwarze Kappe mit Chromring, MR./MRS.-Etikett (100 ml mit schwarzem Etikett).
+Auf der Startseite dreht sich ein echtes 3D-Modell (three.js, `components/bottle3d/`), überall sonst steht die
+gezeichnete Version (`components/bottle/Bottle.tsx`) – beide nutzen dieselben Maße aus
+`components/bottle3d/specs.ts`.
 
 Fotos werden **automatisch erkannt**, sobald sie in `public/produkte/` liegen:
 
