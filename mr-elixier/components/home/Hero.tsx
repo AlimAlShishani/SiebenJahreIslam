@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePhotoMap } from "@/components/bottle/PhotoContext";
 import { ProductVisual } from "@/components/bottle/ProductVisual";
 import { SHOP } from "@/lib/config";
 import type { Scent } from "@/lib/products";
@@ -20,6 +21,11 @@ export function Hero({ scents, total }: { scents: HeroScent[]; total: number }) 
   const [layers, setLayers] = useState<number[]>([0]);
   const [reduced, setReduced] = useState(false);
   const current = scents[index];
+  // Mit Produktfotos werden ganze Bilder überblendet. Ohne Fotos bleibt es ein einziger
+  // Flakon, dessen Flüssigkeit und Etikett wechseln – zwei halbtransparente Gläser
+  // übereinander würden sonst milchig wirken.
+  const photos = usePhotoMap();
+  const photoMode = scents.some((s) => photos[s.slug]?.["50"] ?? photos[s.slug]?.all);
 
   const goTo = useCallback((next: number) => {
     setIndex(next);
@@ -144,14 +150,20 @@ export function Hero({ scents, total }: { scents: HeroScent[]; total: number }) 
 
           <div className={styles.bottleWrap}>
             <div className={styles.bottle}>
-              {layers.map((layerIndex, i) => {
-                const scent = scents[layerIndex];
-                return (
-                  <div key={layerIndex} className={`${styles.layer} ${i === layers.length - 1 && layers.length > 1 ? styles.enter : ""}`}>
-                    <ProductVisual scent={scent} ml={50} sweep priority sizes="(min-width: 900px) 30vw, 60vw" />
+              {photoMode ? (
+                layers.map((layerIndex, i) => (
+                  <div
+                    key={layerIndex}
+                    className={`${styles.layer} ${i === layers.length - 1 && layers.length > 1 ? styles.enter : ""}`}
+                  >
+                    <ProductVisual scent={scents[layerIndex]} ml={50} sweep priority sizes="(min-width: 900px) 30vw, 60vw" />
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                <div className={styles.layer}>
+                  <ProductVisual scent={current} ml={50} sweep />
+                </div>
+              )}
             </div>
             <div className={styles.reflection} aria-hidden="true">
               <ProductVisual scent={current} ml={50} shadow={false} />

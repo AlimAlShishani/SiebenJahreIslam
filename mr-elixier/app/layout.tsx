@@ -7,6 +7,7 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
+import { InlineScript } from "@/components/ui/InlineScript";
 import { RevealObserver } from "@/components/ui/RevealObserver";
 import { SHOP } from "@/lib/config";
 import { getPhotoMap } from "@/lib/photos";
@@ -66,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="de" className={`${serif.variable} ${sans.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
+        <InlineScript html={bootScript} />
       </head>
       <body>
         <PhotoProvider photos={getPhotoMap()}>
