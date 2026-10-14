@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePhotoMap } from "@/components/bottle/PhotoContext";
+import { BOTTLE_ASPECT } from "@/components/bottle/Bottle";
 import { ProductVisual } from "@/components/bottle/ProductVisual";
 import { SHOP } from "@/lib/config";
 import type { Scent } from "@/lib/products";
@@ -149,7 +150,7 @@ export function Hero({ scents, total }: { scents: HeroScent[]; total: number }) 
           </svg>
 
           <div className={styles.bottleWrap}>
-            <div className={styles.bottle}>
+            <div className={styles.bottle} style={{ aspectRatio: BOTTLE_ASPECT[50] }}>
               {photoMode ? (
                 layers.map((layerIndex, i) => (
                   <div

@@ -32,7 +32,7 @@
 }
 
 .bottle {
-  width: 45%;
+  width: 39%;
   transform: translateY(4%);
   transition: transform 1s var(--ease-out);
 }
@@ -255,6 +255,6 @@
   }
 
   .bottle {
-    width: 48%;
+    width: 42%;
   }
 }

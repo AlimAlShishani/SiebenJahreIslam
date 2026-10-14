@@ -13,7 +13,8 @@ import styles from "./ProductDetail.module.css";
 
 type View = "flakon" | "verpackung";
 
-const VISUAL_HEIGHT: Record<SizeMl, string> = { 15: "64%", 50: "80%", 100: "92%" };
+// Höhen im echten Größenverhältnis der Flakons
+const VISUAL_HEIGHT: Record<SizeMl, string> = { 15: "59%", 50: "75%", 100: "92%" };
 
 export function ProductDetail({ scent }: { scent: Scent }) {
   const { add } = useCart();

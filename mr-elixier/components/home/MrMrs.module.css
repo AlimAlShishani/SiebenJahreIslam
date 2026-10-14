@@ -89,23 +89,23 @@
 
 .front {
   right: 10%;
-  width: clamp(150px, 34vw, 230px);
+  width: clamp(122px, 27.5vw, 186px);
   filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.4));
 }
 
 .back {
-  right: calc(10% + clamp(150px, 34vw, 230px) * 0.82);
-  width: clamp(104px, 23vw, 158px);
+  right: calc(10% + clamp(122px, 27.5vw, 186px) * 0.82);
+  width: clamp(90px, 19.8vw, 136px);
   filter: brightness(0.86) drop-shadow(0 18px 24px rgba(0, 0, 0, 0.3));
   transition-delay: var(--d, 0s);
 }
 
 .mrs .front {
-  width: clamp(124px, 27vw, 186px);
+  width: clamp(107px, 23.2vw, 160px);
 }
 
 .mrs .back {
-  right: calc(10% + clamp(124px, 27vw, 186px) * 0.86);
+  right: calc(10% + clamp(107px, 23.2vw, 160px) * 0.86);
   width: clamp(46px, 9vw, 64px);
   filter: drop-shadow(0 14px 18px rgba(110, 60, 45, 0.25));
 }
@@ -130,20 +130,20 @@
 
   /* Größe hängt auch von der Bildschirmhöhe ab, damit nichts mit dem Text kollidiert */
   .front {
-    width: min(17vw, 26vh, 290px);
+    width: min(13.8vw, 21vh, 235px);
   }
 
   .back {
-    right: calc(10% + min(17vw, 26vh, 290px) * 0.8);
-    width: min(11.8vw, 18vh, 200px);
+    right: calc(10% + min(13.8vw, 21vh, 235px) * 0.8);
+    width: min(10.1vw, 15.5vh, 172px);
   }
 
   .mrs .front {
-    width: min(14vw, 24vh, 240px);
+    width: min(12vw, 20.6vh, 206px);
   }
 
   .mrs .back {
-    right: calc(10% + min(14vw, 24vh, 240px) * 0.86);
+    right: calc(10% + min(12vw, 20.6vh, 206px) * 0.86);
     width: min(5vw, 8.4vh, 86px);
   }
 }

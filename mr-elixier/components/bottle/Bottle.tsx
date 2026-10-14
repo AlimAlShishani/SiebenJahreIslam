@@ -2,36 +2,38 @@
 
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { SPRITE, WORDMARK } from "@/components/brand/geometry";
-import { shade } from "@/lib/color";
-import type { SizeMl } from "@/lib/config";
+import { mix, shade } from "@/lib/color";
+import { BOTTLE_STYLE, type CapFinish, type SizeMl } from "@/lib/config";
 import type { Line } from "@/lib/products";
 import styles from "./Bottle.module.css";
 
 /*
- * Platzhalter-Illustration der echten, runden Flakons (nach den Produktfotos),
- * in leichter Aufsicht: Kappe, Schulter, Flüssigkeitsoberfläche und Boden
- * erscheinen als Ellipsen, das Etikett folgt der Wölbung des Glases.
- *  15 ml  – schlanker Zylinder, weißes Etikett
- *  50 ml  – runder Flakon, schwarze Kappe, weißes Etikett mit Rahmen
- *  100 ml – großer runder Flakon, schwarzes Etikett mit Champagner-Schrift
+ * Platzhalter-Illustration der Flakons, bis echte Produktfotos da sind –
+ * gerade von vorn gesehen wie auf einem Produktfoto: satiniertes Glas, in dem die
+ * Duftfarbe weich durchscheint, massiver Glasboden, polierte Kappe mit Ring und
+ * ein schlichtes Etikett mit feinem Rahmen.
+ *  15 ml  – schlanker Zylinder, Kappe so breit wie das Glas
+ *  50 ml  – Zylinder mit schmalerer Kappe und Ring, weißes Etikett
+ *  100 ml – großer Zylinder, schwarzes Etikett mit Champagner-Schrift
+ * Maße in Einheiten von 1/4 mm, damit die Größen zueinander stimmen.
  */
 
 interface Geometry {
   w: number;
   h: number;
   cx: number;
-  /** Glaskörper: Radius, Mitte der oberen/unteren Ellipse, Ellipsenhöhe, Schulterrundung */
-  body: { rx: number; top: number; bottom: number; ry: number; r: number };
-  wall: number;
+  /** Glaskörper: Breite, Ober-/Unterkante, Eckradius, Wölbung der Unterkante */
+  body: { w: number; top: number; bottom: number; r: number; curve: number };
+  /** Höhe des massiven Glasbodens */
   base: number;
-  liquidTop: number;
-  cap: { rx: number; top: number; bottom: number; ry: number };
-  label: { w: number; top: number; h: number; border: number; dark: boolean };
+  /** Kappe: Breite, Oberkante und – falls zweiteilig – Fuge zum Ring darunter */
+  cap: { w: number; top: number; split?: number };
+  label: { w: number; top: number; h: number; frame: number; dark: boolean };
   emblem: { y: number; size: number };
   word: { y: number; h: number };
   sub?: { y: number; w: number };
   name: { y: number; size: number; maxW: number };
-  info: { y: number; size: number };
+  info: { y: number; size: number; gap: number };
 }
 
 const GEOMETRY: Record<SizeMl, Geometry> = {
@@ -39,83 +41,151 @@ const GEOMETRY: Record<SizeMl, Geometry> = {
     w: 100,
     h: 330,
     cx: 50,
-    body: { rx: 31, top: 100, bottom: 314, ry: 4.4, r: 6 },
-    wall: 3,
-    base: 16,
-    liquidTop: 112,
-    cap: { rx: 22.5, top: 16, bottom: 102, ry: 3.3 },
-    label: { w: 50, top: 150, h: 74, border: 0, dark: false },
-    emblem: { y: 156, size: 20 },
-    word: { y: 181, h: 5.4 },
-    name: { y: 197, size: 4.4, maxW: 42 },
-    info: { y: 210, size: 2.4 },
+    body: { w: 80, top: 93, bottom: 321, r: 3.2, curve: 1.6 },
+    base: 34,
+    cap: { w: 78, top: 4 },
+    label: { w: 68, top: 141, h: 106, frame: 1.5, dark: false },
+    emblem: { y: 150, size: 19 },
+    word: { y: 174, h: 5.4 },
+    name: { y: 199, size: 9.5, maxW: 54 },
+    info: { y: 219, size: 2.7, gap: 15 },
   },
   50: {
-    w: 200,
-    h: 412,
-    cx: 100,
-    body: { rx: 76, top: 106, bottom: 390, ry: 9, r: 12 },
-    wall: 5,
-    base: 34,
-    liquidTop: 124,
-    cap: { rx: 55, top: 16, bottom: 110, ry: 6.6 },
-    label: { w: 112, top: 160, h: 126, border: 3.6, dark: false },
-    emblem: { y: 170, size: 44 },
-    word: { y: 223, h: 11.6 },
-    name: { y: 252, size: 8, maxW: 92 },
-    info: { y: 271, size: 4.1 },
+    w: 176,
+    h: 422,
+    cx: 88,
+    body: { w: 152, top: 122, bottom: 412, r: 6, curve: 3 },
+    base: 44,
+    cap: { w: 100, top: 3, split: 98 },
+    label: { w: 117, top: 183, h: 131, frame: 2.4, dark: false },
+    emblem: { y: 196, size: 31 },
+    word: { y: 233, h: 9 },
+    name: { y: 271, size: 17, maxW: 96 },
+    info: { y: 291, size: 4.1, gap: 13 },
   },
   100: {
-    w: 240,
-    h: 452,
-    cx: 120,
-    body: { rx: 104, top: 106, bottom: 422, ry: 12, r: 14 },
-    wall: 6,
-    base: 40,
-    liquidTop: 124,
-    cap: { rx: 56, top: 17, bottom: 111, ry: 6.6 },
-    label: { w: 140, top: 164, h: 156, border: 4.2, dark: true },
-    emblem: { y: 180, size: 46 },
-    word: { y: 236, h: 12.4 },
-    sub: { y: 254, w: 46 },
-    name: { y: 282, size: 7.8, maxW: 112 },
-    info: { y: 300, size: 4 },
+    w: 222,
+    h: 516,
+    cx: 111,
+    body: { w: 192, top: 145, bottom: 504, r: 7, curve: 3.8 },
+    base: 57,
+    cap: { w: 112, top: 3, split: 115.4 },
+    label: { w: 138, top: 223, h: 158, frame: 2.9, dark: true },
+    emblem: { y: 238, size: 38 },
+    word: { y: 283, h: 10.5 },
+    sub: { y: 298.5, w: 42 },
+    name: { y: 333, size: 18, maxW: 114 },
+    info: { y: 355, size: 4.4, gap: 14 },
   },
 };
+
+type Stops = readonly (readonly [number, string])[];
+
+/** Spiegelungen der polierten Kappe (von links nach rechts) */
+const FINISH: Record<CapFinish, { cap: Stops; collar: Stops }> = {
+  gold: {
+    cap: [
+      [0, "#6f604b"],
+      [0.025, "#dccdb0"],
+      [0.05, "#a8977b"],
+      [0.08, "#3a2f24"],
+      [0.15, "#30271d"],
+      [0.19, "#615442"],
+      [0.23, "#241d16"],
+      [0.3, "#15110d"],
+      [0.5, "#100d0a"],
+      [0.575, "#2d241b"],
+      [0.615, "#ccb995"],
+      [0.66, "#eee2c8"],
+      [0.72, "#faf2df"],
+      [0.8, "#f6ecd6"],
+      [0.85, "#dbc8a4"],
+      [0.885, "#ad946d"],
+      [0.925, "#c8af88"],
+      [0.965, "#a48a64"],
+      [1, "#5e4e38"],
+    ],
+    collar: [
+      [0, "#6a5a45"],
+      [0.03, "#dfd0b2"],
+      [0.06, "#7c6a52"],
+      [0.08, "#18120c"],
+      [0.15, "#2e251c"],
+      [0.19, "#a89574"],
+      [0.23, "#2a221a"],
+      [0.27, "#110d0a"],
+      [0.55, "#1b1611"],
+      [0.59, "#3a2f23"],
+      [0.62, "#bead8c"],
+      [0.66, "#ece0c6"],
+      [0.72, "#fbf5e6"],
+      [0.81, "#f8f0de"],
+      [0.85, "#cfbe9e"],
+      [0.885, "#8f7b5c"],
+      [0.925, "#d1bd99"],
+      [0.965, "#b19874"],
+      [1, "#5a4b37"],
+    ],
+  },
+  black: {
+    cap: [
+      [0, "#030303"],
+      [0.03, "#2b2b2b"],
+      [0.06, "#0e0e0e"],
+      [0.15, "#4f4f4f"],
+      [0.21, "#1c1c1c"],
+      [0.48, "#0a0a0a"],
+      [0.74, "#131313"],
+      [0.84, "#3b3b3b"],
+      [0.92, "#111111"],
+      [1, "#020202"],
+    ],
+    collar: [
+      [0, "#3c3c3c"],
+      [0.03, "#d4d4d4"],
+      [0.07, "#7a7a7a"],
+      [0.12, "#2c2c2c"],
+      [0.34, "#3a3a3a"],
+      [0.5, "#9b9b9b"],
+      [0.65, "#f1f1f1"],
+      [0.77, "#c8c8c8"],
+      [0.9, "#6c6c6c"],
+      [1, "#262626"],
+    ],
+  },
+};
+
+/** Farbe des satinierten Glases */
+const FROST = "#f1ece6";
 
 const LABEL_FADE_MS = 900;
 
 const n = (v: number) => Math.round(v * 100) / 100;
 
-/** Umriss des Glases: abgerundete Schulter, Ober- und Unterkante als Ellipsenbogen */
-function bodyPath({ cx, body: { rx, top: t, bottom: b, ry, r } }: Geometry) {
-  const l = cx - rx;
-  const R = cx + rx;
+/** Umriss des Glases: gerade von vorn, runde Ecken, Unterkante leicht gewölbt */
+function bodyPath({ cx, body: { w, top, bottom, r, curve } }: Geometry) {
+  const l = cx - w / 2;
+  const R = cx + w / 2;
+  const k = r * 0.45;
   return [
-    `M${n(l)},${n(t + r)}`,
-    `C${n(l)},${n(t + r * 0.4)} ${n(l + r * 0.4)},${n(t)} ${n(l + r)},${n(t)}`,
-    `A${rx},${ry} 0 0 1 ${n(R - r)},${n(t)}`,
-    `C${n(R - r * 0.4)},${n(t)} ${n(R)},${n(t + r * 0.4)} ${n(R)},${n(t + r)}`,
-    `L${n(R)},${n(b)}`,
-    `A${rx},${ry} 0 0 1 ${n(l)},${n(b)}Z`,
+    `M${n(l)},${n(top + r)}`,
+    `C${n(l)},${n(top + k)} ${n(l + k)},${n(top)} ${n(l + r)},${n(top)}`,
+    `L${n(R - r)},${n(top)}`,
+    `C${n(R - k)},${n(top)} ${n(R)},${n(top + k)} ${n(R)},${n(top + r)}`,
+    `L${n(R)},${n(bottom - r)}`,
+    `C${n(R)},${n(bottom - k)} ${n(R - k)},${n(bottom)} ${n(R - r)},${n(bottom)}`,
+    `A${n(w / 2 - r)},${n(curve)} 0 0 1 ${n(l + r)},${n(bottom)}`,
+    `C${n(l + k)},${n(bottom)} ${n(l)},${n(bottom - k)} ${n(l)},${n(bottom - r)}Z`,
   ].join("");
 }
 
-/** Zylinder zwischen zwei Höhen (vorne unten gewölbt, oben die hintere Ellipsenhälfte) */
-function cylinderPath(cx: number, rx: number, ry: number, top: number, bottom: number) {
-  const l = n(cx - rx);
-  const R = n(cx + rx);
-  return `M${l},${n(top)}L${l},${n(bottom)}A${n(rx)},${n(ry)} 0 0 0 ${R},${n(bottom)}L${R},${n(top)}A${n(rx)},${n(ry)} 0 0 0 ${l},${n(top)}Z`;
-}
-
-/** Etikett: Ober- und Unterkante folgen der Wölbung des Zylinders */
-function labelPath(g: Geometry, inset = 0) {
-  const { cx, body, label } = g;
-  const hw = label.w / 2 - inset;
-  const sag = body.ry * (1 - Math.sqrt(Math.max(0, 1 - (hw / body.rx) ** 2)));
-  const t = label.top + inset;
-  const b = label.top + label.h - inset;
-  return `M${n(cx - hw)},${n(t)}Q${cx},${n(t + 2 * sag)} ${n(cx + hw)},${n(t)}L${n(cx + hw)},${n(b)}Q${cx},${n(b + 2 * sag)} ${n(cx - hw)},${n(b)}Z`;
+/** Kappe: oben leicht gerundete Kanten, unten gerade */
+function capPath(cx: number, w: number, top: number, bottom: number) {
+  const l = cx - w / 2;
+  const R = cx + w / 2;
+  const r = w * 0.025;
+  const k = r * 0.45;
+  return `M${n(l)},${n(bottom)}L${n(l)},${n(top + r)}C${n(l)},${n(top + k)} ${n(l + k)},${n(top)} ${n(l + r)},${n(top)}L${n(R - r)},${n(top)}C${n(R - k)},${n(top)} ${n(R)},${n(top + k)} ${n(R)},${n(top + r)}L${n(R)},${n(bottom)}Z`;
 }
 
 export interface BottleProps {
@@ -151,23 +221,25 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
   }, [labels]);
 
   const { cx, body, cap, label } = g;
-  const ink = label.dark ? "#ddd0b3" : "#16130f";
+  const finish = FINISH[BOTTLE_STYLE.cap];
+  const ink = label.dark ? "#d9c8a0" : "#17130f";
   const title = `${line === "mrs" ? "Mrs." : "Mr."} Elixier – ${name}, ${ml} ml`;
 
-  const left = cx - body.rx;
-  const right = cx + body.rx;
-  const rl = body.rx - g.wall;
-  const ryl = (body.ry * rl) / body.rx;
-  const liquidBottom = body.bottom - g.base;
-  const liquid = cylinderPath(cx, rl, ryl, g.liquidTop, liquidBottom);
-  const shoulderRx = body.rx - body.r;
-  const shoulderCy = body.top + body.ry * Math.sqrt(1 - (shoulderRx / body.rx) ** 2);
-  const capL = cx - cap.rx;
-  const capPath = cylinderPath(cx, cap.rx, cap.ry, cap.top, cap.bottom);
+  const left = cx - body.w / 2;
+  const right = cx + body.w / 2;
   const outline = bodyPath(g);
-  const stop = (offset: number, color: string, opacity?: number) => (
-    <stop className={styles.stop} offset={offset} style={{ stopColor: color, stopOpacity: opacity }} />
-  );
+  const bodyH = body.bottom + body.curve - body.top;
+  // Beginn des massiven Glasbodens, relativ zur Höhe des Glases
+  const baseAt = (body.bottom - g.base - body.top) / bodyH;
+  const capBottom = cap.split ?? body.top;
+  const collarTop = cap.split !== undefined ? cap.split + 1.4 : undefined;
+  const capOutline = capPath(cx, cap.w, cap.top, capBottom);
+  const capL = cx - cap.w / 2;
+  const labelL = cx - label.w / 2;
+
+  // Duftfarbe als CSS-Eigenschaft, damit sie beim Duftwechsel weich überblendet
+  const stop = (offset: number, color: string) => <stop className={styles.stop} offset={n(offset)} style={{ stopColor: color }} />;
+  const stops = (list: Stops) => list.map(([offset, color]) => <stop key={offset} offset={offset} stopColor={color} />);
 
   return (
     <svg
@@ -179,186 +251,152 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
       focusable="false"
     >
       <defs>
-        <linearGradient id={id("cap")} x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#020202" />
-          <stop offset="0.07" stopColor="#1b1b1b" />
-          <stop offset="0.16" stopColor="#5e5e5e" />
-          <stop offset="0.22" stopColor="#262626" />
-          <stop offset="0.48" stopColor="#0c0c0c" />
-          <stop offset="0.76" stopColor="#141414" />
-          <stop offset="0.85" stopColor="#404040" />
-          <stop offset="0.92" stopColor="#151515" />
-          <stop offset="1" stopColor="#020202" />
-        </linearGradient>
-        <linearGradient id={id("capTop")} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#474747" />
-          <stop offset="1" stopColor="#0d0d0d" />
-        </linearGradient>
-        <linearGradient id={id("edge")} x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.62" />
-          <stop offset="0.035" stopColor="#fff" stopOpacity="0.22" />
-          <stop offset="0.12" stopColor="#fff" stopOpacity="0.05" />
-          <stop offset="0.88" stopColor="#fff" stopOpacity="0.05" />
-          <stop offset="0.965" stopColor="#fff" stopOpacity="0.2" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0.55" />
-        </linearGradient>
+        {/* Duftfarbe: fast gleichmäßig, nach unten etwas heller */}
         <linearGradient id={id("liq")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, shade(tint, 0.3))}
-          {stop(0.18, shade(tint, 0.06))}
-          {stop(0.62, tint)}
-          {stop(1, shade(tint, -0.22))}
+          {stop(0, shade(tint, -0.05))}
+          {stop(0.08, tint)}
+          {stop(0.6, mix(tint, FROST, 0.06))}
+          {stop(baseAt, mix(tint, FROST, 0.14))}
+          {stop(1, mix(tint, FROST, 0.3))}
         </linearGradient>
-        <linearGradient id={id("vol")} x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#000" stopOpacity="0.5" />
-          <stop offset="0.07" stopColor="#000" stopOpacity="0.22" />
-          <stop offset="0.2" stopColor="#000" stopOpacity="0.02" />
-          <stop offset="0.32" stopColor="#fff" stopOpacity="0.16" />
-          <stop offset="0.46" stopColor="#fff" stopOpacity="0.05" />
-          <stop offset="0.72" stopColor="#000" stopOpacity="0.03" />
-          <stop offset="0.9" stopColor="#000" stopOpacity="0.2" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.52" />
+        {/* Mattglas zur Seite hin: die Farbe verblasst weich zum Rand (wie satiniertes Glas) */}
+        <linearGradient id={id("frostX")} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor={FROST} stopOpacity="0.8" />
+          <stop offset="0.05" stopColor={FROST} stopOpacity="0.67" />
+          <stop offset="0.1" stopColor={FROST} stopOpacity="0.54" />
+          <stop offset="0.2" stopColor={FROST} stopOpacity="0.32" />
+          <stop offset="0.3" stopColor={FROST} stopOpacity="0.14" />
+          <stop offset="0.4" stopColor={FROST} stopOpacity="0.03" />
+          <stop offset="0.46" stopColor={FROST} stopOpacity="0" />
+          <stop offset="0.55" stopColor={FROST} stopOpacity="0" />
+          <stop offset="0.62" stopColor={FROST} stopOpacity="0.05" />
+          <stop offset="0.7" stopColor={FROST} stopOpacity="0.1" />
+          <stop offset="0.8" stopColor={FROST} stopOpacity="0.2" />
+          <stop offset="0.9" stopColor={FROST} stopOpacity="0.4" />
+          <stop offset="0.95" stopColor={FROST} stopOpacity="0.6" />
+          <stop offset="1" stopColor={FROST} stopOpacity="0.84" />
         </linearGradient>
-        <radialGradient id={id("glow")} cx="0.38" cy="0.32" r="0.7">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.3" />
-          <stop offset="0.45" stopColor="#fff" stopOpacity="0.08" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        {/* massiver Glasboden: satiniert, fast weiß */}
+        <linearGradient id={id("frostY")} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor={FROST} stopOpacity="0.3" />
+          <stop offset="0.012" stopColor={FROST} stopOpacity="0" />
+          <stop offset={n(baseAt - 0.035)} stopColor={FROST} stopOpacity="0" />
+          <stop offset={n(baseAt + 0.012)} stopColor={FROST} stopOpacity="0.5" />
+          <stop offset={n(baseAt + 0.04)} stopColor={FROST} stopOpacity="0.8" />
+          <stop offset="1" stopColor={FROST} stopOpacity="0.86" />
+        </linearGradient>
+        {/* Schatten des Rings auf der Schulter */}
+        <radialGradient id={id("neck")}>
+          <stop offset="0" stopColor="#000" stopOpacity="0.2" />
+          <stop offset="1" stopColor="#000" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={id("surface")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, shade(tint, 0.5))}
-          {stop(0.55, shade(tint, 0.24))}
-          {stop(1, shade(tint, 0.04))}
+        <linearGradient id={id("cap")} x1="0" x2="1" y1="0" y2="0">
+          {stops(finish.cap)}
         </linearGradient>
-        <linearGradient id={id("base")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, tint, 0.55)}
-          {stop(0.4, tint, 0.18)}
-          <stop offset="0.85" stopColor="#fff" stopOpacity="0.06" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0.3" />
+        <linearGradient id={id("collar")} x1="0" x2="1" y1="0" y2="0">
+          {stops(finish.collar)}
+        </linearGradient>
+        {/* Kappe: helle Oberkante, unten etwas dunkler */}
+        <linearGradient id={id("capY")} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.34" />
+          <stop offset="0.025" stopColor="#fff" stopOpacity="0.1" />
+          <stop offset="0.12" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.82" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.15" />
+        </linearGradient>
+        <linearGradient id={id("collarY")} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#000" stopOpacity="0.5" />
+          <stop offset="0.14" stopColor="#000" stopOpacity="0.1" />
+          <stop offset="0.35" stopColor="#000" stopOpacity="0" />
+          <stop offset="0.86" stopColor="#fff" stopOpacity="0" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0.14" />
         </linearGradient>
         <linearGradient id={id("paper")} x1="0" x2="1" y1="0" y2="0">
           {label.dark ? (
             <>
-              <stop offset="0" stopColor="#030303" />
-              <stop offset="0.38" stopColor="#1f1d1a" />
-              <stop offset="0.6" stopColor="#151412" />
-              <stop offset="1" stopColor="#040404" />
+              <stop offset="0" stopColor="#050505" />
+              <stop offset="0.1" stopColor="#151412" />
+              <stop offset="0.4" stopColor="#201e1b" />
+              <stop offset="0.75" stopColor="#151412" />
+              <stop offset="1" stopColor="#060606" />
             </>
           ) : (
             <>
-              <stop offset="0" stopColor="#d3ccbf" />
-              <stop offset="0.14" stopColor="#f2eee6" />
-              <stop offset="0.4" stopColor="#fefdfb" />
-              <stop offset="0.72" stopColor="#f5f1ea" />
-              <stop offset="1" stopColor="#cfc7ba" />
+              <stop offset="0" stopColor="#e2ddd4" />
+              <stop offset="0.08" stopColor="#f5f2ec" />
+              <stop offset="0.35" stopColor="#fefdfb" />
+              <stop offset="0.7" stopColor="#f8f6f1" />
+              <stop offset="0.94" stopColor="#ebe6dd" />
+              <stop offset="1" stopColor="#dcd6cb" />
             </>
           )}
         </linearGradient>
-        <linearGradient id={id("hl")} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.85" />
-          <stop offset="0.25" stopColor="#fff" stopOpacity="0.4" />
-          <stop offset="0.7" stopColor="#fff" stopOpacity="0.18" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0.45" />
-        </linearGradient>
         <linearGradient id={id("sweep")} x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#fff" stopOpacity="0.45" />
+          <stop offset="0.5" stopColor="#fff" stopOpacity="0.3" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
         <radialGradient id={id("shadow")}>
-          <stop offset="0" stopColor="#000" stopOpacity="0.45" />
-          <stop offset="0.6" stopColor="#000" stopOpacity="0.14" />
+          <stop offset="0" stopColor="#000" stopOpacity="0.42" />
+          <stop offset="0.55" stopColor="#000" stopOpacity="0.14" />
           <stop offset="1" stopColor="#000" stopOpacity="0" />
         </radialGradient>
-        <clipPath id={id("clip")}>
+        <clipPath id={id("body")}>
           <path d={outline} />
         </clipPath>
-        <clipPath id={id("capClip")}>
-          <path d={capPath} />
+        <clipPath id={id("all")}>
+          <path d={outline} />
+          <rect x={n(capL)} y={cap.top} width={cap.w} height={n(body.top - cap.top)} />
         </clipPath>
       </defs>
 
       {shadow && (
-        <ellipse cx={cx} cy={n(body.bottom + body.ry * 0.9)} rx={n(body.rx * 1.12)} ry={n(body.ry * 1.5)} fill={url("shadow")} />
-      )}
-
-      {/* Glas (Rückwand) */}
-      <path d={outline} fill="rgba(214, 220, 217, 0.16)" />
-
-      {/* Flüssigkeit mit Rundung, Lichtschein und Oberfläche */}
-      <path d={liquid} fill={url("liq")} />
-      <path d={liquid} fill={url("vol")} />
-      <path d={liquid} fill={url("glow")} />
-      <ellipse cx={cx} cy={g.liquidTop} rx={rl} ry={n(ryl)} fill={url("surface")} />
-      <path
-        d={`M${n(cx - rl)},${g.liquidTop}A${rl},${n(ryl)} 0 0 1 ${n(cx + rl)},${g.liquidTop}`}
-        fill="none"
-        stroke="#fff"
-        strokeOpacity={0.4}
-        strokeWidth={0.7}
-      />
-      <path
-        d={`M${n(cx - rl)},${liquidBottom}A${rl},${n(ryl)} 0 0 0 ${n(cx + rl)},${liquidBottom}`}
-        fill="none"
-        stroke="#000"
-        strokeOpacity={0.2}
-        strokeWidth={0.9}
-      />
-
-      {/* massiver Glasboden */}
-      <path
-        d={`M${n(left)},${liquidBottom}L${n(left)},${body.bottom}A${body.rx},${body.ry} 0 0 0 ${n(right)},${body.bottom}L${n(right)},${liquidBottom}A${body.rx},${body.ry} 0 0 1 ${n(left)},${liquidBottom}Z`}
-        fill={url("base")}
-        clipPath={url("clip")}
-      />
-      <path
-        d={`M${n(left + body.rx * 0.2)},${n(body.bottom - g.base * 0.3)}A${n(body.rx * 0.8)},${n(body.ry * 0.8)} 0 0 0 ${n(right - body.rx * 0.2)},${n(body.bottom - g.base * 0.3)}`}
-        fill="none"
-        stroke="#fff"
-        strokeOpacity={0.3}
-        strokeWidth={0.9}
-      />
-
-      {/* Glas (Vorderseite): Kanten, Schulter, Glanzlichter */}
-      <path d={outline} fill={url("edge")} />
-      <ellipse
-        cx={cx}
-        cy={n(shoulderCy)}
-        rx={shoulderRx}
-        ry={n((body.ry * shoulderRx) / body.rx)}
-        fill="#fff"
-        fillOpacity={0.08}
-        stroke="#fff"
-        strokeOpacity={0.45}
-        strokeWidth={0.8}
-      />
-      <g clipPath={url("clip")}>
-        <rect
-          x={n(left + body.rx * 0.15)}
-          y={body.top}
-          width={n(body.rx * 0.075)}
-          height={body.bottom - body.top}
-          rx={n(body.rx * 0.04)}
-          fill={url("hl")}
-          opacity={0.75}
+        <ellipse
+          cx={cx}
+          cy={n(body.bottom + body.curve * 0.6)}
+          rx={n(body.w * 0.56)}
+          ry={n(body.w * 0.05)}
+          fill={url("shadow")}
         />
-        <rect x={n(left + body.rx * 0.32)} y={body.top} width={n(body.rx * 0.022)} height={body.bottom - body.top} fill="#fff" opacity={0.28} />
-        <rect x={n(right - body.rx * 0.22)} y={body.top} width={n(body.rx * 0.04)} height={body.bottom - body.top} fill={url("hl")} opacity={0.35} />
-      </g>
+      )}
+
+      {/* Glas mit Duftfarbe und Mattglas-Schleier */}
+      <path d={outline} fill={url("liq")} />
+      <path d={outline} fill={url("frostX")} />
+      <path d={outline} fill={url("frostY")} />
+      <ellipse cx={cx} cy={body.top} rx={n(cap.w * 0.62)} ry={n(body.w * 0.07)} fill={url("neck")} clipPath={url("body")} />
+      {/* Lichtkante an Schulter und Boden */}
       <path
-        d={`M${n(left + 2)},${body.bottom}A${body.rx - 2},${body.ry} 0 0 0 ${n(right - 2)},${body.bottom}`}
+        d={`M${n(left + body.r)},${n(body.top + 0.7)}H${n(right - body.r)}`}
+        stroke="#fff"
+        strokeOpacity={0.55}
+        strokeWidth={n(body.w * 0.008)}
+      />
+      <path
+        d={`M${n(left + body.r)},${n(body.bottom - 1)}A${n(body.w / 2 - body.r)},${n(body.curve)} 0 0 0 ${n(right - body.r)},${n(body.bottom - 1)}`}
         fill="none"
         stroke="#fff"
-        strokeOpacity={0.6}
-        strokeWidth={1.3}
+        strokeOpacity={0.55}
+        strokeWidth={n(body.w * 0.01)}
       />
+      <path d={outline} fill="none" stroke="#fff" strokeOpacity={0.4} strokeWidth={n(body.w * 0.016)} clipPath={url("all")} />
+      <path d={outline} fill="none" stroke="rgba(70, 55, 35, 0.28)" strokeWidth={0.6} />
 
-      {/* Etikett (folgt der Rundung) */}
-      <path d={labelPath(g)} fill={url("paper")} />
-      {label.border > 0 && (
-        <path d={labelPath(g, label.border)} fill="none" stroke={ink} strokeWidth={label.dark ? 0.7 : 0.85} opacity={label.dark ? 0.85 : 1} />
-      )}
+      {/* Etikett */}
+      <rect x={n(labelL)} y={label.top} width={label.w} height={label.h} rx={0.6} fill={url("paper")} />
+      <rect
+        x={n(labelL + label.frame)}
+        y={n(label.top + label.frame)}
+        width={n(label.w - label.frame * 2)}
+        height={n(label.h - label.frame * 2)}
+        fill="none"
+        stroke={ink}
+        strokeWidth={n(label.w * 0.0068)}
+        opacity={label.dark ? 0.8 : 1}
+      />
       <use
         href={`${SPRITE}#emblem`}
-        x={cx - g.emblem.size / 2}
+        x={n(cx - g.emblem.size / 2)}
         y={g.emblem.y}
         width={g.emblem.size}
         height={g.emblem.size}
@@ -368,8 +406,7 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         const current = i === labels.length - 1;
         const wordKey = item.line === "mrs" ? "mrs" : "mr";
         const wordW = (g.word.h * WORDMARK[wordKey].w) / WORDMARK[wordKey].h;
-        const text = item.name.toUpperCase();
-        const size = Math.min(g.name.size, g.name.maxW / (text.length * 0.68));
+        const size = Math.min(g.name.size, g.name.maxW / (item.name.length * 0.5));
         const fade = labels.length > 1 ? (current ? styles.labelIn : styles.labelOut) : undefined;
         return (
           <g key={item.key} className={fade}>
@@ -382,7 +419,7 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
               style={{ fill: ink }}
             />
             <text x={cx} y={g.name.y} textAnchor="middle" className={styles.name} fontSize={n(size)} fill={ink}>
-              {text}
+              {item.name}
             </text>
           </g>
         );
@@ -390,69 +427,45 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
       {g.sub && (
         <use
           href={`${SPRITE}#word-sub`}
-          x={cx - g.sub.w / 2}
+          x={n(cx - g.sub.w / 2)}
           y={g.sub.y}
           width={g.sub.w}
           height={n((g.sub.w * WORDMARK.sub.h) / WORDMARK.sub.w)}
           style={{ fill: ink }}
         />
       )}
-      <text x={cx} y={g.info.y} textAnchor="middle" className={styles.info} fontSize={g.info.size} fill={ink} opacity={0.7}>
-        EXTRAIT DE PARFUM · {ml} ML
+      <text x={cx} y={g.info.y} textAnchor="middle" className={styles.info} fontSize={g.info.size} fill={ink}>
+        EXTRAIT DE PARFUM
+      </text>
+      <text x={cx} y={g.info.y + g.info.gap} textAnchor="middle" className={styles.info} fontSize={g.info.size} fill={ink}>
+        {ml} ML
       </text>
 
+      {/* Kappe und Ring */}
+      <path d={capOutline} fill={url("cap")} />
+      <path d={capOutline} fill={url("capY")} />
+      {collarTop !== undefined && (
+        <>
+          <rect x={n(capL)} y={n(capBottom)} width={cap.w} height={n(collarTop - capBottom)} fill="#120d07" />
+          <rect x={n(capL)} y={n(collarTop)} width={cap.w} height={n(body.top - collarTop)} fill={url("collar")} />
+          <rect x={n(capL)} y={n(collarTop)} width={cap.w} height={n(body.top - collarTop)} fill={url("collarY")} />
+        </>
+      )}
+      <path d={`M${n(capL)},${n(body.top - 0.4)}H${n(capL + cap.w)}`} stroke="#000" strokeOpacity={0.35} strokeWidth={0.8} />
+
       {sweep && (
-        <g clipPath={url("clip")}>
+        <g clipPath={url("all")}>
           <rect
             className={styles.sweep}
-            x={-70}
-            y={body.top - 20}
-            width={n(body.rx * 0.55)}
-            height={body.bottom - body.top + 40}
+            x={n(-body.w * 0.6)}
+            y={cap.top - 20}
+            width={n(body.w * 0.5)}
+            height={n(body.bottom - cap.top + 40)}
             fill={url("sweep")}
-            style={{ "--sweep-x": `${g.w + 150}px` } as CSSProperties}
+            style={{ "--sweep-x": `${g.w + body.w}px` } as CSSProperties}
           />
         </g>
       )}
-      <path d={outline} fill="none" stroke="#fff" strokeOpacity={0.35} strokeWidth={2} clipPath={url("clip")} />
-      <path d={outline} fill="none" stroke="rgba(60, 50, 40, 0.3)" strokeWidth={0.7} />
-
-      {/* Kappe: glänzender schwarzer Zylinder */}
-      <path d={capPath} fill={url("cap")} />
-      <g clipPath={url("capClip")}>
-        <rect
-          x={n(capL + cap.rx * 0.2)}
-          y={cap.top}
-          width={n(cap.rx * 0.1)}
-          height={cap.bottom - cap.top + cap.ry}
-          fill={url("hl")}
-          opacity={0.5}
-        />
-        <rect
-          x={n(capL + cap.rx * 0.42)}
-          y={cap.top}
-          width={n(cap.rx * 0.025)}
-          height={cap.bottom - cap.top + cap.ry}
-          fill="#fff"
-          opacity={0.18}
-        />
-        <rect
-          x={n(capL + cap.rx * 1.66)}
-          y={cap.top}
-          width={n(cap.rx * 0.05)}
-          height={cap.bottom - cap.top + cap.ry}
-          fill="#fff"
-          opacity={0.2}
-        />
-      </g>
-      <path
-        d={`M${n(capL)},${n(cap.bottom - 6)}A${cap.rx},${cap.ry} 0 0 0 ${n(capL + cap.rx * 2)},${n(cap.bottom - 6)}`}
-        fill="none"
-        stroke="#fff"
-        strokeOpacity={0.22}
-        strokeWidth={0.9}
-      />
-      <ellipse cx={cx} cy={cap.top} rx={cap.rx} ry={cap.ry} fill={url("capTop")} stroke="#fff" strokeOpacity={0.2} strokeWidth={0.6} />
     </svg>
   );
 }

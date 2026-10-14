@@ -10,14 +10,14 @@
 
 .name {
   font-family: var(--serif);
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .info {
   font-family: var(--sans);
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.26em;
 }
 
 .sweep {

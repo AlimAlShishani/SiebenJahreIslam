@@ -116,7 +116,7 @@ export function Tube({ scent }: { scent: ScentLike }) {
           LE PARFUM · 50 ML
         </text>
       </svg>
-      <div className={styles.item} style={{ left: "50%", width: "40%", bottom: "1.5%" }}>
+      <div className={styles.item} style={{ left: "50%", width: "36%", bottom: "1.5%" }}>
         <ProductVisual scent={scent} ml={50} />
       </div>
     </div>
@@ -170,7 +170,7 @@ export function Coffret({ scent }: { scent: ScentLike }) {
         <path d="M48 196 H258" stroke="#fff" strokeOpacity="0.12" />
         <rect x="48" y="196" width="210" height="112" fill="none" stroke="#fff" strokeOpacity="0.05" />
       </svg>
-      <div className={styles.item} style={{ left: "5%", width: "38%", bottom: "2%" }}>
+      <div className={styles.item} style={{ left: "6%", width: "33%", bottom: "2%" }}>
         <ProductVisual scent={scent} ml={100} />
       </div>
     </div>

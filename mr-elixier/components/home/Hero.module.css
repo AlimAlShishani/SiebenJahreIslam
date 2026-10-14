@@ -191,7 +191,7 @@
 
 .bottleWrap {
   position: relative;
-  width: clamp(132px, 36vw, 300px);
+  width: clamp(114px, 31vw, 258px);
   transform: translate3d(calc(var(--mx) * -16px), calc(var(--my) * -12px), 0);
   transition: transform 1s var(--ease-out);
   animation: bottleIn 1.8s var(--ease-out) calc(var(--intro-delay) + 0.05s) both;
@@ -199,7 +199,6 @@
 
 .bottle {
   position: relative;
-  aspect-ratio: 200 / 412;
   animation: float 7s ease-in-out infinite;
   filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.55));
 }
@@ -217,7 +216,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% - 7%);
+  top: calc(100% - 3.3%);
   transform: scaleY(-1);
   opacity: 0.2;
   pointer-events: none;
@@ -381,7 +380,7 @@
   }
 
   .bottleWrap {
-    width: clamp(200px, 19vw, 300px);
+    width: clamp(172px, 16.4vw, 258px);
   }
 
   .caption {

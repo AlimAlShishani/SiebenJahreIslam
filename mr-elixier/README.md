@@ -41,8 +41,10 @@ npm run typecheck            # TypeScript prüfen
 
 ## Produktfotos hinzufügen
 
-Bis echte Fotos da sind, zeigt der Shop gezeichnete Flakons nach den Originalen (15 ml Zylinder, 50 ml Flakon mit
-weißem Etikett, 100 ml mit schwarzem Etikett) – mit der Farbe des jeweiligen Duftes und MR./MRS.-Etikett.
+Bis echte Fotos da sind, zeigt der Shop gezeichnete Flakons im Stil von Produktfotos (satiniertes Glas, 15 ml
+schlanker Zylinder, 50 ml mit weißem Etikett, 100 ml mit schwarzem Etikett) – mit der Farbe des jeweiligen Duftes
+und MR./MRS.-Etikett. Die Kappe ist Gold; `BOTTLE_STYLE.cap = "black"` in `lib/config.ts` zeigt stattdessen eine
+schwarze Kappe mit Chromring.
 
 Fotos werden **automatisch erkannt**, sobald sie in `public/produkte/` liegen:
 
