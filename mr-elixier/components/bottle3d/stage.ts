@@ -213,13 +213,10 @@ const BASE_FRAGMENT = /* glsl */ `
     float h = clamp(vY / uHeight, 0.0, 1.0);
     // vor hellem Hintergrund dunkle Glaskanten, vor dunklem helle
     float light = step(0.4, dot(uBackground, vec3(0.2126, 0.7152, 0.0722)));
-    vec3 col = mix(uBackground, uColor, 0.45 + 0.4 * h * h);
-    col = mix(col, mix(vec3(1.0), vec3(0.1), light), edge * mix(0.2, 0.5, light));
-    col *= mix(1.0, 0.9 + 0.1 * h, light);
-    // gebündeltes Licht im Glasboden
-    float caustic = exp(-pow(normalize(vNormalView).x, 2.0) / 0.05) * smoothstep(0.2, 0.95, h);
-    col += uColor * caustic * 0.06;
-    float alpha = clamp(mix(0.06, 0.02, light) + mix(0.36, 0.22, light) * h * h + edge * mix(0.22, 0.4, light) + caustic * 0.1, 0.0, 1.0);
+    // klares Glas: nur ein Hauch Duftfarbe von oben und leicht sichtbare Kanten
+    vec3 col = mix(uBackground, uColor, 0.5);
+    col = mix(col, mix(vec3(1.0), vec3(0.15), light), edge * 0.5);
+    float alpha = clamp(0.02 + 0.06 * h * h + edge * 0.12, 0.0, 1.0);
     gl_FragColor = premultiplied(col, vec3(0.0), alpha);
   }
 `;
@@ -400,7 +397,7 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
   const rl = R - wall;
   const fl = Math.min(f * 1.4, rl * 0.25);
   const color = new Color(perfumeLiquid(options.scent.tint));
-  const tubeRadius = Math.max(0.7, R * 0.045);
+  const tubeRadius = Math.max(0.4, R * 0.024);
   const liquidMaterial = own(
     new ShaderMaterial({
       uniforms: {
@@ -436,13 +433,13 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
   const at = (out: number, y: number) => bend.clone().multiplyScalar(rl * out).setY(y);
   const tubePath = new CatmullRomCurve3(
     [
+      // oben gerade, dann ein langer, sanfter Bogen bis in die Ecke am Boden
       at(0, tubeTop),
-      at(0, base + (tubeTop - base) * 0.5),
-      at(0, base + rl * 0.62),
-      at(0.08, base + rl * 0.32),
-      at(0.3, base + tubeRadius * 2.4),
-      at(0.55, base + tubeRadius * 1.1),
-      at(0.76, base + tubeRadius),
+      at(0, base + (tubeTop - base) * 0.62),
+      at(0.1, base + (tubeTop - base) * 0.36),
+      at(0.32, base + (tubeTop - base) * 0.16),
+      at(0.58, base + (tubeTop - base) * 0.05),
+      at(0.8, base + tubeRadius),
     ],
     false,
     "centripetal",

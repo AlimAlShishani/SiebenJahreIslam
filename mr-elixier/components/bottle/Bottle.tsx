@@ -175,13 +175,14 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
   const deep = perfumeLiquid(tint);
   const density = perfumeDepth(tint);
   const liquidAlpha = 0.12 + density * 0.2;
-  const tube = Math.max(1.2, body.rx * 0.05);
+  const tube = Math.max(0.7, body.rx * 0.026);
   const inner = body.rx - g.wall;
   const tipY = liquidBottom - tube * 0.7;
+  const reach = liquidBottom - body.top;
   const tubePath = [
     `M${n(cx)},${n(body.top + 3)}`,
-    `V${n(liquidBottom - inner * 0.62)}`,
-    `C${n(cx)},${n(liquidBottom - inner * 0.2)} ${n(cx + inner * 0.18)},${n(tipY)} ${n(cx + inner * 0.62)},${n(tipY)}`,
+    `V${n(liquidBottom - reach * 0.6)}`,
+    `C${n(cx)},${n(liquidBottom - reach * 0.25)} ${n(cx + inner * 0.35)},${n(tipY)} ${n(cx + inner * 0.78)},${n(tipY)}`,
   ].join("");
   const capL = cx - cap.rx;
   const labelL = cx - label.w / 2;
@@ -244,10 +245,10 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         </linearGradient>
         {/* massiver Glasboden: spiegelt oben die Duftfarbe, wird nach unten klarer */}
         <linearGradient id={id("base")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, deep, 0.45)}
-          {stop(0.4, deep, 0.2)}
-          <stop offset="0.82" stopColor="#fff" stopOpacity="0.1" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0.36" />
+          {stop(0, deep, 0.12)}
+          {stop(0.4, deep, 0.04)}
+          <stop offset="0.85" stopColor="#fff" stopOpacity="0.04" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0.14" />
         </linearGradient>
         {/* Glaswand: helle Außenkante */}
         <linearGradient id={id("edge")} x1="0" x2="1" y1="0" y2="0">
