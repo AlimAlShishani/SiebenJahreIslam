@@ -3,7 +3,7 @@
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { SPRITE, WORDMARK } from "@/components/brand/geometry";
 import { CAP_GAP, FRAME, LABEL_LAYOUT, SPECS } from "@/components/bottle3d/specs";
-import { mix, shade } from "@/lib/color";
+import { mix, shade, vivid } from "@/lib/color";
 import type { SizeMl } from "@/lib/config";
 import type { Line } from "@/lib/products";
 import styles from "./Bottle.module.css";
@@ -171,6 +171,8 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
   const lr = Math.min(body.r * 1.4, body.rx * 0.25);
   const liquid = liquidPath(left + g.wall, right - g.wall, liquidTop, liquidBottom, lr);
   const surfaceRy = (body.rx - g.wall) * LIFT;
+  const deep = vivid(tint);
+  const tube = Math.max(1.2, body.rx * 0.05);
   const capL = cx - cap.rx;
   const labelL = cx - label.w / 2;
 
@@ -198,30 +200,37 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
           <stop offset="0.95" stopColor="#fff" stopOpacity="0.1" />
           <stop offset="1" stopColor="#fff" stopOpacity="0.3" />
         </linearGradient>
-        <linearGradient id={id("liq")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, mix(tint, "#ffffff", 0.12))}
-          {stop(0.15, tint)}
-          {stop(0.85, shade(tint, -0.1))}
-          {stop(1, shade(tint, -0.2))}
+        {/* klare Flüssigkeit: satte Farbe, halb durchsichtig – zum Rand dichter */}
+        <linearGradient id={id("liq")} x1="0" x2="1" y1="0" y2="0">
+          {stop(0, shade(deep, -0.35), 0.95)}
+          {stop(0.12, deep, 0.8)}
+          {stop(0.5, deep, 0.66)}
+          {stop(0.88, deep, 0.8)}
+          {stop(1, shade(deep, -0.35), 0.95)}
         </linearGradient>
-        {/* Rundung der Flüssigkeit: Ränder dunkler, links scheint Licht durch, rechts ein Reflex */}
+        {/* durchscheinendes Licht: helles Band links der Mitte, rechts ein schmaler Reflex */}
         <linearGradient id={id("vol")} x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#000" stopOpacity="0.5" />
-          <stop offset="0.05" stopColor="#000" stopOpacity="0.26" />
-          <stop offset="0.13" stopColor="#000" stopOpacity="0.05" />
-          <stop offset="0.22" stopColor="#fff" stopOpacity="0.12" />
-          <stop offset="0.33" stopColor="#fff" stopOpacity="0.22" />
-          <stop offset="0.44" stopColor="#fff" stopOpacity="0.06" />
-          <stop offset="0.56" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.74" stopColor="#000" stopOpacity="0.07" />
-          <stop offset="0.88" stopColor="#000" stopOpacity="0.22" />
-          <stop offset="0.925" stopColor="#fff" stopOpacity="0.14" />
-          <stop offset="0.96" stopColor="#000" stopOpacity="0.32" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.52" />
+          {stop(0.2, tint, 0)}
+          {stop(0.31, mix(tint, "#ffffff", 0.35), 0.62)}
+          {stop(0.42, tint, 0)}
+          {stop(0.89, tint, 0)}
+          {stop(0.925, mix(tint, "#ffffff", 0.3), 0.45)}
+          {stop(0.95, tint, 0)}
         </linearGradient>
+        {/* nach unten satter, am Boden bündelt sich Licht */}
+        <linearGradient id={id("depth")} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.06" />
+          <stop offset="0.2" stopColor="#000" stopOpacity="0" />
+          <stop offset="0.85" stopColor="#000" stopOpacity="0.12" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.2" />
+        </linearGradient>
+        <radialGradient id={id("caustic")}>
+          {stop(0, mix(tint, "#ffffff", 0.45), 0.75)}
+          {stop(1, tint, 0)}
+        </radialGradient>
         <linearGradient id={id("surface")} x1="0" x2="0" y1="0" y2="1">
-          {stop(0, mix(tint, "#ffffff", 0.45))}
-          {stop(1, mix(tint, "#ffffff", 0.2))}
+          {stop(0, deep, 0.35)}
+          {stop(1, deep, 0.5)}
         </linearGradient>
         {/* massiver Glasboden: spiegelt oben die Duftfarbe, wird nach unten klarer */}
         <linearGradient id={id("base")} x1="0" x2="0" y1="0" y2="1">
@@ -230,16 +239,14 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
           <stop offset="0.82" stopColor="#fff" stopOpacity="0.1" />
           <stop offset="1" stopColor="#fff" stopOpacity="0.36" />
         </linearGradient>
-        {/* Glaswand: helle Außenkante, feine Brechungslinie innen */}
+        {/* Glaswand: helle Außenkante */}
         <linearGradient id={id("edge")} x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0.55" />
           <stop offset="0.012" stopColor="#fff" stopOpacity="0.2" />
-          <stop offset="0.03" stopColor="#fff" stopOpacity="0.04" />
-          <stop offset="0.036" stopColor="#000" stopOpacity="0.16" />
-          <stop offset="0.046" stopColor="#000" stopOpacity="0" />
-          <stop offset="0.954" stopColor="#000" stopOpacity="0" />
-          <stop offset="0.964" stopColor="#000" stopOpacity="0.16" />
-          <stop offset="0.97" stopColor="#fff" stopOpacity="0.04" />
+          <stop offset="0.03" stopColor="#fff" stopOpacity="0.05" />
+          <stop offset="0.06" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.94" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.97" stopColor="#fff" stopOpacity="0.05" />
           <stop offset="0.988" stopColor="#fff" stopOpacity="0.2" />
           <stop offset="1" stopColor="#fff" stopOpacity="0.5" />
         </linearGradient>
@@ -321,7 +328,23 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         clipPath={url("body")}
       />
       <path d={liquid} fill={url("liq")} />
+      <path d={liquid} fill={url("depth")} />
       <path d={liquid} fill={url("vol")} />
+      <ellipse
+        cx={cx}
+        cy={n(liquidBottom - lr * 0.5)}
+        rx={n((body.rx - g.wall) * 0.55)}
+        ry={n(body.rx * 0.16)}
+        fill={url("caustic")}
+      />
+      {/* Steigrohr des Zerstäubers */}
+      <rect x={n(cx - tube / 2)} y={n(body.top)} width={n(tube)} height={n(liquidBottom - body.top - 1)} fill="#fff" fillOpacity={0.14} />
+      <path
+        d={`M${n(cx - tube / 2)},${n(body.top)}V${n(liquidBottom - 1)}M${n(cx + tube / 2)},${n(body.top)}V${n(liquidBottom - 1)}`}
+        stroke="#000"
+        strokeOpacity={0.14}
+        strokeWidth={n(tube * 0.18)}
+      />
       <ellipse cx={cx} cy={n(liquidTop)} rx={n(body.rx - g.wall)} ry={n(surfaceRy)} fill={url("surface")} />
       <path
         d={`M${n(left + g.wall)},${n(liquidTop)}A${n(body.rx - g.wall)},${n(surfaceRy)} 0 0 0 ${n(right - g.wall)},${n(liquidTop)}`}
