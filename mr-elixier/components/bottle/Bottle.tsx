@@ -174,8 +174,15 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
   // Parfümfarbe (Stroh bis Bernstein) und wie dicht sie wirkt
   const deep = perfumeLiquid(tint);
   const density = perfumeDepth(tint);
-  const liquidAlpha = 0.32 + density * 0.3;
+  const liquidAlpha = 0.12 + density * 0.2;
   const tube = Math.max(1.2, body.rx * 0.05);
+  const inner = body.rx - g.wall;
+  const tipY = liquidBottom - tube * 0.7;
+  const tubePath = [
+    `M${n(cx)},${n(body.top + 3)}`,
+    `V${n(liquidBottom - inner * 0.62)}`,
+    `C${n(cx)},${n(liquidBottom - inner * 0.2)} ${n(cx + inner * 0.18)},${n(tipY)} ${n(cx + inner * 0.62)},${n(tipY)}`,
+  ].join("");
   const capL = cx - cap.rx;
   const labelL = cx - label.w / 2;
 
@@ -206,9 +213,9 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         {/* klare Flüssigkeit: satte Farbe, halb durchsichtig – zum Rand dichter */}
         <linearGradient id={id("liq")} x1="0" x2="1" y1="0" y2="0">
           {stop(0, shade(deep, -0.4), 0.85)}
-          {stop(0.06, deep, liquidAlpha + 0.18)}
+          {stop(0.06, deep, liquidAlpha + 0.12)}
           {stop(0.5, deep, liquidAlpha)}
-          {stop(0.94, deep, liquidAlpha + 0.18)}
+          {stop(0.94, deep, liquidAlpha + 0.12)}
           {stop(1, shade(deep, -0.4), 0.85)}
         </linearGradient>
         {/* durchscheinendes Licht: helles Band links der Mitte, rechts ein schmaler Reflex */}
@@ -340,14 +347,9 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
         ry={n(body.rx * 0.16)}
         fill={url("caustic")}
       />
-      {/* Steigrohr des Zerstäubers */}
-      <rect x={n(cx - tube / 2)} y={n(body.top)} width={n(tube)} height={n(liquidBottom - body.top - 1)} fill="#fff" fillOpacity={0.14} />
-      <path
-        d={`M${n(cx - tube / 2)},${n(body.top)}V${n(liquidBottom - 1)}M${n(cx + tube / 2)},${n(body.top)}V${n(liquidBottom - 1)}`}
-        stroke="#000"
-        strokeOpacity={0.14}
-        strokeWidth={n(tube * 0.18)}
-      />
+      {/* Steigrohr des Zerstäubers – am Boden zur Seite gebogen */}
+      <path d={tubePath} fill="none" stroke="#000" strokeOpacity={0.16} strokeWidth={n(tube)} strokeLinecap="round" />
+      <path d={tubePath} fill="none" stroke="#fff" strokeOpacity={0.35} strokeWidth={n(tube * 0.6)} strokeLinecap="round" />
       <ellipse cx={cx} cy={n(liquidTop)} rx={n(body.rx - g.wall)} ry={n(surfaceRy)} fill={url("surface")} />
       <path
         d={`M${n(left + g.wall)},${n(liquidTop)}A${n(body.rx - g.wall)},${n(surfaceRy)} 0 0 0 ${n(right - g.wall)},${n(liquidTop)}`}

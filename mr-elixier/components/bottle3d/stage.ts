@@ -20,6 +20,11 @@ import {
   Scene,
   ShaderMaterial,
   DoubleSide,
+  CatmullRomCurve3,
+  CustomBlending,
+  OneFactor,
+  OneMinusSrcAlphaFactor,
+  TubeGeometry,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -110,7 +115,7 @@ const LIQUID_VERTEX = /* glsl */ `
  * bleibt er gerade und schwappt nach (alles darüber wird verworfen, die Innenseite der Wand
  * dahinter zeigt den Spiegel). Gesehen wird sie nur durch das Glas, deshalb vormultipliziertes
  * Alpha: Der Hintergrund scheint durch. Dazu eine feine dunkle Brechungskante am Rand, ein
- * schwaches Lichtbündel am Boden und das Steigrohr des Zerstäubers.
+ * schwaches Lichtbündel am Boden.
  */
 const LIQUID_FRAGMENT = /* glsl */ `
   ${PREMULTIPLY}
@@ -118,8 +123,6 @@ const LIQUID_FRAGMENT = /* glsl */ `
   uniform float uDensity;
   uniform float uBacklight;
   uniform float uBottom;
-  uniform float uTube;
-  uniform vec3 uCamera;
   uniform vec3 uLevel;
   uniform vec3 uUp;
   varying vec3 vNormalView;
@@ -135,7 +138,7 @@ const LIQUID_FRAGMENT = /* glsl */ `
 
     if (!gl_FrontFacing) {
       // Spiegel von oben gesehen: fast klar, mit hellem Rand
-      gl_FragColor = premultiplied(uColor, uColor * 0.12 * meniscus + vec3(0.05) * meniscus, 0.18 + uDensity * 0.18);
+      gl_FragColor = premultiplied(uColor, uColor * 0.12 * meniscus + vec3(0.05) * meniscus, 0.07 + uDensity * 0.1);
       return;
     }
 
@@ -143,43 +146,39 @@ const LIQUID_FRAGMENT = /* glsl */ `
     float edge = 1.0 - clamp(dot(n, normalize(vViewDir)), 0.0, 1.0);
     float h = clamp((vPos.y - uBottom) / max(uLevel.y - uBottom, 1.0), 0.0, 1.0);
 
-    float alpha = mix(0.14, 0.5, uDensity) + 0.24 * pow(edge, 2.0);
+    float alpha = mix(0.05, 0.22, uDensity) + 0.14 * pow(edge, 2.0);
     vec3 body = uColor * (1.0 - 0.3 * pow(edge, 1.5)) * mix(0.88, 1.0, h);
     // feine dunkle Brechungskante innen an der Glaswand
     float rim = smoothstep(0.86, 0.985, edge);
     body *= 1.0 - 0.45 * rim;
-    alpha = mix(alpha, 0.8, rim * 0.7);
+    alpha = mix(alpha, 0.55, rim * 0.6);
 
     // vor dunklem Hintergrund leuchtet das Licht von hinten durch die Flüssigkeit
     float glow = exp(-pow(n.x + 0.18, 2.0) / 0.22);
-    vec3 light = uColor * uBacklight * (0.05 + 0.2 * glow) * (0.3 + 0.7 * uDensity) * (1.0 - edge) * mix(0.7, 1.0, h);
+    vec3 light = uColor * uBacklight * (0.02 + 0.11 * glow) * (0.3 + 0.7 * uDensity) * (1.0 - edge) * mix(0.7, 1.0, h);
     float caustic = exp(-pow(n.x + 0.04, 2.0) / 0.05) * (1.0 - smoothstep(0.0, 0.18, h));
-    light += uColor * 0.06 * caustic;
+    light += uColor * 0.03 * caustic;
     light += vec3(0.05) * meniscus;
-
-    // Steigrohr aus klarem Kunststoff: zwei feine Kanten, innen etwas heller
-    vec2 into = normalize(vPos - uCamera).xz;
-    float dist = abs(vPos.x * into.y - vPos.z * into.x) / max(length(into), 1e-4);
-    float onTube = step(uBottom + 0.5, vPos.y);
-    float wallLine = (smoothstep(uTube * 0.62, uTube * 0.82, dist) - smoothstep(uTube * 0.86, uTube, dist)) * onTube;
-    float core = (1.0 - smoothstep(uTube * 0.3, uTube * 0.6, dist)) * onTube;
-    body *= 1.0 - 0.5 * wallLine;
-    alpha = mix(alpha, 0.75, wallLine * 0.7);
-    light += vec3(0.05) * core;
 
     gl_FragColor = premultiplied(body, light, alpha);
   }
 `;
 
-/** Steigrohr über der Flüssigkeit: klarer Kunststoff mit hellen Kanten */
+/**
+ * Steigrohr aus klarem Kunststoff: fast unsichtbar, nur die Kanten zeichnen sich ab – innen
+ * hell, ganz außen eine feine dunkle Linie wie bei echtem Kunststoffschlauch.
+ */
 const TUBE_FRAGMENT = /* glsl */ `
   ${PREMULTIPLY}
+  uniform float uLightBackground;
   varying vec3 vNormalView;
   varying vec3 vViewDir;
   void main() {
     float edge = 1.0 - clamp(abs(dot(normalize(vNormalView), normalize(vViewDir))), 0.0, 1.0);
-    float alpha = 0.14 + 0.5 * pow(edge, 2.0);
-    gl_FragColor = premultiplied(vec3(0.9, 0.91, 0.9), vec3(0.0), alpha);
+    float alpha = 0.05 + 0.55 * pow(edge, 3.0);
+    // vor hellem Grund dunkle Kontur, vor dunklem helle
+    vec3 col = mix(vec3(0.93), vec3(mix(0.85, 0.18, uLightBackground)), smoothstep(0.88, 0.98, edge));
+    gl_FragColor = premultiplied(col, vec3(0.0), alpha);
   }
 `;
 
@@ -409,8 +408,6 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
         uDensity: { value: perfumeDepth(options.scent.tint) },
         uBacklight: { value: lightBackground ? 0 : 1 },
         uBottom: { value: base },
-        uTube: { value: tubeRadius },
-        uCamera: { value: new Vector3() },
         uLevel: { value: new Vector3() },
         uUp: { value: new Vector3(0, 1, 0) },
       },
@@ -426,17 +423,50 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
     liquidMaterial,
   );
   const levelLocal = new Vector3(0, liquidTop, 0);
-  // Kamera im Raum der Flüssigkeit (für das Steigrohr) und Spiegelhöhe in der Welt
-  liquid.onBeforeRender = (_renderer, _scene, cam) => {
-    liquid.worldToLocal(liquidMaterial.uniforms.uCamera.value.copy(cam.position));
+  // Spiegelhöhe in der Welt
+  liquid.onBeforeRender = () => {
     liquid.localToWorld(liquidMaterial.uniforms.uLevel.value.copy(levelLocal));
   };
 
-  const tube = new Mesh(
-    track(new CylinderGeometry(tubeRadius, tubeRadius, H - base - 0.5, 24, 1, true)),
-    own(new ShaderMaterial({ vertexShader: BASE_VERTEX, fragmentShader: TUBE_FRAGMENT, side: DoubleSide })),
+  // Steigrohr: etwas länger als der Flakon, deshalb biegt es sich am Boden zur Seite und
+  // die Spitze liegt in der Ecke. Gezeichnet über der Flüssigkeit (ohne Tiefentest), damit
+  // es durch sie hindurch sichtbar bleibt.
+  const tubeTop = H - 0.8;
+  const bend = new Vector3(Math.cos(0.55), 0, -Math.sin(0.55));
+  const at = (out: number, y: number) => bend.clone().multiplyScalar(rl * out).setY(y);
+  const tubePath = new CatmullRomCurve3(
+    [
+      at(0, tubeTop),
+      at(0, base + (tubeTop - base) * 0.5),
+      at(0, base + rl * 0.62),
+      at(0.08, base + rl * 0.32),
+      at(0.3, base + tubeRadius * 2.4),
+      at(0.55, base + tubeRadius * 1.1),
+      at(0.76, base + tubeRadius),
+    ],
+    false,
+    "centripetal",
   );
-  tube.position.y = base + 0.5 + (H - base - 0.5) / 2;
+  const tube = new Mesh(
+    track(new TubeGeometry(tubePath, 140, tubeRadius, 16, false)),
+    own(
+      new ShaderMaterial({
+        vertexShader: BASE_VERTEX,
+        fragmentShader: TUBE_FRAGMENT,
+        uniforms: { uLightBackground: { value: lightBackground ? 1 : 0 } },
+        side: DoubleSide,
+        // vormultipliziert überblenden, bleibt aber im Durchsicht-Bild des Glases
+        blending: CustomBlending,
+        blendSrc: OneFactor,
+        blendDst: OneMinusSrcAlphaFactor,
+        blendSrcAlpha: OneFactor,
+        blendDstAlpha: OneMinusSrcAlphaFactor,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    ),
+  );
+  tube.renderOrder = 2;
 
   const baseMaterial = own(
     new ShaderMaterial({
