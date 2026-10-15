@@ -10,10 +10,9 @@ export interface BottleSpec {
   radius: number;
   height: number;
   fillet: number;
-  /** Glaswand, massiver Boden und Luft über der Flüssigkeit */
+  /** Glaswand und massiver Boden */
   wall: number;
   base: number;
-  headspace: number;
   /** Kappe (glänzend schwarz) und Chromring darunter */
   cap: { radius: number; height: number; ring: number };
   /** Etikett: sichtbare Breite von vorn, Höhe, Abstand zur Schulter */
@@ -27,7 +26,6 @@ export const SPECS: Record<SizeMl, BottleSpec> = {
     fillet: 1.3,
     wall: 2.2,
     base: 7.5,
-    headspace: 4.5,
     cap: { radius: 9.75, height: 22.25, ring: 0 },
     label: { width: 17, height: 26.5, top: 12, dark: false },
   },
@@ -37,7 +35,6 @@ export const SPECS: Record<SizeMl, BottleSpec> = {
     fillet: 2,
     wall: 3.6,
     base: 10,
-    headspace: 5.5,
     cap: { radius: 12.5, height: 26.1, ring: 3.3 },
     label: { width: 29.25, height: 32.75, top: 15.25, dark: false },
   },
@@ -47,7 +44,6 @@ export const SPECS: Record<SizeMl, BottleSpec> = {
     fillet: 2.4,
     wall: 4.4,
     base: 12.5,
-    headspace: 6.5,
     cap: { radius: 14, height: 31.2, ring: 3.9 },
     label: { width: 34.5, height: 39.5, top: 19.5, dark: true },
   },
@@ -69,6 +65,28 @@ export function frameView(ml: SizeMl, bleed: number) {
   const { h, bottom } = FRAME[ml];
   const height = h / 4;
   return { height: height * (1 + bleed * 2), centerY: -(h - bottom) / 4 + height / 2 };
+}
+
+/**
+ * Innenraum des Glases (mm, vom Glasboden aus): Wände, Boden mit runder Kante, oben eine
+ * Wölbung bis zur Öffnung für den Zerstäuber – und der Füllstand: nicht bis zum Rand,
+ * sondern mit Luft unter der Wölbung wie bei einem echten, gefüllten Flakon.
+ */
+export function interior(spec: BottleSpec) {
+  const radius = spec.radius - spec.wall;
+  const top = spec.height - spec.wall * 0.9;
+  const domeStart = top - radius * 0.35;
+  const floorRound = Math.min(spec.fillet * 1.4, radius * 0.25);
+  return {
+    radius,
+    floor: spec.base,
+    floorRound,
+    top,
+    domeStart,
+    /** Öffnung für den Zerstäuber */
+    neck: spec.cap.radius * 0.35,
+    liquidTop: domeStart - (domeStart - spec.base) * 0.08,
+  };
 }
 
 /** Fuge zwischen Kappe und Chromring */

@@ -35,7 +35,7 @@ import {
 import { perfumeDepth, perfumeLiquid } from "@/lib/color";
 import type { SizeMl } from "@/lib/config";
 import { drawLabel, type LabelScent } from "./label";
-import { CAP_GAP, SPECS, labelArc, totalHeight } from "./specs";
+import { CAP_GAP, SPECS, interior, labelArc, totalHeight } from "./specs";
 
 /*
  * 3D-Bühne für einen Mr.-Elixier-Flakon (three.js): klares Glas mit echter Lichtbrechung,
@@ -133,12 +133,12 @@ const LIQUID_FRAGMENT = /* glsl */ `
     float above = dot(vWorld - uLevel, uUp);
     if (above > 0.0) discard;
 
-    // Wasserlinie: heller Meniskus direkt unter dem Spiegel
-    float meniscus = 1.0 - smoothstep(0.0, 0.55, -above);
+    float depth = -above;
+    float meniscus = 1.0 - smoothstep(0.0, 0.55, depth);
 
     if (!gl_FrontFacing) {
-      // Spiegel von oben gesehen: fast klar, mit hellem Rand
-      gl_FragColor = premultiplied(uColor, uColor * 0.12 * meniscus + vec3(0.05) * meniscus, 0.07 + uDensity * 0.1);
+      // Spiegel von oben gesehen: spiegelt Licht, zum Rand (Meniskus) heller
+      gl_FragColor = premultiplied(uColor, uColor * 0.1 + vec3(0.07) + vec3(0.1) * meniscus, 0.12 + uDensity * 0.12);
       return;
     }
 
@@ -158,9 +158,66 @@ const LIQUID_FRAGMENT = /* glsl */ `
     vec3 light = uColor * uBacklight * (0.02 + 0.11 * glow) * (0.3 + 0.7 * uDensity) * (1.0 - edge) * mix(0.7, 1.0, h);
     float caustic = exp(-pow(n.x + 0.04, 2.0) / 0.05) * (1.0 - smoothstep(0.0, 0.18, h));
     light += uColor * 0.03 * caustic;
-    light += vec3(0.05) * meniscus;
+    // Spiegel von der Seite: feine dunkle Linie, darunter ein heller Streifen, weil die
+    // Unterseite des Spiegels das Licht zurückwirft (Totalreflexion)
+    float surfaceLine = 1.0 - smoothstep(0.08, 0.32, depth);
+    float reflection = smoothstep(0.22, 0.42, depth) * (1.0 - smoothstep(0.42, 1.7, depth));
+    body *= 1.0 - 0.55 * surfaceLine;
+    alpha = mix(alpha, 0.62, surfaceLine * 0.85);
+    light += (vec3(0.13) + uColor * 0.08) * reflection;
 
     gl_FragColor = premultiplied(body, light, alpha);
+  }
+`;
+
+const INNER_VERTEX = /* glsl */ `
+  varying vec3 vNormalView;
+  varying vec3 vViewDir;
+  varying vec3 vPos;
+  varying vec3 vNormalObj;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vNormalView = normalize(normalMatrix * normal);
+    vViewDir = normalize(-mv.xyz);
+    vPos = position;
+    vNormalObj = normal;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+/**
+ * Innenfläche des Glases: An der Grenze Glas/Innenraum bricht das Licht – an den Wänden,
+ * in der Wölbung zur Öffnung und an der Bodenkante zeichnen sich deshalb feine Linien ab
+ * (vor hellem Grund dunkel, vor dunklem hell), mit einem hellen Saum daneben.
+ */
+const INNER_FRAGMENT = /* glsl */ `
+  ${PREMULTIPLY}
+  uniform float uLightBackground;
+  uniform float uFloor;
+  uniform float uFloorRound;
+  uniform float uRadius;
+  uniform float uDomeStart;
+  varying vec3 vNormalView;
+  varying vec3 vViewDir;
+  varying vec3 vPos;
+  varying vec3 vNormalObj;
+  void main() {
+    float edge = 1.0 - clamp(abs(dot(normalize(vNormalView), normalize(vViewDir))), 0.0, 1.0);
+    // waagerechte Flächen (Boden, oberste Rundung) liegen fast flach im Blick – nur gedämpft
+    float flatness = smoothstep(0.85, 0.99, abs(normalize(vNormalObj).y));
+    float sil = smoothstep(0.9, 0.985, edge) * (1.0 - 0.6 * flatness);
+    float rim = smoothstep(0.78, 0.9, edge) * (1.0 - smoothstep(0.9, 0.97, edge)) * (1.0 - 0.6 * flatness);
+    // Bodenkante innen
+    float r = length(vPos.xz);
+    float floorEdge = (1.0 - smoothstep(uFloorRound * 0.4, uFloorRound * 1.1, vPos.y - uFloor))
+      * smoothstep(uRadius - uFloorRound * 1.4, uRadius - uFloorRound * 0.3, r);
+    // Wölbung oben: etwas kräftiger, sie bündelt das Licht
+    float dome = smoothstep(uDomeStart - 0.3, uDomeStart + 1.2, vPos.y);
+    float strength = gl_FrontFacing ? 1.0 : 0.55;
+    vec3 lineColor = vec3(mix(0.92, 0.16, uLightBackground));
+    float alpha = clamp((sil * (0.32 + 0.18 * dome) + floorEdge * 0.26) * strength, 0.0, 0.6);
+    vec3 glint = vec3(0.07 + 0.05 * dome) * rim * strength;
+    gl_FragColor = premultiplied(lineColor, glint, alpha);
   }
 `;
 
@@ -320,7 +377,8 @@ export async function createStage(container: HTMLElement, options: StageOptions)
 
 async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Promise<Stage> {
   const spec = SPECS[options.ml];
-  const { radius: R, height: H, fillet: f, wall, base, headspace, cap } = spec;
+  const { radius: R, height: H, fillet: f, wall, base, cap } = spec;
+  const inside = interior(spec);
 
   // selbst prüfen statt three.js scheitern zu lassen – sonst landen Fehler in der Konsole
   const context = canvas.getContext("webgl2", { antialias: true, alpha: true, premultipliedAlpha: true, powerPreference: "high-performance" });
@@ -393,9 +451,19 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
     ),
   );
 
-  const liquidTop = H - headspace;
-  const rl = R - wall;
-  const fl = Math.min(f * 1.4, rl * 0.25);
+  const liquidTop = inside.liquidTop;
+  const rl = inside.radius;
+  const fl = inside.floorRound;
+  /** Profil des Innenraums, um `inset` nach innen versetzt; `upTo` = wie weit in die Wölbung (0…1) */
+  const cavity = (inset: number, upTo: number): [number, number][] => {
+    const r = rl - inset;
+    const steps = 14;
+    const dome: [number, number][] = Array.from({ length: steps + 1 }, (_, i) => {
+      const t = ((i / steps) * upTo * Math.PI) / 2;
+      return [inside.neck + (r - inside.neck) * Math.cos(t), inside.domeStart + (inside.top - inset - inside.domeStart) * Math.sin(t)];
+    });
+    return [[0, inside.floor + inset], ...arc(r - fl, inside.floor + inset + fl, fl, -Math.PI / 2, 0), ...dome];
+  };
   const color = new Color(perfumeLiquid(options.scent.tint));
   const tubeRadius = Math.max(0.4, R * 0.024);
   const liquidMaterial = own(
@@ -413,12 +481,36 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       side: DoubleSide,
     }),
   );
-  // reicht bis unter die Schulter – der Spiegel schneidet sie waagerecht ab
-  const liquidCeiling = H - Math.min(headspace * 0.35, 2);
-  const liquid = new Mesh(
-    track(lathe([[0, base], ...arc(rl - fl, base + fl, fl, -Math.PI / 2, 0), [rl, liquidCeiling], [0, liquidCeiling]])),
-    liquidMaterial,
+  // füllt den Innenraum bis in die Wölbung – der Spiegel schneidet sie waagerecht ab
+  const liquidProfile = cavity(0.05, 0.5);
+  const liquid = new Mesh(track(lathe([...liquidProfile, [0, liquidProfile[liquidProfile.length - 1][1]]])), liquidMaterial);
+
+  // Innenfläche des Glases mit Lichtbrechung an Wänden, Wölbung und Bodenkante
+  const innerSurface = new Mesh(
+    track(lathe([...cavity(0, 1), [inside.neck, H - 0.1], [0, H - 0.1]])),
+    own(
+      new ShaderMaterial({
+        vertexShader: INNER_VERTEX,
+        fragmentShader: INNER_FRAGMENT,
+        uniforms: {
+          uLightBackground: { value: lightBackground ? 1 : 0 },
+          uFloor: { value: inside.floor },
+          uFloorRound: { value: fl },
+          uRadius: { value: rl },
+          uDomeStart: { value: inside.domeStart },
+        },
+        side: DoubleSide,
+        blending: CustomBlending,
+        blendSrc: OneFactor,
+        blendDst: OneMinusSrcAlphaFactor,
+        blendSrcAlpha: OneFactor,
+        blendDstAlpha: OneMinusSrcAlphaFactor,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    ),
   );
+  innerSurface.renderOrder = 1;
   const levelLocal = new Vector3(0, liquidTop, 0);
   // Spiegelhöhe in der Welt
   liquid.onBeforeRender = () => {
@@ -428,7 +520,7 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
   // Steigrohr: etwas länger als der Flakon, deshalb biegt es sich am Boden zur Seite und
   // die Spitze liegt in der Ecke. Gezeichnet über der Flüssigkeit (ohne Tiefentest), damit
   // es durch sie hindurch sichtbar bleibt.
-  const tubeTop = H - 0.8;
+  const tubeTop = H - 0.3;
   const bend = new Vector3(Math.cos(0.55), 0, -Math.sin(0.55));
   const at = (out: number, y: number) => bend.clone().multiplyScalar(rl * out).setY(y);
   const tubePath = new CatmullRomCurve3(
@@ -511,7 +603,9 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       }),
     ),
   );
-  const parts: Mesh[] = [glass, baseBlock, tube, liquid, label, capMesh];
+  // Kappe nach Innenfläche und Steigrohr zeichnen (die haben keinen Tiefentest)
+  capMesh.renderOrder = 3;
+  const parts: Mesh[] = [glass, baseBlock, innerSurface, tube, liquid, label, capMesh];
   if (cap.ring > 0) {
     const b = 0.3;
     const ring = new Mesh(
@@ -532,6 +626,8 @@ async function buildStage(canvas: HTMLCanvasElement, options: StageOptions): Pro
       own(new MeshStandardMaterial({ color: 0x050505, roughness: 0.6 })),
     );
     gap.position.y = ringTop + CAP_GAP / 2;
+    ring.renderOrder = 3;
+    gap.renderOrder = 3;
     parts.push(ring, gap);
   }
 

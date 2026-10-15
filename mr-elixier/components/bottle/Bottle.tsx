@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { SPRITE, WORDMARK } from "@/components/brand/geometry";
-import { CAP_GAP, FRAME, LABEL_LAYOUT, SPECS } from "@/components/bottle3d/specs";
+import { CAP_GAP, FRAME, LABEL_LAYOUT, SPECS, interior } from "@/components/bottle3d/specs";
 import { mix, perfumeDepth, perfumeLiquid, shade } from "@/lib/color";
 import type { SizeMl } from "@/lib/config";
 import type { Line } from "@/lib/products";
@@ -41,7 +41,10 @@ function build(ml: SizeMl) {
     body: { rx, top, bottom, r: spec.fillet * U, curve: rx * LIFT },
     wall: spec.wall * U,
     base: spec.base * U,
-    headspace: spec.headspace * U,
+    inside: (() => {
+      const i = interior(spec);
+      return { neck: i.neck * U, top: bottom - i.top * U, domeStart: bottom - i.domeStart * U, liquidTop: bottom - i.liquidTop * U };
+    })(),
     cap: { rx: spec.cap.radius * U, top: capBottom - spec.cap.height * U, bottom: capBottom, ring: spec.cap.ring * U, ringTop },
     label: { w: spec.label.width * U, top: labelTop, h: labelH, frame: layout.frame * labelH, dark: spec.label.dark },
     emblem: { y: at(layout.emblem.y), size: layout.emblem.size * labelH },
@@ -166,7 +169,23 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
   const right = cx + body.rx;
   const height = body.bottom - body.top;
   const outline = bodyPath(g);
-  const liquidTop = body.top + g.headspace;
+  const liquidTop = g.inside.liquidTop;
+  // Innenraum: Wände, oben gewölbt bis zur Öffnung, unten runde Bodenkante
+  const ir = body.rx - g.wall;
+  const { neck, top: innerTop, domeStart } = g.inside;
+  const floorY = body.bottom - g.base;
+  const fr = Math.min(body.r * 1.4, ir * 0.25);
+  const k = 0.5523;
+  const cavityPath = [
+    `M${n(cx - neck)},${n(innerTop)}`,
+    `C${n(cx - neck - (ir - neck) * k)},${n(innerTop)} ${n(cx - ir)},${n(domeStart - (domeStart - innerTop) * k)} ${n(cx - ir)},${n(domeStart)}`,
+    `V${n(floorY - fr)}`,
+    `Q${n(cx - ir)},${n(floorY)} ${n(cx - ir + fr)},${n(floorY)}`,
+    `H${n(cx + ir - fr)}`,
+    `Q${n(cx + ir)},${n(floorY)} ${n(cx + ir)},${n(floorY - fr)}`,
+    `V${n(domeStart)}`,
+    `C${n(cx + ir)},${n(domeStart - (domeStart - innerTop) * k)} ${n(cx + neck + (ir - neck) * k)},${n(innerTop)} ${n(cx + neck)},${n(innerTop)}`,
+  ].join("");
   const liquidBottom = body.bottom - g.base;
   const lr = Math.min(body.r * 1.4, body.rx * 0.25);
   const liquid = liquidPath(left + g.wall, right - g.wall, liquidTop, liquidBottom, lr);
@@ -352,13 +371,24 @@ export function Bottle({ ml, name, line, tint, sweep = false, shadow = true, dec
       <path d={tubePath} fill="none" stroke="#000" strokeOpacity={0.16} strokeWidth={n(tube)} strokeLinecap="round" />
       <path d={tubePath} fill="none" stroke="#fff" strokeOpacity={0.35} strokeWidth={n(tube * 0.6)} strokeLinecap="round" />
       <ellipse cx={cx} cy={n(liquidTop)} rx={n(body.rx - g.wall)} ry={n(surfaceRy)} fill={url("surface")} />
+      {/* Spiegel von der Seite: dunkle Linie, darunter heller Streifen (Totalreflexion) */}
       <path
         d={`M${n(left + g.wall)},${n(liquidTop)}A${n(body.rx - g.wall)},${n(surfaceRy)} 0 0 0 ${n(right - g.wall)},${n(liquidTop)}`}
         fill="none"
-        stroke="#fff"
-        strokeOpacity={0.5}
+        stroke="#000"
+        strokeOpacity={0.32}
         strokeWidth={n(body.rx * 0.012)}
       />
+      <path
+        d={`M${n(left + g.wall)},${n(liquidTop + body.rx * 0.03)}A${n(body.rx - g.wall)},${n(surfaceRy)} 0 0 0 ${n(right - g.wall)},${n(liquidTop + body.rx * 0.03)}`}
+        fill="none"
+        stroke="#fff"
+        strokeOpacity={0.4}
+        strokeWidth={n(body.rx * 0.03)}
+      />
+      {/* Innenraum: Wölbung zur Öffnung und Bodenkante brechen das Licht */}
+      <path d={cavityPath} fill="none" stroke="#000" strokeOpacity={0.2} strokeWidth={n(body.rx * 0.012)} />
+      <path d={cavityPath} fill="none" stroke="#fff" strokeOpacity={0.3} strokeWidth={n(body.rx * 0.02)} transform={`translate(0 ${n(body.rx * 0.02)})`} />
       <path
         d={`M${n(left + g.wall + lr)},${n(liquidBottom)}H${n(right - g.wall - lr)}`}
         stroke="#000"
