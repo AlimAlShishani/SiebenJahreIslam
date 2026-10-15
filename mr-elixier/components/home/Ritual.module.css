@@ -1,0 +1,90 @@
+.section {
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.grid {
+  display: grid;
+  gap: 56px;
+  align-items: center;
+}
+
+.visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 40px 0 20px;
+}
+
+.glow {
+  position: absolute;
+  inset: 8% 4%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(201, 166, 107, 0.28), transparent);
+  filter: blur(20px);
+}
+
+.bag {
+  position: relative;
+  width: min(78%, 360px);
+  height: auto;
+}
+
+.signature {
+  position: relative;
+  margin-top: 18px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.5rem;
+  color: var(--gold-ink);
+}
+
+.copy {
+  display: grid;
+  gap: 24px;
+}
+
+.steps {
+  display: grid;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hair-light);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 12px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--hair-light);
+}
+
+.num {
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-style: italic;
+  line-height: 1.1;
+  color: var(--gold-ink);
+}
+
+.stepTitle {
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.stepText {
+  font-size: 0.93rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(56px, 8vw, 128px);
+  }
+}

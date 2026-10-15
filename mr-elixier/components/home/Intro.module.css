@@ -1,0 +1,123 @@
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  place-items: center;
+  pointer-events: none;
+}
+
+:global(html.intro-play) .intro {
+  display: grid;
+  animation: introGone 0s linear 2.9s forwards;
+}
+
+.curtain {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50.5%;
+  background: var(--ink);
+  animation: 1s var(--ease-in-out) 1.9s forwards;
+}
+
+.top {
+  top: 0;
+  animation-name: curtainUp;
+}
+
+.bottom {
+  bottom: 0;
+  animation-name: curtainDown;
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  color: var(--gold);
+  animation: contentOut 0.7s var(--ease) 1.75s forwards;
+}
+
+.emblem {
+  width: clamp(96px, 16vw, 150px);
+  height: auto;
+  overflow: visible;
+}
+
+.ring {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1.15s var(--ease-in-out) 0.1s forwards;
+}
+
+.silhouette {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transform: translateY(14px);
+  animation: rise 0.9s var(--ease-out) 0.65s forwards;
+}
+
+.word {
+  width: clamp(170px, 26vw, 260px);
+  height: auto;
+  color: var(--ivory);
+  clip-path: inset(0 50% 0 50%);
+  opacity: 0;
+  animation: unveil 1s var(--ease-out) 0.85s forwards;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes unveil {
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes contentOut {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(2px);
+  }
+}
+
+@keyframes curtainUp {
+  to {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes curtainDown {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes introGone {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(html.intro-play) .intro {
+    display: none;
+  }
+}
