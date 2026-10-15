@@ -12,7 +12,6 @@ selbst zur Post.
 ## Schnellstart
 
 ```bash
-cd mr-elixier
 npm install
 npm run dev        # http://localhost:3000
 ```
@@ -89,10 +88,10 @@ abgelehnt.
 
 ## Veröffentlichen (Vercel)
 
-1. Auf [vercel.com](https://vercel.com) „Add New Project“ → dieses GitHub-Repository importieren.
-2. **Root Directory:** `mr-elixier` (der Shop liegt in diesem Unterordner).
-3. Umgebungsvariablen eintragen (siehe oben) → Deploy.
-4. Eigene Domain unter *Settings → Domains* verbinden.
+1. Auf [vercel.com](https://vercel.com) „Add New → Project“ → dieses GitHub-Repository importieren → Deploy.
+   Ohne Stripe-Schlüssel läuft der Shop im Demo-Modus (Bestellung wird simuliert).
+2. Umgebungsvariablen eintragen (siehe oben), danach unter *Deployments* neu deployen.
+3. Eigene Domain unter *Settings → Domains* verbinden.
 
 Tipp: Vorschau-Links von Vercel sind standardmäßig passwortgeschützt (*Deployment Protection*). Zum Teilen mit
 dem CEO entweder die Produktions-URL verwenden oder den Schutz für Previews ausschalten.
