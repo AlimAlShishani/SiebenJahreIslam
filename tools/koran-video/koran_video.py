@@ -175,7 +175,7 @@ def build_video(
         n_in += 1
 
     micro = effects.glitch_times(duration, glitch, avoid) if glitch > 0 else []
-    float_amp = max(2, round(H * 0.006))
+    float_amp = max(2, round(min(W, H) * 0.006))     # kurze Seite: in 9:16 gleich weich wie in 16:9
     for i, ly in enumerate(layers):
         d = max(0.05, ly.end - ly.start)
         f = min(ly.fade, d / 3)
@@ -209,7 +209,7 @@ def build_video(
     # in doppelter Auflösung verschieben und wieder verkleinern: „displace“ kennt nur ganze Pixel,
     # so bewegt sich das Flimmern weich statt in Pixelstufen
     W2, H2 = 2 * W, 2 * H
-    ex = effects.verschiebung_x(H2, hitze, vhs, durchlaeufe)
+    ex = effects.verschiebung_x(W2, H2, hitze, vhs, durchlaeufe)
     ey = effects.verschiebung_y(W2, H2, hitze)
     if ex or ey:
         # Hitzeflimmern (ständig) + VHS-Linie (wandert ab und zu von oben nach unten) über ffmpeg „displace“.
@@ -225,7 +225,7 @@ def build_video(
         cur = "dsp"
     if micro:
         # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
-        sh = max(1, round(W * 0.002 * glitch))
+        sh = max(1, round(max(W, H) * 0.002 * glitch))
         enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in micro)
         filters.append(f"[{cur}]rgbashift=rh={sh}:bh=-{sh}:enable='{enable}'[gl]")
         cur = "gl"

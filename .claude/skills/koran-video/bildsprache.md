@@ -113,6 +113,10 @@ komponiert. Bausteine aus `piktogramm.py` (P), `symbole.py` (S) und `baukasten.p
 - Frist, Termin → Sanduhr
 - Erde, Erdbeben → Weltkugel (P `weltkugel`) mit Zitterstrichen; Menschen mit Händen am Kopf daneben
 - Himmel, Schöpfung → Sonne/Mond/Sterne, blau oder türkis
+- Maß, Bestimmung, Qadar („für alles ein Maß“) → Mondphasen im Bogen vom Neumond zum Vollmond
+  (S `mondphasen`): jede Phase zu ihrer Zeit, derselbe Wortstamm wie قَدَّرْنَٰهُ مَنَازِلَ (36:39).
+  Eine Messlatte mit Pflanze/Mensch/Baum war zu um die Ecke gedacht.
+- Ordnung der Schöpfung, „alles läuft auf seiner Bahn“ → Sonne mit Planetenbahnen (S `sonnensystem`)
 
 ## 4. Was wir bewusst anders machen als die Referenzen
 

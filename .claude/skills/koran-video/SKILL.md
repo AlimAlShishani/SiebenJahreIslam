@@ -85,7 +85,7 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      Symbole aus `symbole.py`: Tränen, Schreck, Wut, Sorgenwolke, Gedankenpfeile, Schall,
      wirre Sprechblase, stummer Lautsprecher, Blindenstock, Blicklinie, Uhr (ständig /
      früher), Medaillon für Propheten, Menge, Teufel, Tür, Gitter, Schranke,
-     Schriftrolle, Moschee. Fehlt ein
+     Schriftrolle, Moschee, Mondphasen (Maß/Qadar), Sonnensystem. Fehlt ein
      Gegenstand, ihn selbst als SVG zeichnen (typische Silhouette, gefüllt, Tiefe
      über Grautöne). Muster: `tools/koran-video/beispiel_ankabut_1-7/`
      (Zeichen-Skript + Plan). SVGs nach `koran-video-ausgabe/<…>/grafiken/`

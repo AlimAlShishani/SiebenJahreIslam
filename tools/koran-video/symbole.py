@@ -18,6 +18,10 @@ Reden, Hören, Sehen:
     blicklinie(von, nach)        sehen, anschauen (ohne Augen: gestrichelter Pfeil vom Kopf)
 Zeit:
     uhr(x, y, r, pfeil="vor")    „ständig, immer“ (Pfeil im Uhrzeigersinn); pfeil="zurueck": „früher, die vor ihnen“
+Himmel, Maß und Ordnung:
+    mond(x, y, r, phase)         Mond in einer Phase (0 Neumond … 1 Vollmond)
+    mondphasen(x, y, breite, r)  „für alles ein Maß“ (Qadar): Phasen im Bogen, jede zu ihrer Zeit (vgl. 36:39)
+    sonnensystem(x, y, s)        Ordnung der Schöpfung, alles auf seiner Bahn
 Personen und Orte:
     medaillon(x, y, r, name)     Propheten nur als Namens-Kalligrafie im leuchtenden Kreis (nie als Figur)
     menge(x, y, breite)          „die Menschen“, Gruppen, frühere Völker (Reihen kleiner Figuren)
@@ -364,4 +368,52 @@ def messlatte(x, y, h=200, teile=10):
         yy = y - i * h / (teile * 2)
         w = 12 if i % 2 == 0 else 7
         out += f'<path d="M{x - 9:.1f},{yy:.1f} l{w},0" stroke="{grau(.4)}" stroke-width="2.4"/>'
+    return out
+
+
+# ---------------------------------------------------------------- Himmel: Maß und Ordnung
+def mond(x, y, r, phase=0.5, hell=1.0):
+    """Mond in einer Phase: 0 = Neumond (nur Umriss), 0.25 = zunehmende Sichel, 0.5 = Halbmond,
+    0.75 = dreiviertel, 1 = Vollmond. Unbeleuchteter Teil dunkelgrau (Schattenseite, keine Linie)."""
+    out = f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{grau(.24, hell)}" stroke="{grau(.6, hell)}" stroke-width="{max(1.5, r * .06):.1f}"/>'
+    if phase <= 0.02:
+        return out
+    if phase >= 0.98:
+        return out + f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{grau(.97, hell)}" stroke="none"/>'
+    # beleuchtet: rechte Hälfte + Ellipse (Terminator); rx = |1 - 2p|·r, bei p < 0.5 nach innen gewölbt
+    rx = abs(1 - 2 * phase) * r
+    sweep_t = 0 if phase < 0.5 else 1
+    d = (f"M{x:.1f},{y - r:.1f} A{r:.1f},{r:.1f} 0 0 1 {x:.1f},{y + r:.1f} "
+         f"A{rx:.1f},{r:.1f} 0 0 {sweep_t} {x:.1f},{y - r:.1f}Z")
+    return out + f'<path d="{d}" fill="{grau(.97, hell)}" stroke="none"/>'
+
+
+def mondphasen(x, y, breite=320, r=26, n=5, bogen=40):
+    """Mondphasen vom Neumond bis zum Vollmond in einem Bogen – das festgesetzte Maß (قَدَّرْنَٰهُ مَنَازِلَ)."""
+    out = ""
+    for i in range(n):
+        t = i / (n - 1)
+        mx = x - breite / 2 + t * breite
+        my = y + bogen * (2 * t - 1) ** 2 - bogen
+        out += mond(mx, my, r, t)
+    return out
+
+
+def sonnensystem(x, y, s=1.0):
+    """Sonne in der Mitte, Planeten auf genau bemessenen Bahnen (Ordnung der Schöpfung)."""
+    out = ""
+    bahnen = [(70, 26, .9, 210), (112, 42, .8, 330), (156, 58, 1.0, 40)]
+    for a, b, _, _ in bahnen:
+        out += (f'<ellipse cx="{x:.1f}" cy="{y:.1f}" rx="{a * s:.1f}" ry="{b * s:.1f}" fill="none" stroke="{grau(.55)}" '
+                f'stroke-width="{2.4 * s:.1f}" stroke-dasharray="{7 * s:.1f} {6 * s:.1f}"/>')
+    out += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{24 * s:.1f}" fill="{grau(1)}" stroke="none"/>'
+    out += "".join(f'<path d="M{x + math.cos(math.radians(w)) * 31 * s:.1f},{y + math.sin(math.radians(w)) * 31 * s:.1f} '
+                   f'L{x + math.cos(math.radians(w)) * 39 * s:.1f},{y + math.sin(math.radians(w)) * 39 * s:.1f}" stroke="#fff" '
+                   f'stroke-width="{3.5 * s:.1f}" stroke-linecap="round"/>' for w in range(0, 360, 45))
+    for i, (a, b, t, w) in enumerate(bahnen):
+        px, py = x + math.cos(math.radians(w)) * a * s, y + math.sin(math.radians(w)) * b * s
+        pr = (7, 10, 12)[i] * s
+        out += f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{pr:.1f}" fill="{grau(t)}" stroke="none"/>'
+        if i == 2:                                   # Erde mit Mond
+            out += f'<circle cx="{px + 20 * s:.1f}" cy="{py - 12 * s:.1f}" r="{4.5 * s:.1f}" fill="{grau(.75)}" stroke="none"/>'
     return out

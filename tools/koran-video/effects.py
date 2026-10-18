@@ -125,19 +125,21 @@ def vhs_durchlaeufe(duration: float, vhs: float, seed: int = 23) -> list[tuple[f
     return out
 
 
-def verschiebung_x(H: int, hitze: float, vhs: float, durchlaeufe) -> str | None:
+def verschiebung_x(W: int, H: int, hitze: float, vhs: float, durchlaeufe) -> str | None:
     """geq-Ausdruck: waagerechte Verschiebung je Bildzeile (128 = keine).
 
     Hitzeflimmern: ständig, langsam und großflächig wabernd, nahtlose Schleife (Periode 12 s).
     VHS-Linie: ein dünner Streifen mit weichem Verlauf (Mitte am stärksten), der von oben nach unten wandert.
+    Stärke und Wellenlänge richten sich nach der kurzen Bildseite, damit 9:16 genauso wirkt wie 16:9.
     """
+    s = min(W, H)
     terme = []
     if hitze > 0:
-        a = H * 0.0066 * hitze                          # 0.5 → ~3,5 px bei 1080p
-        terme.append(f"{a:.2f}*(0.6*sin(2*PI*(Y/{H * 0.22:.1f}-T/6))+0.4*sin(2*PI*(Y/{H * 0.09:.1f}+T/4)))")
+        a = s * 0.0066 * hitze                          # 0.5 → ~3,5 px bei 1080p
+        terme.append(f"{a:.2f}*(0.6*sin(2*PI*(Y/{s * 0.22:.1f}-T/6))+0.4*sin(2*PI*(Y/{s * 0.09:.1f}+T/4)))")
     if durchlaeufe:
-        amp = H * 0.018 * vhs                           # 0.5 → ~10 px Versatz in der Mitte des Streifens
-        h = max(4.0, H * 0.008)                         # halbe Streifenhöhe (~9 px bei 1080p)
+        amp = s * 0.018 * vhs                           # 0.5 → ~10 px Versatz in der Mitte des Streifens
+        h = max(4.0, s * 0.008)                         # halbe Streifenhöhe (~9 px bei 1080p)
         for a, b in durchlaeufe:
             y = f"(-{h:.1f}+{H + 2 * h:.1f}*(T-{a:.3f})/{b - a:.3f})"
             terme.append(f"{amp:.1f}*between(T,{a:.3f},{b:.3f})*max(0,1-abs(Y-{y})/{h:.1f})")
@@ -148,5 +150,6 @@ def verschiebung_y(W: int, H: int, hitze: float) -> str | None:
     """geq-Ausdruck: senkrechte Verschiebung je Bildspalte – das Hitzeflimmern wabert auch leicht auf und ab."""
     if hitze <= 0:
         return None
-    a = H * 0.0038 * hitze                              # 0.5 → ~2 px
-    return f"128+{a:.2f}*(0.6*sin(2*PI*(X/{W * 0.14:.1f}+T/6))+0.4*sin(2*PI*(X/{W * 0.06:.1f}-T/4)))"
+    s = min(W, H)
+    a = s * 0.0038 * hitze                              # 0.5 → ~2 px
+    return f"128+{a:.2f}*(0.6*sin(2*PI*(X/{s * 0.249:.1f}+T/6))+0.4*sin(2*PI*(X/{s * 0.107:.1f}-T/4)))"
