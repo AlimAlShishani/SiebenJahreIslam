@@ -100,7 +100,7 @@ hx, hy = helfer.hand("v")
 probe = Mensch(300, 238, 176, "sitzen_greifen", spiegeln=True)
 px, py = probe.hand("v")
 sitzend = Mensch(300 + (hx + 6 - px), 238, 176, "sitzen_greifen", spiegeln=True)
-S["29-7_gutes"] = helfer.svg + sitzend.svg + ground(240, 40, 370, .5) + herz((hx + 150) / 2 + 40, 64, 1.25)
+S["29-7_gutes"] = helfer.svg + sitzend.svg + ground(240, 40, 370, .5) + herz((hx + 150) / 2 + 62, 50, 1.1)
 # Teil 2 „Wir werden ihre Übel von ihnen nehmen“ – die Last zerfällt und steigt als Licht auf
 #   (die Lasten steigen von seinen Schultern auf, werden kleiner, blasser und zu Licht)
 m = Mensch(126, 238, 180, "front_erleichtert")

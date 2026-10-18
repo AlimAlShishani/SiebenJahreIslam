@@ -203,7 +203,8 @@ zweite Versuch (`beispiel_ankabut_1-7/`) ist der Maßstab.
   oder die Menschen, um die es geht).
 - Jede Grafik vor dem Rendern im Kontaktbogen ansehen und diese Regeln prüfen.
 - Stil: Piktogramm-Menschen aus `piktogramm.py` (Körper mit Rumpf und sich
-  verjüngenden Gliedern, Kopf als Kreis mit kleinem Abstand), gefüllte Flächen in
+  verjüngenden Gliedern, Kopf als Kreis mit sichtbarem Abstand über dem Rumpf – nicht im Körper
+  versenkt, Wunsch des Nutzers; `LUECKE` in `piktogramm.py`), gefüllte Flächen in
   Weiß und hellen Grautönen. Tiefe und Details entstehen über die Abstufungen.
 
 Die Ausgabe landet in `koran-video-ausgabe/` (gitignored), nicht committen.

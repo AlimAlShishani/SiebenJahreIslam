@@ -37,7 +37,9 @@ import math
 # Körpermaße in Einheiten (stehende Figur ≈ 100 hoch)
 SCHIEN, OBERSCHENKEL, RUMPF, OBERARM, UNTERARM = 23.0, 23.0, 29.0, 15.0, 13.5
 KNOECHEL_H = 3.4
-KOPF_R, HALS = 8.2, 4.2
+KOPF_R = 8.2
+LUECKE = 3.0       # sichtbarer Spalt zwischen Kopf und Rumpf (Piktogramm-Stil, Kopf nicht im Körper)
+KAPPE = 6.0        # Seitenansicht: Mitte der runden Rumpf-Oberkante liegt so weit unter dem Schultergelenk
 R = dict(schulter=4.8, ellbogen=3.8, handgelenk=3.2, hand=3.6, huefte=6.4, knie=4.9, knoechel=3.6,
          zehe=2.4, brust=9.6, becken=8.4)
 HINTEN_TON = 0.6      # abgewandter Arm/abgewandtes Bein: deckendes Grau (statt Transparenz)
@@ -139,7 +141,8 @@ class Mensch:
         if front:
             schulter_y = becken[1] + RUMPF
             j["brust"] = (0.0, schulter_y)
-            j["kopf"] = (0.0, schulter_y + HALS + KOPF_R)
+            # Oberkante des Rumpfs: Schulterpunkte (−2 + 1,5) plus halbe Strichbreite (3,5)
+            j["kopf"] = (0.0, schulter_y + 3.0 + LUECKE + KOPF_R)
             for seite, sx in (("l", -1), ("r", 1)):
                 sch = (sx * 9.0, schulter_y - 2.0)
                 w, b = p.get(f"arm_{seite}", (8, 4))
@@ -162,8 +165,10 @@ class Mensch:
             up = (math.sin(a), math.cos(a))
             sch = (becken[0] + up[0] * RUMPF, becken[1] + up[1] * RUMPF)
             j["brust"] = sch
+            j["rumpf_oben"] = (sch[0] - up[0] * KAPPE, sch[1] - up[1] * KAPPE)
             ak = math.radians(p.get("rumpf", 0) + p.get("kopf", 0))
-            j["kopf"] = (sch[0] + math.sin(ak) * (HALS + KOPF_R), sch[1] + math.cos(ak) * (HALS + KOPF_R))
+            d = R["brust"] - KAPPE + LUECKE + KOPF_R
+            j["kopf"] = (sch[0] + math.sin(ak) * d, sch[1] + math.cos(ak) * d)
             for seite in ("v", "h"):
                 w, b = p.get(f"arm_{seite}", (0, 6))
                 s0 = (sch[0] - up[0] * 2.5, sch[1] - up[1] * 2.5)
@@ -183,7 +188,7 @@ class Mensch:
         self.j = j
         # Punkte, die den Boden berühren können (für die Platzierung)
         seiten = ("l", "r") if front else ("v", "h")
-        kontakt = [(j["becken"], R["becken"]), (j["brust"], R["brust"]), (j["kopf"], KOPF_R)]
+        kontakt = [(j["becken"], R["becken"]), (j.get("rumpf_oben", j["brust"]), R["brust"]), (j["kopf"], KOPF_R)]
         for sd in seiten:
             kontakt += [(j[f"knie_{sd}"], R["knie"]), (j[f"knoechel_{sd}"], R["knoechel"]), (j[f"zehe_{sd}"], R["zehe"]),
                         (j[f"hand_{sd}"], R["hand"]), (j[f"ellbogen_{sd}"], R["ellbogen"])]
@@ -232,7 +237,7 @@ class Mensch:
                    (hl[0] - 1.6 * s, hl[1])]
             return (f'<path d="M{" L".join(f"{x:.1f},{y:.1f}" for x, y in pts)}Z" stroke="{self.farbe}" '
                     f'stroke-width="{7 * s:.1f}" stroke-linejoin="round"/>')
-        return _glied(P("brust"), R["brust"] * s, P("becken"), R["becken"] * s)
+        return _glied(P("rumpf_oben"), R["brust"] * s, P("becken"), R["becken"] * s)
 
     def _rumpf_flaeche(self):
         """Fläche von Rumpf (und Gewand) ohne Striche – für den Zuschnitt der Arm-Kante."""
@@ -249,7 +254,7 @@ class Mensch:
                 weit.append((px + (px - cx) / d * 4.2 * s, py + (py - cy) / d * 4.2 * s))
             flaeche = f'<path d="{_pfad(weit)}"/>'
         else:
-            flaeche = _glied(P("brust"), R["brust"] * s, P("becken"), R["becken"] * s)
+            flaeche = _glied(P("rumpf_oben"), R["brust"] * s, P("becken"), R["becken"] * s)
         if self.kleid:
             flaeche += self._gewand()
         return flaeche
