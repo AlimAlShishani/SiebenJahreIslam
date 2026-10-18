@@ -48,9 +48,11 @@ COLORS = {
     "gruen": "#5CFF8A", "grün": "#5CFF8A",
     "rot": "#FF3B3B",
     "gelb": "#FFE14D",
-    "blau": "#4FE3FF", "cyan": "#4FE3FF",
+    "blau": "#4FE3FF", "cyan": "#4FE3FF", "tuerkis": "#4FE3FF", "türkis": "#4FE3FF",
     "rosa": "#FF5FCB", "pink": "#FF5FCB",
     "gold": "#F6D58E",
+    "lila": "#B07BFF", "violett": "#B07BFF",
+    "orange": "#FF9A3D",
 }
 LEAD = 0.2         # Teil/Grafik erscheint so viel vor dem ersten Wort
 MIN_TEIL = 2.0     # kürzere Teile (oder nur ein Wort) werden an den folgenden Teil angehängt, wenn es in die Zeile passt

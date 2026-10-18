@@ -254,6 +254,21 @@ class Mensch:
             flaeche += self._gewand()
         return flaeche
 
+    def _armluecken(self):
+        """Frontansicht, Hände am Kopf: die Lücken zwischen Arm, Kopf und Schulter füllen.
+
+        Sonst entstehen zwei dunkle schräge Schlitze unter dem Kopf, die wie Augen wirken (verboten).
+        Gefüllt in Figurfarbe: Kopf und Arme werden eine Silhouette mit seitlich abstehenden Ellbogen.
+        """
+        kx, ky, kr = self.kopf()
+        out = ""
+        for sd in ("l", "r"):
+            hx, hy = self.pt(f"hand_{sd}")
+            if math.hypot(hx - kx, hy - ky) < kr * 1.8:
+                pts = [self.pt(f"schulter_{sd}"), self.pt(f"ellbogen_{sd}"), (hx, hy), (kx, ky), self.pt("brust")]
+                out += f'<path d="{_pfad(pts)}" fill="{self.farbe}" stroke="{self.farbe}" stroke-width="{2 * self.s:.1f}" stroke-linejoin="round"/>'
+        return out
+
     def _kanten(self, arme):
         """Feine, etwas dunklere Kante um die Arme – nur dort, wo sie vor Rumpf/Gewand liegen."""
         _ids[0] += 1
@@ -302,6 +317,7 @@ class Mensch:
             arme = [self._arm("v")]
         else:
             teile.append(self._bein("l") + self._bein("r") + self._rumpf() + (self._gewand() if self.kleid else ""))
+            teile.append(self._armluecken())
             arme = [self._arm("l"), self._arm("r")]
         if self.kontur:
             teile.append(self._kanten(arme))

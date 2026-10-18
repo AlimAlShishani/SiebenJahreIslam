@@ -60,6 +60,10 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    Interaktion zwischen Figuren (geben, abwenden, helfen), Umgebung (Feld, Haus,
    Berg, Palme), Gefühls-Zeichen (Schweißtropfen, ?/!, Zitter- und
    Bewegungslinien). Keine allgemeinen Symbolbilder.
+   - **Zuerst `bildsprache.md` (in diesem Skill-Ordner) lesen:** fünf Fragen, mit denen
+     man aus jedem Vers ein Bild ableitet, die Grundsätze aus den Referenzvideos und ein
+     Musterkatalog „Begriff → Bildidee → Baustein“. Nicht kopieren, sondern pro Vers
+     neu denken.
    - **Zeichnen:** Skript `koran-video-ausgabe/<…>/grafiken_zeichnen.py` schreiben.
      Menschen und Hauptgegenstände mit `tools/koran-video/piktogramm.py`
      (Docstring lesen): `Mensch(x, y, h, pose, spiegeln=, kleid=, kopftuch=, o=,
@@ -70,7 +74,11 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      `richterhammer`, `sanduhr`, `gebetsteppich`, `weltkugel`, `sonne_horizont`,
      `herz`. Kleine Zeichen, Kalligrafie und den Kontaktbogen liefert
      `baukasten.py` (`zeichen`, `haken`, `kreuz`, `schweiss`, `bewegung`,
-     `sparkle`, `ground`, `schriftzug`, `flammen`, `clip_oben` …). Fehlt ein
+     `sparkle`, `ground`, `schriftzug`, `flammen`, `clip_oben` …). Gefühls-Zeichen und
+     Symbole aus `symbole.py`: Tränen, Schreck, Wut, Sorgenwolke, Gedankenpfeile, Schall,
+     wirre Sprechblase, stummer Lautsprecher, Blindenstock, Blicklinie, Uhr (ständig /
+     früher), Medaillon für Propheten, Menge, Teufel, Tür, Gitter, Schranke,
+     Schriftrolle, Moschee. Fehlt ein
      Gegenstand, ihn selbst als SVG zeichnen (typische Silhouette, gefüllt, Tiefe
      über Grautöne). Muster: `tools/koran-video/beispiel_ankabut_1-7/`
      (Zeichen-Skript + Plan). SVGs nach `koran-video-ausgabe/<…>/grafiken/`
@@ -94,7 +102,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      Belohnung (Garten, Freude) sind erlaubt. Keine Grafik bei Basmala/Isti'adha.
    - **Farbe nach Stimmung** (`farbe`): Standard weiß; `rot` Warnung/Strafe,
      `gruen` frohe Botschaft/Gläubige/Lohn, `gelb` Schwäche/Fehler des Menschen,
-     `gold` Aussagen über Allah/Erhabenes, `blau`/`rosa` Schöpfung. Sparsam.
+     `gold` Aussagen über Allah/Erhabenes, `blau`/`tuerkis` Schöpfung und Dank,
+     `lila` Freude über den Lohn, `orange` vergebliches Flehen. Sparsam.
    - **Layout** (Wunsch des Nutzers): Text und Grafik stehen zusammen mittig im
      Bild, die Grafik ist bewusst nicht riesig (16:9: 40 % der Bildhöhe).
      Abschnitte ohne Grafik zeigen den Text in der Bildmitte – nicht oben vor

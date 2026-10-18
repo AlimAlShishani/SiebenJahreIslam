@@ -142,6 +142,11 @@ zum Abschnitt neu:
   der Hand, und Gegenstände mit klarer Silhouette (Fels, Sack, Palme, Baum,
   Hängematte, Sprechblase, Richterhammer, Sanduhr, Gebetsteppich, Weltkugel,
   Sonnenaufgang, Herz).
+- `symbole.py`: Bildsprache-Zeichen aus den Referenzvideos: Gefühle (Tränen, Schreck,
+  Wut, Sorgenwolke, Gedankenpfeile), Reden/Hören/Sehen (Schall, wirre Sprechblase, stummer
+  Lautsprecher, Blindenstock, Blicklinie), Zeit (Uhr vorwärts/rückwärts), Medaillon für
+  Propheten, Menge, Teufel, Tür, Gitter, Schranke, Schriftrolle, Moschee. Wie man daraus
+  pro Vers ein Bild ableitet: `.claude/skills/koran-video/bildsprache.md`.
 - `baukasten.py`: Leinwand, Kontaktbogen `vorschau(...)` (meldet abgeschnittene
   Szenen) und kleine Bausteine: Zeichen (?, ✓, ✗, Schweißtropfen,
   Bewegungslinien, Funkeln), Kalligrafie `schriftzug("ٱللَّهُ")`, Flammen, Wellen,
