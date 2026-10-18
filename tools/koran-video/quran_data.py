@@ -140,9 +140,15 @@ def build_segments(
     basmala: bool | str,
     istiadha: bool | str,
     translation_id: int | None,
+    ab_wort: int = 1,
+    bis_wort: int = 0,
 ) -> list[Segment]:
     """basmala/istiadha: True, False oder "auto" (= vielleicht vorhanden; wird nur behalten,
-    wenn die Spracherkennung sie in der Aufnahme hört)."""
+    wenn die Spracherkennung sie in der Aufnahme hört).
+
+    ab_wort: der erste Vers beginnt erst bei diesem Wort (z. B. nur der letzte Teil eines langen
+    Verses wird rezitiert); bis_wort: der letzte Vers endet schon bei diesem Wort (0 = ganz).
+    Wortnummern danach (Plan, planung.txt) zählen ab dem ersten gezeigten Wort."""
     verses = chapter_verses(surah, translation_id)
     if not (1 <= von <= bis <= len(verses)):
         raise SystemExit(f"Sure {surah} hat {len(verses)} Verse – Bereich {von}-{bis} ist ungültig.")
@@ -155,8 +161,20 @@ def build_segments(
         words = [w for w in _words(fatiha1) if not w.is_end]
         segs.append(Segment("basmala", "basmala", words, fatiha1["text_uthmani"], _translation(fatiha1),
                             meta={"optional": basmala == "auto"}))
-    for v in verses[von - 1 : bis]:
-        segs.append(Segment("vers", v["verse_key"], _words(v), v["text_uthmani"], _translation(v)))
+    auswahl = verses[von - 1 : bis]
+    for i, v in enumerate(auswahl):
+        words = _words(v)
+        inhalt = [w for w in words if not w.is_end]
+        a = ab_wort if i == 0 else 1
+        b = bis_wort if (i == len(auswahl) - 1 and bis_wort) else len(inhalt)
+        if not (1 <= a <= b <= len(inhalt)):
+            raise SystemExit(f"{v['verse_key']}: Wortbereich {a}–{b} ungültig (Vers hat {len(inhalt)} Wörter).")
+        if a == 1 and b == len(inhalt):
+            segs.append(Segment("vers", v["verse_key"], words, v["text_uthmani"], _translation(v)))
+        else:
+            teil = inhalt[a - 1:b] + ([w for w in words if w.is_end] if b == len(inhalt) else [])
+            segs.append(Segment("vers", v["verse_key"], teil, " ".join(w.text for w in inhalt[a - 1:b]), _translation(v),
+                                meta={"teilvers": (a, b, len(inhalt))}))
     return segs
 
 

@@ -244,6 +244,8 @@ def build_screens(segs: list[Segment], plan: dict, plan_dir: Path | None = None,
             bounds = auto_bounds(seg, fits) if auto else [n]
             # Vers-Grafiken den Teilen zuordnen
             teile = [{"grafiken": []} for _ in bounds]
+            if entry.get("uebersetzung") and len(bounds) == 1:     # Übersetzung direkt am Vers (z. B. Teilvers)
+                teile[0]["uebersetzung"] = entry["uebersetzung"]
             for g in entry.get("grafiken", []):
                 g = {"datei": g} if isinstance(g, str) else g
                 ab = int(g.get("ab_wort", 1))
@@ -336,6 +338,10 @@ def planning_text(segs: list[Segment], screens: list[Screen]) -> str:
         lines.append(f"== {seg.key}   {seg.start:.2f}s – {seg.end:.2f}s  ({seg.end - seg.start:.1f}s)")
         if seg.translation:
             lines.append(f"   DE: {seg.translation}")
+        if seg.meta.get("teilvers"):
+            a, b, n = seg.meta["teilvers"]
+            lines.append(f"   TEILVERS: nur Wörter {a}–{b} von {n} werden gezeigt (unten neu ab 1 gezählt) – "
+                         "die Übersetzung im Plan auf diesen Teil kürzen!")
         words = _content(seg)
         pauses = set(seg.meta.get("pausen_nach_wort", []))
         if words:

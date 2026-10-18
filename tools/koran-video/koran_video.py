@@ -253,6 +253,9 @@ def parse_args(argv=None):
     p.add_argument("--sure", type=int, help="Nummer der Sure (1–114)")
     p.add_argument("--von", type=int, help="erster Vers")
     p.add_argument("--bis", type=int, help="letzter Vers (Standard: = --von)")
+    p.add_argument("--ab-wort", type=int, default=1,
+                   help="der erste Vers beginnt erst bei diesem Wort (nur der letzte Teil wird rezitiert), siehe planung.txt")
+    p.add_argument("--bis-wort", type=int, default=0, help="der letzte Vers endet schon bei diesem Wort (0 = ganzer Vers)")
     p.add_argument("--basmala", choices=["auto", "ja", "nein"], default="auto",
                    help="Basmala am Anfang? auto = ja, wenn ab Vers 1 gelesen wird (außer Sure 1 und 9)")
     p.add_argument("--istiadha", nargs="?", const="ja", choices=["auto", "ja", "nein"], default="auto",
@@ -343,7 +346,7 @@ def main(argv=None) -> None:
 
     # 1) Korandaten
     log("1/4 Lade Korantext, Glyphen-Codes und Übersetzung …")
-    segs = build_segments(args.sure, args.von, args.bis, basmala, istiadha, tid)
+    segs = build_segments(args.sure, args.von, args.bis, basmala, istiadha, tid, args.ab_wort, args.bis_wort)
 
     # 2) Audio vorbereiten (Stille am Anfang/Ende abschneiden)
     log("2/4 Zeitstempel bestimmen …")

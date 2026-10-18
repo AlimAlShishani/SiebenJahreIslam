@@ -320,3 +320,48 @@ def moschee(x, y, s=1.0):
     fenster = "".join(f'<path d="M{P(d - 6, -22)} L{P(d - 6, -36)} Q{P(d, -44)} {P(d + 6, -36)} L{P(d + 6, -22)}Z" fill="{grau(.55)}" stroke="none"/>'
                       for d in (-40, 40))
     return minarett + bau + kuppel + mond + tor + fenster
+
+
+# ---------------------------------------------------------------- Versorgung, Ziel, Maß
+def obstkorb(x, y, s=1.0):
+    """Korb voller Früchte (Versorgung, Rizq). (x, y) = Mitte unten."""
+    P = lambda a, b: (x + a * s, y + b * s)
+    fruechte = ""
+    for a, b, r, t in [(-24, -46, 13, .95), (0, -52, 14, 1.0), (24, -46, 12, .9), (-11, -60, 11, .85), (13, -62, 11, .92)]:
+        fruechte += f'<circle cx="{P(a, 0)[0]:.1f}" cy="{P(0, b)[1]:.1f}" r="{r * s:.1f}" fill="{grau(t)}" stroke="none"/>'
+    traube = "".join(f'<circle cx="{P(a, 0)[0]:.1f}" cy="{P(0, b)[1]:.1f}" r="{4.2 * s:.1f}" fill="{grau(.7)}" stroke="none"/>'
+                     for a, b in [(30, -60), (36, -54), (30, -50), (36, -46), (33, -40)])
+    koerper = _pfad([P(-44, -40), P(44, -40), P(34, 0), P(-34, 0)])
+    out = (fruechte + traube + f'<path d="{koerper}" fill="{grau(.72)}" stroke="none"/>'
+           + f'<rect x="{P(-48, 0)[0]:.1f}" y="{P(0, -46)[1]:.1f}" width="{96 * s:.1f}" height="{9 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(.85)}" stroke="none"/>')
+    for i in range(1, 4):                                  # Flechtmuster in einem dunkleren Ton
+        yy = -40 + i * 10
+        w = 44 - i * 2.5
+        out += f'<path d="M{P(-w + 2, yy)[0]:.1f},{P(0, yy)[1]:.1f} L{P(w - 2, yy)[0]:.1f},{P(0, yy)[1]:.1f}" stroke="{grau(.56)}" stroke-width="{2.4 * s:.1f}"/>'
+    return out
+
+
+def zielscheibe(x, y, r=60, pfeil=True):
+    """Zielscheibe, auf Wunsch mit Pfeil genau in der Mitte („erreicht sein Ziel“). (x, y) = Mitte."""
+    out = ""
+    for i, t in enumerate((1.0, .55, 1.0, .55, 1.0)):
+        out += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r * (1 - i * .2):.1f}" fill="{grau(t)}" stroke="none"/>'
+    if pfeil:
+        a = math.radians(-35)                              # Pfeil kommt von rechts oben
+        L = r * 1.5
+        ex, ey = x + math.cos(a) * L, y + math.sin(a) * L
+        out += (f'<path d="M{x:.1f},{y:.1f} L{ex:.1f},{ey:.1f}" stroke="{grau(.9)}" stroke-width="{r * .07:.1f}" stroke-linecap="round"/>'
+                + "".join(f'<path d="{_pfad([(ex - math.cos(a) * r * .05, ey - math.sin(a) * r * .05), (ex + math.cos(a + d) * r * .28, ey + math.sin(a + d) * r * .28), (ex + math.cos(a + d * .4) * r * .32, ey + math.sin(a + d * .4) * r * .32)])}" '
+                          f'fill="{grau(.8)}" stroke="none"/>' for d in (.55, -.55)))
+        out += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r * .06:.1f}" fill="{grau(.4)}" stroke="none"/>'
+    return out
+
+
+def messlatte(x, y, h=200, teile=10):
+    """Senkrechte Messlatte mit Strichen (Maß, Bestimmung). (x, y) = Fuß."""
+    out = f'<rect x="{x - 9:.1f}" y="{y - h:.1f}" width="18" height="{h:.1f}" rx="3" fill="{grau(.85)}" stroke="none"/>'
+    for i in range(1, teile * 2):
+        yy = y - i * h / (teile * 2)
+        w = 12 if i % 2 == 0 else 7
+        out += f'<path d="M{x - 9:.1f},{yy:.1f} l{w},0" stroke="{grau(.4)}" stroke-width="2.4"/>'
+    return out

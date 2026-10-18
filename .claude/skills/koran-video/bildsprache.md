@@ -93,7 +93,7 @@ komponiert. Bausteine aus `piktogramm.py` (P), `symbole.py` (S) und `baukasten.p
 - Strafe, Feuer → Figur in Flammen (B `flammen`, `clip_oben`), rot
 - Lohn, Paradies → Garten, Bäume, Fluss, Figur mit erhobenen Armen, grün
 - Auferstehung → Figuren steigen aus dem Boden (unterer Teil mit `clip_oben` abgeschnitten), Nacht/Mond
-- Tod naht → Figur weicht zurück, Arme abwehrend, Sanduhr fast leer (P `sanduhr`)
+- Tod naht → Figur weicht zurück, Arme abwehrend, Sanduhr fast leer (P `sanduhr`); Tote, Grab → Skelett (erlaubt)
 
 **Gefühle** (Zeichen an der Figur, S)
 - Angst, Unruhe → Zitterstriche (B `zittern`), Schweißtropfen (B `schweiss`)
@@ -121,7 +121,8 @@ komponiert. Bausteine aus `piktogramm.py` (P), `symbole.py` (S) und `baukasten.p
   wie Augen wirken (deshalb füllt `Mensch` sie bei Händen am Kopf).
 - **Propheten nie als Figur** (die Referenz zeigt Yusuf als Figur). Stattdessen Medaillon
   mit Namen, oder nur die anderen Personen und Dinge der Geschichte.
-- **Kein Skelett** für den Tod (Augenhöhlen). Stattdessen Sanduhr, zusammensinkende Figur.
+- **Skelett ist erlaubt** (ausdrücklich vom Nutzer freigegeben), z. B. für Tod, Grab,
+  „Lass mich zurückkehren!“ (kniendes Skelett).
 - **Alles selbst gezeichnet**, keine Fotos/3D-Bilder (die Referenzen mischen echte Bilder
   von Koran, Herz, Erde ein).
 

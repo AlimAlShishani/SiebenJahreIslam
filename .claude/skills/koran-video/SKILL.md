@@ -35,6 +35,13 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B --nur-zeitstempel \
      [--istiadha] [--basmala nein]
    ```
+   **Nur ein Teil eines Verses rezitiert** („Vers 2, nur der letzte Teil“): erst die
+   Spracherkennung prüfen, mit welchem Wort die Aufnahme beginnt bzw. endet, dann
+   `--ab-wort N` (erster Vers beginnt bei Wort N) bzw. `--bis-wort N` (letzter Vers endet
+   bei Wort N) in Schritt A und C setzen. Die Wortnummern im Plan zählen danach ab dem
+   ersten gezeigten Wort; `ab_wort` einer Grafik zählt immer im ganzen (gezeigten) Vers,
+   nicht im Abschnitt. Die Übersetzung des Teilverses direkt am Vers angeben
+   (`"uebersetzung"` ohne `teile`).
    Basmala und Isti'adha werden NICHT angenommen, sondern erkannt: Standard
    `auto` behält sie nur, wenn die Spracherkennung sie in der Aufnahme hört
    (Log: „Basmala: erkannt“ / „nicht gehört → weggelassen“). Sagt der Nutzer
