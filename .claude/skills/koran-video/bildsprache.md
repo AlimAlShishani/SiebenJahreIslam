@@ -95,6 +95,11 @@ komponiert. Bausteine aus `piktogramm.py` (P), `symbole.py` (S) und `baukasten.p
 - Gespräche zwischen Paradies, Feuer und al-A'raf → **ein fester Schauplatz** über alle Verse:
   links Garten (Bäume, Palme), Mitte Mauer mit den Männern oben (S `mauer`), rechts Feuer mit
   Menschen darin; je Abschnitt der passende Ausschnitt (wer ruft wem zu, wohin geht der Blick)
+- Paradies und Feuer in einem Bild → **eigene Farben** (Garten grün, Feuer orangerot über
+  B `faerben`; sie bleiben in jeder Szenenfarbe erhalten, der Rest nimmt die Szenenfarbe an) und
+  **sichtbarer Abstand** dazwischen, sonst verschwimmt beides zu einem Block (Nutzerwunsch)
+- „Wir vergessen sie“ (Allah vergisst nichts) → im Feuer zurückgelassen, das Tor zum Garten
+  verschlossen (57:13: Mauer mit Tor, innen Barmherzigkeit, außen Strafe) – nie als Auflösen
 - rufen, zurufen → Pose `rufen` (Hand am Mund) + `schall`; Gruß/Antwort → Sprechblase mit dem
   arabischen Wortlaut (سَلَٰمٌ عَلَيْكُمْ، نَعَمْ)
 - Ausrufer, Verkündung (oft ein Engel) → Trichter-Lautsprecher (S `lautsprecher`), nie eine Figur

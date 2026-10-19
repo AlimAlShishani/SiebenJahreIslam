@@ -44,12 +44,19 @@ def render_graphic(source: Path, out: Path, style: Style, box: tuple[int, int, i
     else:
         art = Image.open(source).convert("RGBA")
         art.thumbnail((w, h))
-    # Farbe der Szene: Weiß → Szenenfarbe (multiplizieren), Grautöne bleiben als dunklere Stufen erhalten
+    # Farbe der Szene: Weiß → Szenenfarbe (multiplizieren), Grautöne bleiben als dunklere Stufen erhalten.
+    # Was in der Grafik selbst schon farbig ist (z. B. grüner Garten, orangerotes Feuer), behält seine Farbe.
     color = tuple(int(style.color.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
     if color != (255, 255, 255):
-        from PIL import ImageChops
+        import numpy as np
 
-        tinted = ImageChops.multiply(art.convert("RGB"), Image.new("RGB", art.size, color)).convert("RGBA")
+        rgb = np.asarray(art.convert("RGB"), np.float32)
+        hell = rgb.max(axis=2)
+        saett = (hell - rgb.min(axis=2)) / np.maximum(hell, 1.0)
+        eigen = np.clip((saett - 0.12) / 0.18, 0, 1)[..., None]       # 0 = grau/weiß, 1 = eigene Farbe
+        gefaerbt = rgb * (np.array(color, np.float32) / 255)
+        mix = gefaerbt * (1 - eigen) + rgb * eigen
+        tinted = Image.fromarray(np.clip(mix + 0.5, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
         tinted.putalpha(art.getchannel("A"))
         art = tinted
     canvas = Image.new("RGBA", (style.width, style.height), (0, 0, 0, 0))

@@ -31,7 +31,9 @@ Was dabei passiert:
    und Grafik stehen zusammen mittig im Bild (Text oben, Grafik darunter);
    Abschnitte ohne Grafik zeigen den Text in der Bildmitte.
 5. **Video bauen:** Hintergrund, Partikel, Szenen (mit sanfter Blende, Grafiken
-   schweben leicht) und Audio werden zu `video.mp4` zusammengesetzt.
+   schweben leicht) und Audio werden zu `video.mp4` zusammengesetzt – in Abschnitten
+   (je Szene), die in `abschnitte/` zwischengespeichert werden. Bei einer Korrektur
+   werden nur die Abschnitte neu gerendert, deren Inhalt sich geändert hat.
 6. **CapCut-Paket:** alle Einzelteile, damit du in CapCut alles anpassen kannst.
 
 ## Benutzung
@@ -83,6 +85,7 @@ koran-video-ausgabe/067_001-010/
 ├── plan.json                 der verwendete Plan
 ├── grafiken_zeichnen.py      Claudes Skript, das die Grafiken dieses Videos zeichnet
 ├── grafiken/                 die gezeichneten SVGs + vorschau.jpg
+├── abschnitte/               zwischengespeicherte Video-Abschnitte (nur Geändertes wird neu gerendert)
 ├── capcut-paket.zip          Inhalt von capcut/ als ZIP
 └── capcut/
     ├── audio.m4a             Rezitation (Stille vorne/hinten abgeschnitten)

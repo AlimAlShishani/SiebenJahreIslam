@@ -337,6 +337,26 @@ def vogel(x, y, s=1.0, fluegel="offen", spiegeln=False, o=1.0):
 
 
 
+def faerben(inhalt, farbe):
+    """Färbt einen Teil der Grafik in einer eigenen Farbe (z. B. Garten grün, Feuer orangerot): Weiß und
+    Grautöne werden mit der Farbe multipliziert, die Abstufungen bleiben. Solche Teile behalten im Video
+    ihre Farbe, während der Rest die Szenenfarbe annimmt."""
+    import re
+    r0, g0, b0 = (int(farbe.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+
+    def mal(m):
+        h = m.group(1)
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+        if not r == g == b:
+            return m.group(0)
+        return "#%02x%02x%02x" % (r0 * r // 255, g0 * r // 255, b0 * r // 255)
+
+    inhalt = re.sub(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b", mal, inhalt)
+    return f'<g stroke="{farbe}">{inhalt}</g>'
+
+
 def clip_oben(inhalt, y):
     """Zeigt von inhalt nur den Teil oberhalb von y (z. B. Figur, die im Feuer oder im Wasser steht)."""
     _clip_id[0] += 1

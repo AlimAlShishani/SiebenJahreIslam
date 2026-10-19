@@ -135,6 +135,111 @@ def write_screen_list(screens: list[Screen], out: Path) -> None:
 # --------------------------------------------------------------------------- Video
 
 
+FPS = 30
+
+
+def _dauer(pfad: Path) -> float:
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(pfad)],
+                       capture_output=True, text=True, check=True)
+    return float(r.stdout.strip() or 0)
+
+
+def _render_abschnitt(
+    layers: list[Layer], fa: int, fb: int, background: Path, size: tuple[int, int], darken: float, ziel: Path,
+    filter_datei: Path, particles: Path | None, micro: list, durchlaeufe: list, glitch: float, hitze: float, vhs: float,
+) -> None:
+    """Rendert die Frames fa … fb-1 als eigenes Video (ohne Ton).
+
+    Alle Quellen laufen mit absoluten Zeitstempeln (Basis ab a = fa/FPS), damit Einblendungen, Schweben,
+    Hitzeflimmern, VHS-Linie und Glitch genau so aussehen wie in einem Durchlauf über das ganze Video –
+    die Abschnitte lassen sich danach nahtlos aneinanderhängen.
+    """
+    W, H = size
+    a, d = fa / FPS, (fb - fa) / FPS
+    inputs: list[str] = []
+    if background.suffix.lower() in IMAGE_EXT:
+        inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{d:.3f}", "-i", str(background)]
+    else:
+        inputs += ["-stream_loop", "-1", "-ss", f"{a % max(_dauer(background), 0.1):.3f}", "-t", f"{d:.3f}",
+                   "-i", str(background)]
+    filters = [
+        f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1,fps={FPS},"
+        f"format=rgba,drawbox=c=black@{darken:.2f}:t=fill,setpts=PTS-STARTPTS+{fa}[base0]"
+    ]
+    cur, n_in = "base0", 1
+    if particles:
+        # Partikel per „Screen“-Mischung: Schwarz bleibt unsichtbar, Lichtpunkte hellen auf
+        inputs += ["-stream_loop", "-1", "-ss", f"{a % max(_dauer(particles), 0.1):.3f}", "-t", f"{d:.3f}",
+                   "-i", str(particles)]
+        filters.append(f"[{cur}]format=gbrp[bgp]")
+        filters.append(f"[{n_in}:v]scale={W}:{H},fps={FPS},format=gbrp,setpts=PTS-STARTPTS+{fa}[pt]")
+        filters.append("[bgp][pt]blend=all_mode=screen:shortest=1,format=rgba[base1]")
+        cur = "base1"
+        n_in += 1
+
+    float_amp = max(2, round(min(W, H) * 0.006))     # kurze Seite: in 9:16 gleich weich wie in 16:9
+    for i, ly in enumerate(layers):
+        dl = max(0.05, ly.end - ly.start)
+        f = min(ly.fade, dl / 3)
+        inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{dl:.3f}", "-i", str(ly.png)]
+        chain = f"[{n_in}:v]format=rgba"
+        ox = oy = 0
+        if ly.motion:
+            # nur den Bereich der Grafik bearbeiten (mit Rand fürs Schweben) – spart viel Rechenzeit
+            from PIL import Image
+            with Image.open(ly.png) as im:
+                box = im.getchannel("A").getbbox()
+            if box:
+                rand = float_amp + 4
+                ox, oy = max(0, box[0] - rand) & ~1, max(0, box[1] - rand) & ~1
+                cw, ch = min(W, box[2] + rand) - ox, min(H, box[3] + rand) - oy
+                chain += f",crop={cw}:{ch}:{ox}:{oy}"
+        if f > 0:
+            chain += f",fade=t=in:st=0:d={f:.2f}:alpha=1,fade=t=out:st={dl - f:.3f}:d={f:.2f}:alpha=1"
+        if ly.motion:
+            # sanftes Schweben mit Zwischenpixeln (overlay kann nur ganze Pixel → wirkte ruckelig/pixelig):
+            # die Ebene wird per „perspective“ (bilinear) um einen gebrochenen Betrag verschoben
+            dy = f"{float_amp}*sin(2*PI*({ly.start:.3f}+in/{FPS})/4.5)"
+            chain += (f",format=gbrap,perspective=y0='{dy}':y1='{dy}':y2='H+{dy}':y3='H+{dy}'"
+                      f":sense=destination:eval=frame,format=rgba")
+        chain += f",setpts=PTS-STARTPTS+{ly.start:.3f}/TB[o{i}]"
+        filters.append(chain)
+        filters.append(f"[{cur}][o{i}]overlay=x={ox}:y={oy}:eof_action=pass[b{i}]")
+        cur = f"b{i}"
+        n_in += 1
+    # in doppelter Auflösung verschieben und wieder verkleinern: „displace“ kennt nur ganze Pixel,
+    # so bewegt sich das Flimmern weich statt in Pixelstufen
+    W2, H2 = 2 * W, 2 * H
+    ex = effects.verschiebung_x(W2, H2, hitze, vhs, durchlaeufe)
+    ey = effects.verschiebung_y(W2, H2, hitze)
+    if ex or ey:
+        # Hitzeflimmern (ständig) + VHS-Linie (wandert ab und zu von oben nach unten) über ffmpeg „displace“.
+        # Die x-Verschiebung hängt nur von Zeile und Zeit ab, die y-Verschiebung nur von Spalte und Zeit:
+        # beide Karten schmal berechnen und strecken (schnell). T zählt ab Videoanfang (setpts vor geq).
+        ex, ey = ex or "128", ey or "128"
+        filters.append(f"nullsrc=s=2x{H2}:r={FPS}:d={d:.3f},setpts=PTS+{fa},format=gbrp,"
+                       f"geq=r='{ex}':g='{ex}':b='{ex}',scale={W2}:{H2}:flags=neighbor[xmap]")
+        filters.append(f"nullsrc=s={W2}x2:r={FPS}:d={d:.3f},setpts=PTS+{fa},format=gbrp,"
+                       f"geq=r='{ey}':g='{ey}':b='{ey}',scale={W2}:{H2}:flags=neighbor[ymap]")
+        filters.append(f"[{cur}]scale={W2}:{H2}:flags=bilinear,format=gbrp[dsrc]")
+        filters.append(f"[dsrc][xmap][ymap]displace=edge=smear,scale={W}:{H}:flags=area,format=rgba[dsp]")
+        cur = "dsp"
+    if micro:
+        # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
+        sh = max(1, round(max(W, H) * 0.002 * glitch))
+        enable = "+".join(f"between(t,{x:.3f},{y:.3f})" for x, y in micro)
+        filters.append(f"[{cur}]rgbashift=rh={sh}:bh=-{sh}:enable='{enable}'[gl]")
+        cur = "gl"
+    filters.append(f"[{cur}]setpts=PTS-STARTPTS,format=yuv420p[vout]")
+    filter_datei.write_text(";\n".join(filters), "utf-8")
+    tmp = ziel.with_suffix(".tmp.mp4")
+    cmd = (["ffmpeg", "-nostdin", "-y", "-loglevel", "error"] + inputs
+           + ["-filter_complex_script", str(filter_datei), "-map", "[vout]", "-an"]
+           + ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", str(FPS), "-frames:v", str(fb - fa), str(tmp)])
+    subprocess.run(cmd, check=True)
+    tmp.replace(ziel)
+
+
 def build_video(
     layers: list[Layer],
     avoid: list[float],
@@ -149,96 +254,77 @@ def build_video(
     glitch: float = 0.0,
     hitze: float = 0.0,
     vhs: float = 0.0,
+    grenzen: list[float] = (),
+    cache: Path | None = None,
+    parallel: int | None = None,
 ) -> None:
-    W, H = size
-    bg_is_image = background.suffix.lower() in IMAGE_EXT
-    inputs: list[str] = []
-    if bg_is_image:
-        inputs += ["-loop", "1", "-framerate", "30", "-t", f"{duration:.3f}", "-i", str(background)]
-    else:
-        inputs += ["-stream_loop", "-1", "-t", f"{duration:.3f}", "-i", str(background)]
-    inputs += ["-i", str(audio)]
+    """Video in Abschnitten rendern (Grenzen = Szenenwechsel) und zusammenfügen.
 
-    filters = [
-        f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1,fps=30,"
-        f"format=rgba,drawbox=c=black@{darken:.2f}:t=fill[base0]"
-    ]
-    cur = "base0"
-    n_in = 2
-    if particles:
-        # Partikel per „Screen“-Mischung: Schwarz bleibt unsichtbar, Lichtpunkte hellen auf
-        inputs += ["-stream_loop", "-1", "-t", f"{duration:.3f}", "-i", str(particles)]
-        filters.append(f"[{cur}]format=gbrp[bgp]")
-        filters.append(f"[{n_in}:v]scale={W}:{H},fps=30,format=gbrp[pt]")
-        filters.append("[bgp][pt]blend=all_mode=screen:shortest=1,format=rgba[base1]")
-        cur = "base1"
-        n_in += 1
+    Jeder Abschnitt wird mit einem Fingerabdruck seines Inhalts (Ebenen-PNGs, Zeiten, Effekte, Hintergrund)
+    in `cache` abgelegt. Beim nächsten Lauf werden nur Abschnitte neu gerendert, deren Inhalt sich geändert
+    hat – eine Korrektur an einer Grafik oder Übersetzung kostet so Sekunden statt das ganze Video.
+    """
+    import hashlib
+    import inspect
+    from concurrent.futures import ThreadPoolExecutor
+
+    cache = cache or (out.parent / "abschnitte")
+    cache.mkdir(parents=True, exist_ok=True)
+    n_frames = max(1, round(duration * FPS))
+    # Abschnittsgrenzen in Frames; Abschnitte unter 1 s werden mit dem folgenden zusammengelegt
+    kandidaten = sorted({min(n_frames, max(0, round(t * FPS))) for t in grenzen} - {0, n_frames})
+    marken = [0]
+    for f in kandidaten:
+        if f - marken[-1] >= FPS and n_frames - f >= FPS:
+            marken.append(f)
+    marken.append(n_frames)
 
     micro = effects.glitch_times(duration, glitch, avoid) if glitch > 0 else []
-    float_amp = max(2, round(min(W, H) * 0.006))     # kurze Seite: in 9:16 gleich weich wie in 16:9
-    for i, ly in enumerate(layers):
-        d = max(0.05, ly.end - ly.start)
-        f = min(ly.fade, d / 3)
-        inputs += ["-loop", "1", "-framerate", "30", "-t", f"{d:.3f}", "-i", str(ly.png)]
-        chain = f"[{n_in}:v]format=rgba"
-        ox = oy = 0
-        if ly.motion:
-            # nur den Bereich der Grafik bearbeiten (mit Rand fürs Schweben) – spart viel Rechenzeit
-            from PIL import Image
-            with Image.open(ly.png) as im:
-                box = im.getchannel("A").getbbox()
-            if box:
-                rand = float_amp + 4
-                ox, oy = max(0, box[0] - rand) & ~1, max(0, box[1] - rand) & ~1
-                cw, ch = min(W, box[2] + rand) - ox, min(H, box[3] + rand) - oy
-                chain += f",crop={cw}:{ch}:{ox}:{oy}"
-        if f > 0:
-            chain += f",fade=t=in:st=0:d={f:.2f}:alpha=1,fade=t=out:st={d - f:.3f}:d={f:.2f}:alpha=1"
-        if ly.motion:
-            # sanftes Schweben mit Zwischenpixeln (overlay kann nur ganze Pixel → wirkte ruckelig/pixelig):
-            # die Ebene wird per „perspective“ (bilinear) um einen gebrochenen Betrag verschoben
-            dy = f"{float_amp}*sin(2*PI*({ly.start:.3f}+in/30)/4.5)"
-            chain += (f",format=gbrap,perspective=y0='{dy}':y1='{dy}':y2='H+{dy}':y3='H+{dy}'"
-                      f":sense=destination:eval=frame,format=rgba")
-        chain += f",setpts=PTS-STARTPTS+{ly.start:.3f}/TB[o{i}]"
-        filters.append(chain)
-        filters.append(f"[{cur}][o{i}]overlay=x={ox}:y={oy}:eof_action=pass[b{i}]")
-        cur = f"b{i}"
-        n_in += 1
     durchlaeufe = effects.vhs_durchlaeufe(duration, vhs)
-    # in doppelter Auflösung verschieben und wieder verkleinern: „displace“ kennt nur ganze Pixel,
-    # so bewegt sich das Flimmern weich statt in Pixelstufen
-    W2, H2 = 2 * W, 2 * H
-    ex = effects.verschiebung_x(W2, H2, hitze, vhs, durchlaeufe)
-    ey = effects.verschiebung_y(W2, H2, hitze)
-    if ex or ey:
-        # Hitzeflimmern (ständig) + VHS-Linie (wandert ab und zu von oben nach unten) über ffmpeg „displace“.
-        # Die x-Verschiebung hängt nur von Zeile und Zeit ab, die y-Verschiebung nur von Spalte und Zeit:
-        # beide Karten schmal berechnen und strecken (schnell).
-        ex, ey = ex or "128", ey or "128"
-        filters.append(f"nullsrc=s=2x{H2}:r=30:d={duration:.3f},format=gbrp,geq=r='{ex}':g='{ex}':b='{ex}',"
-                       f"scale={W2}:{H2}:flags=neighbor[xmap]")
-        filters.append(f"nullsrc=s={W2}x2:r=30:d={duration:.3f},format=gbrp,geq=r='{ey}':g='{ey}':b='{ey}',"
-                       f"scale={W2}:{H2}:flags=neighbor[ymap]")
-        filters.append(f"[{cur}]scale={W2}:{H2}:flags=bilinear,format=gbrp[dsrc]")
-        filters.append(f"[dsrc][xmap][ymap]displace=edge=smear,scale={W}:{H}:flags=area,format=rgba[dsp]")
-        cur = "dsp"
-    if micro:
-        # nur ein Hauch: 1–3 px Farbversatz für wenige Frames
-        sh = max(1, round(max(W, H) * 0.002 * glitch))
-        enable = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in micro)
-        filters.append(f"[{cur}]rgbashift=rh={sh}:bh=-{sh}:enable='{enable}'[gl]")
-        cur = "gl"
-    filters.append(f"[{cur}]format=yuv420p[vout]")
-    script = work / "filter.txt"
-    script.write_text(";\n".join(filters), "utf-8")
-    cmd = (
-        ["ffmpeg", "-nostdin", "-y", "-loglevel", "error"]
-        + inputs
-        + ["-filter_complex_script", str(script), "-map", "[vout]", "-map", "1:a"]
-        + ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", "30"]
-        + ["-c:a", "aac", "-b:a", "192k", "-t", f"{duration:.3f}", "-movflags", "+faststart", str(out)]
-    )
+    hashes: dict = {}
+
+    def digest(pfad: Path | None) -> str:
+        if pfad is None:
+            return ""
+        if pfad not in hashes:
+            hashes[pfad] = hashlib.sha1(Path(pfad).read_bytes()).hexdigest()
+        return hashes[pfad]
+
+    # Code, der das Aussehen bestimmt, gehört zum Fingerabdruck (Änderungen am Renderer → neu rendern)
+    code = hashlib.sha1((inspect.getsource(_render_abschnitt) + inspect.getsource(effects)).encode()).hexdigest()
+    basis = [code, list(size), darken, glitch, hitze, vhs, digest(background), digest(particles)]
+    auftraege, dateien = [], []
+    for i, (fa, fb) in enumerate(zip(marken, marken[1:])):
+        a, b = fa / FPS, fb / FPS
+        lys = [ly for ly in layers if ly.start < b and ly.end > a]
+        mic = [(x, y) for x, y in micro if x < b and y > a]
+        dls = [(x, y) for x, y in durchlaeufe if x < b + 0.2 and y > a - 0.2]
+        inhalt = basis + [fa, fb, mic, dls,
+                          [[digest(ly.png), round(ly.start, 3), round(ly.end, 3), ly.fade, ly.motion] for ly in lys]]
+        key = hashlib.sha1(json.dumps(inhalt).encode()).hexdigest()[:16]
+        ziel = cache / f"abschnitt_{i:03d}_{key}.mp4"
+        dateien.append(ziel)
+        if not ziel.exists():
+            auftraege.append((lys, fa, fb, ziel, work / f"filter_{i:03d}.txt", mic, dls))
+    for alt in cache.glob("abschnitt_*.mp4"):
+        if alt not in dateien:
+            alt.unlink()
+    log(f"    {len(dateien)} Abschnitte, davon {len(auftraege)} neu zu rendern "
+        f"({len(dateien) - len(auftraege)} unverändert aus {cache.name}/)")
+
+    def job(auftrag):
+        lys, fa, fb, ziel, fd, mic, dls = auftrag
+        _render_abschnitt(lys, fa, fb, background, size, darken, ziel, fd, particles, mic, dls, glitch, hitze, vhs)
+
+    import os
+    with ThreadPoolExecutor(max_workers=parallel or max(1, (os.cpu_count() or 2) // 2)) as pool:
+        list(pool.map(job, auftraege))
+
+    liste = work / "abschnitte.txt"
+    liste.write_text("".join(f"file '{p.resolve()}'\n" for p in dateien), "utf-8")
+    cmd = (["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(liste),
+            "-i", str(audio), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+            "-t", f"{duration:.3f}", "-movflags", "+faststart", str(out)])
     subprocess.run(cmd, check=True)
 
 
@@ -460,12 +546,19 @@ def main(argv=None) -> None:
     # 4) Partikel + Video
     particles = None
     if args.partikel > 0:
-        log("    Rendere Partikel-Ebene (nahtloser Loop) …")
-        particles = effects.render_particles(capcut / "partikel.mp4", size, args.partikel, args.partikel_farbe)
+        particles = capcut / "partikel.mp4"
+        merkmal = json.dumps([list(size), args.partikel, args.partikel_farbe])
+        merk_datei = out / "abschnitte" / "partikel.json"
+        if not (particles.exists() and merk_datei.exists() and merk_datei.read_text() == merkmal):
+            log("    Rendere Partikel-Ebene (nahtloser Loop) …")
+            effects.render_particles(particles, size, args.partikel, args.partikel_farbe)
+            merk_datei.parent.mkdir(parents=True, exist_ok=True)
+            merk_datei.write_text(merkmal)
     if not args.kein_video:
         log("4/4 Erstelle video.mp4 …")
         build_video(layers, [sc.start for sc in screens], audio_out, bg, size, duration, out / "video.mp4",
-                    args.abdunkeln if args.hintergrund else 0.0, work, particles, args.glitch, args.hitze, args.vhs)
+                    args.abdunkeln if args.hintergrund else 0.0, work, particles, args.glitch, args.hitze, args.vhs,
+                    grenzen=[sc.start for sc in screens] + [sc.end for sc in screens], cache=out / "abschnitte")
     shutil.rmtree(work, ignore_errors=True)
     shutil.make_archive(str(out / "capcut-paket"), "zip", capcut)
     log(f"\nFertig in {time.time() - t_start:.0f}s → {out}/")

@@ -76,6 +76,14 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      man aus jedem Vers ein Bild ableitet, die Grundsätze aus den Referenzvideos und ein
      Musterkatalog „Begriff → Bildidee → Baustein“. Nicht kopieren, sondern pro Vers
      neu denken.
+   - **Tafsir lesen, bevor du zeichnest** (Wunsch des Nutzers: keine Deutungsfehler in den
+     Piktogrammen). Ibn Kathir (gekürzt, Englisch) je Vers:
+     `curl -s https://api.quran.com/api/v4/tafsirs/169/by_ayah/S:V` (Text in `tafsir.text`, HTML).
+     Für jedes Bild prüfen: Wer ist gemeint (Bezug auf den Nachbarvers!), was bedeutet das
+     Wort hier, sagt das Bild etwas, das der Tafsir nicht sagt? Fehler aus al-A'raf 44–51:
+     „Fluch über die Ungerechten“ als Schläger gezeichnet – gemeint sind die in Vers 45
+     Beschriebenen (die Leute des Feuers); „Heute vergessen Wir sie“ als Figur, die sich
+     auflöst – Allah vergisst nichts, gemeint ist: Wir lassen sie ohne Barmherzigkeit im Feuer.
    - **Zeichnen:** Skript `koran-video-ausgabe/<…>/grafiken_zeichnen.py` schreiben.
      Menschen und Hauptgegenstände mit `tools/koran-video/piktogramm.py`
      (Docstring lesen): `Mensch(x, y, h, pose, spiegeln=, kleid=, kopftuch=, o=,
@@ -122,12 +130,17 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      Abschnitte ohne Grafik zeigen den Text in der Bildmitte – nicht oben vor
      leerem Bildschirm. Das ist der Standard (`--layout auto`); `--layout oben`
      (Text oben, große Grafik) nur auf ausdrücklichen Wunsch.
-5. **Schritt C – Video rendern** (ca. 3 min pro Minute Audio):
+5. **Schritt C – Video rendern** (erster Lauf ca. 3–5 min pro Minute Audio):
    ```bash
    python3 tools/koran-video/koran_video.py "<audio>" --sure S --von A --bis B \
      --zeitstempel koran-video-ausgabe/<…>/zeitstempel.json --plan koran-video-ausgabe/<…>/plan.json \
      [--hintergrund <datei>] [--format 9:16] [--glow 0.8] [--uebersetzung-font cormorant]
    ```
+   Gerendert wird **in Abschnitten** (Grenzen = Szenenwechsel), jeder mit einem Fingerabdruck
+   seines Inhalts in `koran-video-ausgabe/<…>/abschnitte/`. Ein erneuter Lauf rendert nur die
+   Abschnitte neu, deren Ebenen, Zeiten oder Effekte sich geändert haben, und hängt dann alle
+   ohne Neukodierung aneinander. Den Ordner also nicht löschen; nach einer Korrektur meldet
+   das Log „N Abschnitte, davon K neu zu rendern“.
 6. **Selbst prüfen**, bevor du lieferst:
    - `zeitstempel.txt` lesen (Verse und Szenen mit Grafiken): Sind die Längen
      plausibel (kein Vers < 1 s)? Steht im Log „nicht sicher erkannt“?
@@ -147,7 +160,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
 8. **Korrekturen** („Vers 3 fängt bei 0:25 an“, „bei Vers 5 lieber Regen“,
    „Vers 7 nicht teilen“): Zeiten in `zeitstempel.json` (Vers-`start` und
    `ende` des vorherigen Verses) bzw. `plan.json` ändern und Schritt C erneut
-   ausführen (keine neue Erkennung).
+   ausführen (keine neue Erkennung). Dank der Abschnitte geht das schnell: eine geänderte
+   Grafik kostet nur ihren Abschnitt. Eigene Korrekturen nach dem Prüfen genauso.
 
 ## Lehren aus dem ersten echten Fall (al-Ankabut 1–7)
 
