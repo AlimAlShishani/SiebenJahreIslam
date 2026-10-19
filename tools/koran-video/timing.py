@@ -220,6 +220,13 @@ def align_with_transcript(segs: list[Segment], words: list[tuple[str, float, flo
     return estimates, word_raw
 
 
+# Wörter, auf denen man beim Rezitieren nicht anhält (Bindewörter, Präpositionen, Partikeln, die zum
+# Folgenden gehören). Landet eine Atempause direkt dahinter, hat der Abgleich das kurze Wort fast immer in
+# die Dehnung des vorigen Wortes gelegt (al-A'raf 50: „ٱلْمَآءِ ‖ أَوْ“) – die Pause gehört davor.
+VERBINDER = {normalize(w) for w in ("أَوْ", "أَمْ", "ثُمَّ", "بَلْ", "فِى", "عَلَىٰ", "إِلَىٰ", "عَنْ", "أَنْ", "إِنْ", "مِنْ",
+                                    "لَٰكِنْ", "حَتَّىٰ", "إِذَا", "إِذْ", "لَنْ", "لَمْ", "قَدْ", "كَىْ")}
+
+
 def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: float = 0.38) -> list[int]:
     """Nach welchen Wörtern (1-basiert) macht der Rezitator innerhalb des Verses eine Atempause?
 
@@ -240,9 +247,14 @@ def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: floa
             waqf = [j for j in (k, k - 1, k + 1) if 1 <= j < len(t) and _has_waqf(words[j - 1].text)]
             if waqf and waqf[0] != k and not _has_waqf(words[k - 1].text):
                 k = waqf[0]
+            elif k > 1 and normalize(words[k - 1].text) in VERBINDER and (k - 1) not in out:
+                k -= 1                       # Pause vor dem Bindewort; es beginnt erst nach der Pause
             if k not in out:
                 out.append(k)
                 t[k] = round(e_, 2)
+                for j in range(k + 1, len(t)):          # nachfolgende Wörter nicht vor dem verschobenen beginnen
+                    if t[j] <= t[j - 1] + 0.1:
+                        t[j] = round(t[j - 1] + 0.3, 2)
     seg.meta["wort_zeiten"] = t
     return sorted(out)
 

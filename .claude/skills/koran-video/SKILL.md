@@ -126,7 +126,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      `gold` Aussagen über Allah/Erhabenes, `blau`/`tuerkis` Schöpfung und Dank,
      `lila` Freude über den Lohn, `orange` vergebliches Flehen. Sparsam.
    - **Layout** (Wunsch des Nutzers): Text und Grafik stehen zusammen mittig im
-     Bild, die Grafik ist bewusst nicht riesig (16:9: 40 % der Bildhöhe).
+     Bild, die Grafik ist bewusst nicht riesig (16:9: 35 % der Bildhöhe, 9:16: 70 % der Breite),
+     die Übersetzung gut lesbar groß (Nutzerwunsch: Piktogramme etwas kleiner, Übersetzung etwas größer).
      Abschnitte ohne Grafik zeigen den Text in der Bildmitte – nicht oben vor
      leerem Bildschirm. Das ist der Standard (`--layout auto`); `--layout oben`
      (Text oben, große Grafik) nur auf ausdrücklichen Wunsch.

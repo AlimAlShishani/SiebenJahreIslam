@@ -172,6 +172,11 @@ class Renderer:
         font = self.latin(size)
         avg = max(1.0, font.getlength("abcdefghijklmnopqrstuvwxyz") / 26)
         width_chars = max(10, int(self.style.text_width / avg))
+        lines = textwrap.wrap(text, width=width_chars)
+        # gleich viele Zeilen, aber so schmal wie möglich: die Zeilen werden ausgeglichen,
+        # statt dass ein einzelnes Wort allein in der letzten Zeile steht
+        while width_chars > 10 and len(textwrap.wrap(text, width=width_chars - 1)) == len(lines):
+            width_chars -= 1
         return textwrap.wrap(text, width=width_chars)
 
     def render(self, seg: Segment, out_ar: Path, out_tr: Path | None, layout: str = "mitte",
@@ -187,7 +192,7 @@ class Renderer:
         area_top = 0
         area_h = H
         extra = int(H * GRAFIK_ABSTAND) + graphic_h if graphic_h else 0   # Grafik unter dem Text
-        tr_size = self.style.translation_size or int(self.style.unit * 0.029 * self.latin_scale)
+        tr_size = self.style.translation_size or int(self.style.unit * 0.034 * self.latin_scale)
         tr_lines = self._translation_lines(seg.translation, tr_size) if (out_tr and seg.translation) else []
         tr_line_h = int(tr_size * 1.4)
         tr_h = len(tr_lines) * tr_line_h
@@ -233,12 +238,12 @@ GRAFIK_ABSTAND = 0.035   # Abstand Text → Grafik (Anteil der Bildhöhe)
 
 def graphic_size(style: Style) -> tuple[int, int]:
     """Größe der Grafik im mittigen Layout (Seitenverhältnis 400:260): bewusst nicht zu groß,
-    damit Text und Grafik zusammen mittig stehen (16:9: 40 % der Höhe, 9:16: 78 % der Breite)."""
+    damit Text und Grafik zusammen mittig stehen (16:9: 35 % der Höhe, 9:16: 70 % der Breite)."""
     W, H = style.width, style.height
     if W >= H:
-        h = int(H * 0.40)
+        h = int(H * 0.35)
         return int(h * 400 / 260), h
-    w = int(W * 0.78)
+    w = int(W * 0.70)
     return w, int(w * 260 / 400)
 
 
