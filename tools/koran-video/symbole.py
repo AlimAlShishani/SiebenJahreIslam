@@ -31,6 +31,12 @@ Personen und Orte:
     schranke(x, y, b)            Barriere/Barzakh, „es gibt kein Zurück“
     schriftrolle(x, y)           alte Schriften, „Märchen der Früheren“, Aufzeichnung der Taten
     moschee(x, y)                Moschee, Gebetsort
+Jenseits-Schauplatz und Alltagsdinge:
+    mauer(x, y, b, h)            Trennwand mit Zinnen (al-A'raf, Hidschab), Figuren stehen oben bei y - h
+    krug(x, y), tropfen(x, y)    Wasser (bitten, trinken, verwehrt)
+    verbot(x, y, r)              Verbotsschild über Dinge legen: verboten, verwehrt
+    ball(x, y, r)                Spiel, Zeitvertreib
+    lautsprecher(x, y, s, richtung)  Ausrufer/Bekanntmachung ohne sichtbaren Sprecher (z. B. Engel)
 """
 
 from __future__ import annotations
@@ -416,4 +422,92 @@ def sonnensystem(x, y, s=1.0):
         out += f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{pr:.1f}" fill="{grau(t)}" stroke="none"/>'
         if i == 2:                                   # Erde mit Mond
             out += f'<circle cx="{px + 20 * s:.1f}" cy="{py - 12 * s:.1f}" r="{4.5 * s:.1f}" fill="{grau(.75)}" stroke="none"/>'
+    return out
+
+
+# ---------------------------------------------------------------- Jenseits-Schauplatz, Alltagsdinge
+def mauer(x, y, b=74, h=130, hell=1.0):
+    """Hohe Mauer aus Steinquadern mit Zinnen (Trennwand, al-A'raf). (x, y) = Mitte unten; Oberkante bei y - h.
+
+    Quader in zwei hellen Grautönen auf etwas dunklerem Grund – Fugen ohne dunkle Linien. Figuren auf der
+    Mauer stehen bei y - h."""
+    x0 = x - b / 2
+    out = f'<rect x="{x0:.1f}" y="{y - h:.1f}" width="{b:.1f}" height="{h:.1f}" fill="{grau(.58, hell)}" stroke="none"/>'
+    lage, fuge = 19.0, 3.0
+    reihe = 0
+    yy = y
+    while yy - lage > y - h - .5:
+        versatz = (reihe % 2) * b / 4
+        xx = x0 - versatz
+        while xx < x0 + b:
+            a, e = max(xx + fuge / 2, x0 + fuge / 2), min(xx + b / 2 - fuge / 2, x0 + b - fuge / 2)
+            if e - a > 4:
+                ton = .74 + .08 * (((reihe * 3 + int(xx)) // 7) % 2)
+                out += (f'<rect x="{a:.1f}" y="{yy - lage + fuge / 2:.1f}" width="{e - a:.1f}" height="{lage - fuge:.1f}" '
+                        f'rx="1.5" fill="{grau(ton, hell)}" stroke="none"/>')
+            xx += b / 2
+        yy -= lage
+        reihe += 1
+    # Deckplatte (der Weg oben auf der Mauer), etwas breiter
+    out += (f'<rect x="{x0 - 6:.1f}" y="{y - h - 9:.1f}" width="{b + 12:.1f}" height="11" rx="2" '
+            f'fill="{grau(.9, hell)}" stroke="none"/>')
+    return out
+
+
+def krug(x, y, s=1.0, hell=1.0):
+    """Wasserkrug mit Henkel. (x, y) = Mitte unten."""
+    P = lambda a, b: (x + a * s, y + b * s)
+    bauch = (f'M{P(-12, -62)[0]:.1f},{P(0, -62)[1]:.1f} L{P(12, -62)[0]:.1f},{P(0, -62)[1]:.1f} '
+             f'C{P(12, -50)[0]:.1f},{P(0, -50)[1]:.1f} {P(30, -42)[0]:.1f},{P(0, -42)[1]:.1f} {P(30, -22)[0]:.1f},{P(0, -22)[1]:.1f} '
+             f'C{P(30, -6)[0]:.1f},{P(0, -6)[1]:.1f} {P(20, 0)[0]:.1f},{P(0, 0)[1]:.1f} {P(0, 0)[0]:.1f},{P(0, 0)[1]:.1f} '
+             f'C{P(-20, 0)[0]:.1f},{P(0, 0)[1]:.1f} {P(-30, -6)[0]:.1f},{P(0, -6)[1]:.1f} {P(-30, -22)[0]:.1f},{P(0, -22)[1]:.1f} '
+             f'C{P(-30, -42)[0]:.1f},{P(0, -42)[1]:.1f} {P(-12, -50)[0]:.1f},{P(0, -50)[1]:.1f} {P(-12, -62)[0]:.1f},{P(0, -62)[1]:.1f}Z')
+    henkel = (f'<path d="M{P(26, -38)[0]:.1f},{P(0, -38)[1]:.1f} C{P(44, -40)[0]:.1f},{P(0, -40)[1]:.1f} '
+              f'{P(44, -16)[0]:.1f},{P(0, -16)[1]:.1f} {P(28, -14)[0]:.1f},{P(0, -14)[1]:.1f}" fill="none" '
+              f'stroke="{grau(.7, hell)}" stroke-width="{6 * s:.1f}" stroke-linecap="round"/>')
+    rand = (f'<rect x="{P(-16, 0)[0]:.1f}" y="{P(0, -68)[1]:.1f}" width="{32 * s:.1f}" height="{8 * s:.1f}" rx="{3 * s:.1f}" '
+            f'fill="{grau(.72, hell)}" stroke="none"/>')
+    glanz = (f'<path d="M{P(-20, -34)[0]:.1f},{P(0, -34)[1]:.1f} C{P(-22, -24)[0]:.1f},{P(0, -24)[1]:.1f} '
+             f'{P(-18, -14)[0]:.1f},{P(0, -14)[1]:.1f} {P(-12, -10)[0]:.1f},{P(0, -10)[1]:.1f}" fill="none" '
+             f'stroke="{grau(.98, hell)}" stroke-width="{4 * s:.1f}" stroke-linecap="round"/>')
+    return henkel + f'<path d="{bauch}" fill="{grau(.84, hell)}" stroke="none"/>' + rand + glanz
+
+
+def tropfen(x, y, s=1.0, hell=1.0):
+    """Wassertropfen. (x, y) = Mitte des runden Teils."""
+    r = 9 * s
+    return (f'<path d="M{x:.1f},{y - r * 2.1:.1f} C{x + r * .5:.1f},{y - r * 1.2:.1f} {x + r:.1f},{y - r * .6:.1f} {x + r:.1f},{y:.1f} '
+            f'A{r:.1f},{r:.1f} 0 0 1 {x - r:.1f},{y:.1f} C{x - r:.1f},{y - r * .6:.1f} {x - r * .5:.1f},{y - r * 1.2:.1f} {x:.1f},{y - r * 2.1:.1f}Z" '
+            f'fill="{grau(.9, hell)}" stroke="none"/>')
+
+
+def verbot(x, y, r=60, o=1.0):
+    """Verbotsschild (Ring mit Schrägbalken) – über Dinge legen, die verboten/verwehrt sind. (x, y) = Mitte."""
+    w = r * .2
+    a = math.radians(45)
+    dx, dy = math.cos(a) * (r - w / 2), math.sin(a) * (r - w / 2)
+    return (f'<g opacity="{o}"><circle cx="{x:.1f}" cy="{y:.1f}" r="{r - w / 2:.1f}" fill="none" stroke="#fff" stroke-width="{w:.1f}"/>'
+            f'<path d="M{x - dx:.1f},{y - dy:.1f} L{x + dx:.1f},{y + dy:.1f}" stroke="#fff" stroke-width="{w:.1f}"/></g>')
+
+
+def ball(x, y, r=16, hell=1.0):
+    """Spielball mit zwei Bögen (Beachball-Art) – Spiel, Zeitvertreib. (x, y) = Mitte."""
+    return (f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{grau(.86, hell)}" stroke="none"/>'
+            f'<path d="M{x - r * .2:.1f},{y - r * .98:.1f} C{x + r * .5:.1f},{y - r * .4:.1f} {x + r * .5:.1f},{y + r * .4:.1f} {x - r * .2:.1f},{y + r * .98:.1f}" '
+            f'fill="none" stroke="{grau(.6, hell)}" stroke-width="{r * .2:.1f}"/>'
+            f'<path d="M{x - r * .95:.1f},{y - r * .3:.1f} C{x - r * .3:.1f},{y - r * .05:.1f} {x + r * .3:.1f},{y - r * .05:.1f} {x + r * .95:.1f},{y - r * .3:.1f}" '
+            f'fill="none" stroke="{grau(.6, hell)}" stroke-width="{r * .14:.1f}"/>')
+
+
+def lautsprecher(x, y, s=1.0, richtung=1, wellen=3):
+    """Trichter-Lautsprecher (Ausrufer, Bekanntmachung) mit Schallwellen. (x, y) = Mitte des Gehäuses;
+    richtung 1 = Trichter nach rechts, -1 = nach links. Für Verkündungen ohne sichtbaren Sprecher."""
+    P = lambda a, b: (x + richtung * a * s, y + b * s)
+    gehaeuse = _pfad([P(-24, -10), P(-6, -10), P(-6, 10), P(-24, 10)])
+    trichter = _pfad([P(-6, -8), P(26, -26), P(26, 26), P(-6, 8)])
+    rand = _pfad([P(24, -28), P(31, -28), P(31, 28), P(24, 28)])
+    out = (f'<path d="{gehaeuse}" fill="{grau(.68)}" stroke="none"/><path d="{trichter}" fill="{grau(.88)}" stroke="none"/>'
+           f'<path d="{rand}" fill="{grau(.98)}" stroke="none"/>')
+    if wellen:
+        out += schall(x + richtung * 38 * s, y, richtung, 1.25 * s, wellen)
     return out

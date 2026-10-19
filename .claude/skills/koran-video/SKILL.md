@@ -28,6 +28,11 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    die Teil-Übersetzungen im Plan dann aus diesem englischen Text aufteilen. „Ohne Effekte“ →
    `--partikel 0 --glitch 0 --hitze 0 --vhs 0`.
    „Hochformat“, „Reel“, „Short“, „TikTok“ → `--format 9:16`.
+   **Mehrere Aufnahmen** (z. B. neu angesetzt nach einem Fehler): in der genannten Reihenfolge
+   lückenlos zu einer Datei zusammenfügen (`ffmpeg -i a.m4a -i b.m4a -filter_complex
+   "[0:a][1:a]concat=n=2:v=0:a=1[a]" -map "[a]" koran-video-ausgabe/<…>/rezitation.m4a`), diese Datei
+   in Schritt A und C verwenden und im Erkennungs-Log prüfen, dass an der Nahtstelle nichts fehlt
+   oder doppelt ist (Wiederholungen fängt der Abgleich ab).
 2. **Abhängigkeiten** (einmal pro Session, ffmpeg muss vorhanden sein):
    `pip install -q -r tools/koran-video/requirements.txt`
 3. **Schritt A – Zeitstempel + Planungsgrundlage** (ca. 1 min pro Minute Audio):
@@ -85,7 +90,8 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      Symbole aus `symbole.py`: Tränen, Schreck, Wut, Sorgenwolke, Gedankenpfeile, Schall,
      wirre Sprechblase, stummer Lautsprecher, Blindenstock, Blicklinie, Uhr (ständig /
      früher), Medaillon für Propheten, Menge, Teufel, Tür, Gitter, Schranke,
-     Schriftrolle, Moschee, Mondphasen (Maß/Qadar), Sonnensystem. Fehlt ein
+     Schriftrolle, Moschee, Mondphasen (Maß/Qadar), Sonnensystem, Mauer, Krug, Tropfen,
+     Verbotsschild, Ball, Lautsprecher (Ausrufer); Pose `rufen` (Hand am Mund). Fehlt ein
      Gegenstand, ihn selbst als SVG zeichnen (typische Silhouette, gefüllt, Tiefe
      über Grautöne). Muster: `tools/koran-video/beispiel_ankabut_1-7/`
      (Zeichen-Skript + Plan). SVGs nach `koran-video-ausgabe/<…>/grafiken/`

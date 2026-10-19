@@ -62,6 +62,7 @@ POSEN = {
     "gehen": dict(ansicht="seite", rumpf=4, arm_v=(28, 22), arm_h=(-30, 12), bein_v=(24, 6), bein_h=(-20, 26)),
     "rennen": dict(ansicht="seite", rumpf=16, kopf=4, arm_v=(55, 85), arm_h=(-55, 70), bein_v=(62, 85), bein_h=(-38, 70)),
     "sprechen": dict(ansicht="seite", rumpf=0, arm_v=(40, 95), arm_h=(-5, 10), bein_v=(5, 0), bein_h=(-5, 0)),
+    "rufen": dict(ansicht="seite", rumpf=-4, kopf=-6, arm_v=(92, 128), arm_h=(-6, 12), bein_v=(8, 0), bein_h=(-8, 0)),
     "dua": dict(ansicht="seite", rumpf=2, kopf=14, arm_v=(48, 98), arm_h=(40, 106), bein_v=(4, 0), bein_h=(-4, 0)),
     "zeigen_hoch": dict(ansicht="seite", rumpf=-6, kopf=-16, arm_v=(138, 4), arm_h=(-6, 10), bein_v=(6, 0), bein_h=(-6, 0)),
     "last_ruecken": dict(ansicht="seite", rumpf=40, kopf=10, arm_v=(168, 72), arm_h=(160, 80), bein_v=(26, 32), bein_h=(-18, 22)),
