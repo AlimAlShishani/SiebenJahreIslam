@@ -24,6 +24,10 @@ legt fest, was zu sehen ist:
 - "teile": eigene Aufteilung (bis_wort = letztes Wort des Teils, Wörter zählen ab 1
   über den ganzen Vers). Ohne "teile" wird automatisch geteilt; "grafiken" und
   "farbe" auf Versebene werden dann den automatischen Teilen zugeordnet.
+  Wiederholung über eine Teilgrenze (Rezitator hört auf, setzt ein paar Wörter
+  früher neu an): der Teil davor endet beim letzten gesprochenen Wort, der nächste
+  Teil bekommt "ab_wort" (erstes wiederholtes Wort) und "start" (Sekunde, in der die
+  Wiederholung beginnt), z. B. {"ab_wort": 7, "start": 121.8, ...}.
 - "uebersetzung": deutsche Teil-Übersetzung. Fehlt sie, wird die Vers-Übersetzung
   grob an Satzzeichen aufgeteilt (Notlösung – im Plan besser selbst aufteilen).
 - Grafiken: "datei" = eigene SVG/PNG (relativ zum Plan), "ab_wort" = ab welchem Wort.
@@ -56,6 +60,7 @@ COLORS = {
 }
 LEAD = 0.2         # Teil/Grafik erscheint so viel vor dem ersten Wort
 MIN_TEIL = 2.0     # kürzere Teile (oder nur ein Wort) werden an den folgenden Teil angehängt, wenn es in die Zeile passt
+LUECKE_WARNUNG = 5.0   # so viele Sekunden zwischen zwei Wörtern: wahrscheinlich Wiederholung oder Versprecher
 CROSSFADE = 0.35   # Überlappung aufeinanderfolgender Grafiken in einer Szene
 WAQF = re.compile("[ۖ-ۜ]")
 
@@ -113,6 +118,13 @@ def _word_time(seg: Segment, n: int) -> float:
     if 1 <= n <= len(t):
         return t[n - 1]
     return seg.start
+
+
+def lange_luecken(seg: Segment) -> list[tuple[int, float]]:
+    """(Wortnummer, Abstand zum nächsten Wort) für auffällig lange Abstände – dort hat der Rezitator meist
+    ein paar Wörter wiederholt, und der Abgleich hat die Wiederholung späteren Wörtern zugeordnet."""
+    t = seg.meta.get("wort_zeiten") or []
+    return [(i, t[i] - t[i - 1]) for i in range(1, len(t)) if t[i] - t[i - 1] > LUECKE_WARNUNG]
 
 
 def load_plan(path: Path | None) -> dict:
@@ -261,6 +273,11 @@ def build_screens(segs: list[Segment], plan: dict, plan_dir: Path | None = None,
         first = 1
         for pi, (teil, last) in enumerate(zip(teile, bounds), 1):
             last_part = pi == len(bounds)
+            wiederholung = "ab_wort" in teil
+            if wiederholung:                       # Teil beginnt mit wiederholten Wörtern des vorigen Teils
+                first = int(teil["ab_wort"])
+                if not 1 <= first <= last:
+                    raise SystemExit(f"Plan {seg.key}, Teil {pi}: ab_wort muss zwischen 1 und {last} liegen.")
             if not last_part and not (first <= last < n):
                 raise SystemExit(f"Plan {seg.key}, Teil {pi}: bis_wort muss zwischen {first} und {n - 1} liegen.")
             own = teil.get("uebersetzung")
@@ -268,7 +285,13 @@ def build_screens(segs: list[Segment], plan: dict, plan_dir: Path | None = None,
             view_words = words[first - 1:last] + (end_marks if last_part else [])
             text = " ".join(w.text for w in words[first - 1:last]) if words else seg.text
             view = Segment(seg.kind, seg.key, view_words, text, translation)
-            start = seg.start if first == 1 else _word_time(seg, first) - LEAD
+            if "start" in teil:
+                start = float(teil["start"]) - LEAD
+            elif wiederholung:
+                raise SystemExit(f"Plan {seg.key}, Teil {pi}: bei ab_wort bitte auch \"start\" angeben "
+                                 "(Sekunde, in der die Wiederholung beginnt).")
+            else:
+                start = seg.start if first == 1 else _word_time(seg, first) - LEAD
             screens.append(Screen(seg, view, pi, len(bounds), round(start, 2), seg.end,
                                   color_hex(teil.get("farbe")) or verse_color,
                                   words_range=(first, last), spec=teil.get("grafiken") or [],
@@ -279,6 +302,10 @@ def build_screens(segs: list[Segment], plan: dict, plan_dir: Path | None = None,
             a.end = b.start
     for sc in screens:
         sc.graphics = _graphics(sc, plan_dir)
+    for seg in segs:
+        for i, d in lange_luecken(seg):
+            notes.append(f"{seg.key}: {d:.1f} s zwischen Wort {i} und {i + 1} – Wiederholung? Stelle anhören, "
+                         "zeitstempel.json und Teile (ab_wort/start) prüfen.")
     auto_tr = [sc.key for sc in screens if sc.translation_auto]
     if auto_tr:
         notes.append("Teil-Übersetzung nur grob aufgeteilt bei: " + ", ".join(auto_tr))
@@ -348,6 +375,9 @@ def planning_text(segs: list[Segment], screens: list[Screen]) -> str:
             lines.append("   " + "  ".join(
                 f"{i}:{w.meaning or w.text}" + (" ۚ" if WAQF.search(w.text) else "") + ("  ‖" if i in pauses else "")
                 for i, w in enumerate(words, 1)))
+        for i, d in lange_luecken(seg):
+            lines.append(f"   ACHTUNG: {d:.1f} s zwischen Wort {i} und {i + 1} – vermutlich eine Wiederholung. Stelle "
+                         "anhören (Lautstärkeverlauf), Wortzeiten korrigieren, Teile mit ab_wort/start planen.")
         for sc in by_seg.get(seg.key, []):
             a, b = sc.words_range
             if sc.parts > 1:

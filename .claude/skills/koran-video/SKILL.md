@@ -150,8 +150,15 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      Felsfacetten dunkler als der Rest) und nichts zu einem Farbklumpen
      verschmilzt. Das Leuchten liegt bei Grafiken nur außen um die Form
      (`save_layer(..., grafik=True)`); früher füllte es die Grautöne auf.
-   - Wiederholungen (Nutzer stoppt und liest ein paar Wörter erneut) sind normal
-     und werden vom Abgleich abgefangen; kein Grund zur Rückfrage.
+   - Wiederholungen (Nutzer stoppt und liest ein paar Wörter erneut) sind normal, kein Grund
+     zur Rückfrage. Aber: Geschieht das an einer Atempause, ordnet der Abgleich die Wiederholung
+     oft den folgenden Wörtern zu – dann zeigt ein Teil ein Wort zu viel und der nächste beginnt
+     zu spät (al-A'raf 48: „قَالُوا۟ مَآ ‖ قَالُوا۟ مَآ أَغْنَىٰ …“). Das Tool warnt mit „ACHTUNG: … s
+     zwischen Wort i und i+1“ (planung.txt) bzw. „Hinweis: … Wiederholung?“ (Schritt C). Dann die
+     Stelle prüfen (Lautstärkeverlauf in 0,1-s-Schritten, Whisper-Wortzeiten), in
+     `zeitstempel.json` Wortzeiten und `pausen_nach_wort` korrigieren und im Plan den Teil davor beim
+     letzten gesprochenen Wort enden lassen, den nächsten mit `"ab_wort"` (erstes wiederholtes Wort)
+     und `"start"` (Sekunde der Wiederholung) beginnen.
    - Passt die Anzahl erkannter Verse nicht zur Aufnahme (z. B. andere Verse
      gelesen als angegeben), dem Nutzer sagen, was du hörst.
 7. **Liefern:** `video.mp4` und `capcut-paket.zip` mit SendUserFile schicken,
