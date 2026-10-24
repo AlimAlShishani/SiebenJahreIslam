@@ -62,7 +62,7 @@ Nützliche Optionen:
 | `--hitze 0.5` | Hitzeflimmern: das Bild wabert ständig langsam in großen, weichen Wellen (nahtlose Schleife, ca. 3–4 px, mit Zwischenpixeln berechnet): `0` aus, `1` stärker |
 | `--vhs 0.5` | VHS-Linie: etwa alle 8–10 s wandert eine feine, leicht versetzte Zeile in ~3 s von oben nach unten: `0` aus, `1` stärker |
 | `--uebersetzung-font marcellus` | `marcellus` (Standard), `cormorant`, `ebgaramond`, `lora` (kursiv), `system` oder Pfad zu einer .ttf |
-| `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`) |
+| `--hintergrund bild.jpg` / `clip.mp4` | eigener Hintergrund (Video wird geloopt, `--abdunkeln 0.35`); ist es dieselbe Datei wie die Rezitation, wird es wie der Ton zugeschnitten und läuft synchron |
 | `--basmala auto/ja/nein` | `auto` = Basmala erwartet, wenn ab Vers 1 gelesen wird (nicht bei Sure 1 und 9) |
 | `--istiadha` | Aufnahme beginnt mit „A'udhu billahi minasch-schaitanir-radschim“ |
 | `--ab-wort N` / `--bis-wort N` | nur ein Teil des ersten bzw. letzten Verses wird rezitiert (z. B. at-Talaq 2 ab Wort 25 „وَمَن يَتَّقِ ٱللَّهَ …“) |

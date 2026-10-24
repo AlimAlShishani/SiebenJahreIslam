@@ -65,6 +65,15 @@ komponiert. Bausteine aus `piktogramm.py` (P), `symbole.py` (S) und `baukasten.p
 - „sie streiten mit dir“, „sie halten andere vom Propheten ab“ → Figur(en) vor dem Medaillon,
   mit wirrer Sprechblase bzw. abwehrender Hand
 
+**Prophetengeschichten** (Beispiel Musa, Taha 9–24): der Prophet erscheint nur als Medaillon, die
+Geschichte erzählen Ort und Gegenstände – Lager im Gebirge bei Nacht (S `zelt`, `berge`), Feuer am Hang,
+Glut (S `fackel`), „den Weg finden“ (S `wegweiser`), Sandalen ausziehen (S `sandalen`), heiliges Tal
+(Licht fällt hinein), der Stock (S `stab`) und seine Verwandlung (S `schlange`, `kreispfeil`), Laub für
+die Schafe (S `schaf`), die weiß leuchtende Hand (S `hand(leuchtend=True)`), Pharao vor der Pyramide
+(S `pharao`, `pyramide`). Eine Hand allein (ohne Figur) ist in Ordnung, wenn sie selbst das Zeichen ist.
+Allahs Rede: Schriftzug (ٱللَّهُ، رَبُّكَ), Licht, Schall – nie eine Figur. Gebet ohne Figur: Gebetsteppich
+von oben + Gebetskette (S `misbaha`).
+
 **Menschen, Gruppen, frühere Völker**
 - „die Menschen“, Scharen → Menge (S `menge`), bei Gericht zwei Gruppen mit ✓/✗
 - „die vor ihnen“, frühere Generationen → Menge + Uhr mit Rückwärtspfeil (S `uhr(pfeil="zurueck")`)

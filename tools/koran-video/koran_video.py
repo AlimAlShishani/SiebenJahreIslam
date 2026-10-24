@@ -536,7 +536,21 @@ def main(argv=None) -> None:
             render_graphic(g.source, gpng, r.style, box)
             layers.append(Layer(gpng, g.start, g.end, 0.4, motion=True))
             letzte_grafik[schluessel] = layers[-1]
-    if args.hintergrund:
+    if args.hintergrund and args.hintergrund.suffix.lower() not in IMAGE_EXT \
+            and args.hintergrund.resolve() == audio_in.resolve():
+        # Hintergrund = das Rezitationsvideo selbst: genauso zuschneiden wie den Ton, sonst laufen Bild und
+        # Ton um die abgeschnittene Stille versetzt. Nur neu kodieren, wenn sich Quelle oder Schnitt ändern.
+        bg = capcut / "hintergrund.mp4"
+        merkmal = json.dumps([str(audio_in.resolve()), audio_in.stat().st_size, round(cut_start, 3), round(cut_end, 3)])
+        merk_datei = out / "abschnitte" / "hintergrund.json"
+        if not (bg.exists() and merk_datei.exists() and merk_datei.read_text() == merkmal):
+            log("    Schneide das Video als Hintergrund passend zum Ton zu …")
+            subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-ss", f"{cut_start:.3f}", "-to",
+                            f"{cut_end:.3f}", "-i", str(audio_in), "-an", "-c:v", "libx264", "-preset", "veryfast",
+                            "-crf", "18", "-pix_fmt", "yuv420p", str(bg)], check=True)
+            merk_datei.parent.mkdir(parents=True, exist_ok=True)
+            merk_datei.write_text(merkmal)
+    elif args.hintergrund:
         bg = capcut / f"hintergrund{args.hintergrund.suffix.lower()}"
         shutil.copyfile(args.hintergrund, bg)
     else:

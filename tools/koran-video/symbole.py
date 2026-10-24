@@ -511,3 +511,201 @@ def lautsprecher(x, y, s=1.0, richtung=1, wellen=3):
     if wellen:
         out += schall(x + richtung * 38 * s, y, richtung, 1.25 * s, wellen)
     return out
+
+
+# ---------------------------------------------------------------- Geschichte des Musa (und allgemein)
+def zelt(x, y, b=150, h=96, hell=1.0):
+    """Beduinenzelt mit dunkler Öffnung und Spannseilen. (x, y) = Mitte unten."""
+    dach = (f'M{x - b / 2:.1f},{y:.1f} C{x - b * .36:.1f},{y - h * .55:.1f} {x - b * .16:.1f},{y - h * .9:.1f} {x:.1f},{y - h:.1f} '
+            f'C{x + b * .16:.1f},{y - h * .9:.1f} {x + b * .36:.1f},{y - h * .55:.1f} {x + b / 2:.1f},{y:.1f}Z')
+    tuer = _pfad([(x - b * .14, y), (x, y - h * .62), (x + b * .14, y)])
+    seile = (f'<path d="M{x - b * .36:.1f},{y - h * .5:.1f} L{x - b * .62:.1f},{y:.1f} M{x + b * .36:.1f},{y - h * .5:.1f} '
+             f'L{x + b * .62:.1f},{y:.1f}" stroke="{grau(.6, hell)}" stroke-width="2.5" fill="none"/>')
+    return (seile + f'<path d="{dach}" fill="{grau(.82, hell)}" stroke="none"/>'
+            + f'<path d="{tuer}" fill="{grau(.22, hell)}" stroke="none"/>')
+
+
+def berge(x0, x1, y, gipfel, hell=1.0):
+    """Bergkette: gipfel = [(x, höhe), …] von links nach rechts. Vorderseite etwas heller, keine Linien."""
+    pts = [(x0, y)] + [(gx, y - gh) for gx, gh in gipfel] + [(x1, y)]
+    out = f'<path d="{_pfad(pts)}" fill="{grau(.42, hell)}" stroke="none"/>'
+    for gx, gh in gipfel:                                   # Schnee-/Lichtkappe auf jedem Gipfel
+        k = gh * .22
+        out += f'<path d="{_pfad([(gx - k * .9, y - gh + k), (gx, y - gh), (gx + k * .9, y - gh + k), (gx, y - gh + k * .7)])}" fill="{grau(.72, hell)}" stroke="none"/>'
+    return out
+
+
+def fackel(x, y, s=1.0, winkel=-20):
+    """Brennendes Holzscheit (Glut, Fackel). (x, y) = unteres Ende, winkel = Neigung (Grad, + = nach rechts)."""
+    from baukasten import flame
+    a = math.radians(winkel)
+    tx, ty = x + math.sin(a) * 74 * s, y - math.cos(a) * 74 * s
+    holz = (f'<path d="M{x:.1f},{y:.1f} L{tx:.1f},{ty:.1f}" stroke="{grau(.62)}" stroke-width="{11 * s:.1f}" '
+            f'stroke-linecap="round"/>')
+    glut = f'<circle cx="{tx:.1f}" cy="{ty:.1f}" r="{8 * s:.1f}" fill="{grau(.95)}" stroke="none"/>'
+    return holz + glut + f'<g transform="rotate({winkel} {tx:.1f} {ty:.1f})">{flame(tx, ty + 4 * s, .42 * s)}</g>'
+
+
+def wegweiser(x, y, h=150, hell=1.0):
+    """Wegweiser mit zwei Schildern in verschiedene Richtungen – den Weg finden, Rechtleitung. (x, y) = Fuß."""
+    out = f'<rect x="{x - 5:.1f}" y="{y - h:.1f}" width="10" height="{h:.1f}" rx="3" fill="{grau(.6, hell)}" stroke="none"/>'
+    for yy, r, bl in ((y - h * .86, 1, h * .62), (y - h * .58, -1, h * .5)):
+        hb = h * .15
+        x0, x1 = x - r * 8, x + r * bl
+        spitze = x1 + r * hb * .6
+        out += f'<path d="{_pfad([(x0, yy - hb / 2), (x1, yy - hb / 2), (spitze, yy), (x1, yy + hb / 2), (x0, yy + hb / 2)])}" fill="{grau(.86 if r > 0 else .74, hell)}" stroke="none"/>'
+    return out
+
+
+def sandalen(x, y, s=1.0, hell=1.0):
+    """Ein Paar Sandalen von oben (Sohle + zwei Riemen). (x, y) = Mitte."""
+    out = ""
+    for dx, dreh in ((-24, -8), (24, 8)):
+        cx = x + dx * s
+        sohle = (f'<ellipse cx="0" cy="0" rx="{17 * s:.1f}" ry="{44 * s:.1f}" fill="{grau(.8, hell)}" stroke="none"/>'
+                 f'<ellipse cx="0" cy="{-22 * s:.1f}" rx="{19 * s:.1f}" ry="{24 * s:.1f}" fill="{grau(.8, hell)}" stroke="none"/>')
+        riemen = (f'<rect x="{-19 * s:.1f}" y="{-30 * s:.1f}" width="{38 * s:.1f}" height="{8 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(.52, hell)}" stroke="none"/>'
+                  f'<rect x="{-17 * s:.1f}" y="{6 * s:.1f}" width="{34 * s:.1f}" height="{8 * s:.1f}" rx="{4 * s:.1f}" fill="{grau(.52, hell)}" stroke="none"/>')
+        out += f'<g transform="translate({cx:.1f} {y:.1f}) rotate({dreh})">{sohle}{riemen}</g>'
+    return out
+
+
+def misbaha(x, y, r=46, n=24, hell=1.0):
+    """Gebetskette (Misbaha) – Gedenken Allahs (Dhikr). (x, y) = Mitte des Rings."""
+    out = ""
+    for i in range(n):
+        a = math.radians(90 + 360 * (i + .5) / n)
+        out += f'<circle cx="{x + math.cos(a) * r:.1f}" cy="{y + math.sin(a) * r * .82:.1f}" r="{r * .11:.1f}" fill="{grau(.86, hell)}" stroke="none"/>'
+    by = y + r * .82
+    out += (f'<circle cx="{x:.1f}" cy="{by + r * .16:.1f}" r="{r * .14:.1f}" fill="{grau(.7, hell)}" stroke="none"/>'
+            f'<path d="{_pfad([(x - r * .1, by + r * .26), (x + r * .1, by + r * .26), (x + r * .2, by + r * .62), (x - r * .2, by + r * .62)])}" '
+            f'fill="{grau(.7, hell)}" stroke="none"/>')
+    return out
+
+
+def stab(x1, y1, x2, y2, s=1.0, hell=1.0):
+    """Hirtenstab/Stock (gerade, oben ein kleiner Knauf). Von (x1, y1) unten nach (x2, y2) oben."""
+    return (f'<path d="M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}" stroke="{grau(.74, hell)}" stroke-width="{10 * s:.1f}" stroke-linecap="round"/>'
+            f'<circle cx="{x2:.1f}" cy="{y2:.1f}" r="{8 * s:.1f}" fill="{grau(.86, hell)}" stroke="none"/>')
+
+
+def schlange(x, y, laenge=300, s=1.0, wellen=1.5, kopf_rechts=True, hell=1.0):
+    """Große Schlange in Wellen (ohne Augen), Körper verjüngt sich zum Schwanz. (x, y) = Mitte der Bahn."""
+    n = 60
+    pts = []
+    for i in range(n + 1):
+        t = i / n                                           # 0 = Schwanz, 1 = Kopf
+        px = x - laenge / 2 + t * laenge
+        py = y + math.sin(t * math.pi * 2 * wellen + .6) * 34 * s * (0.35 + 0.65 * t)
+        pts.append((px if kopf_rechts else 2 * x - px, py))
+    links, rechts = [], []
+    for i, (px, py) in enumerate(pts):
+        t = i / n
+        w = (2 + 13 * min(1, t * 1.6)) * s                  # Breite: dünner Schwanz, kräftiger Körper
+        qx, qy = pts[min(i + 1, n)] if i < n else pts[i]
+        ox, oy = pts[max(i - 1, 0)]
+        dx, dy = qx - ox, qy - oy
+        d = math.hypot(dx, dy) or 1
+        nx, ny = -dy / d, dx / d
+        links.append((px + nx * w, py + ny * w))
+        rechts.append((px - nx * w, py - ny * w))
+    koerper = f'<path d="{_pfad(links + rechts[::-1])}" fill="{grau(.82, hell)}" stroke="none"/>'
+    hx, hy = pts[-1]
+    vx, vy = pts[-1][0] - pts[-4][0], pts[-1][1] - pts[-4][1]
+    winkel = math.degrees(math.atan2(vy, vx))
+    kopf = (f'<g transform="translate({hx:.1f} {hy:.1f}) rotate({winkel:.1f})">'
+            f'<ellipse cx="{12 * s:.1f}" cy="0" rx="{24 * s:.1f}" ry="{16 * s:.1f}" fill="{grau(.92, hell)}" stroke="none"/>'
+            f'<path d="M{34 * s:.1f},0 L{50 * s:.1f},0 M{50 * s:.1f},0 L{58 * s:.1f},{-6 * s:.1f} M{50 * s:.1f},0 L{58 * s:.1f},{6 * s:.1f}" '
+            f'stroke="{grau(.7, hell)}" stroke-width="{2.5 * s:.1f}" fill="none" stroke-linecap="round"/></g>')
+    # Rückenmuster: hellere Flecken auf dem Körper (keine dunklen Linien)
+    flecken = "".join(f'<circle cx="{pts[i][0]:.1f}" cy="{pts[i][1]:.1f}" r="{5 * s * min(1, i / n * 1.6):.1f}" fill="{grau(.95, hell)}" stroke="none"/>'
+                      for i in range(8, n - 3, 6))
+    return koerper + flecken + kopf
+
+
+def schaf(x, y, s=1.0, frisst=False, spiegeln=False, hell=1.0):
+    """Schaf von der Seite: Wollkörper aus Kreisen, dunklerer Kopf ohne Augen, vier Beine. (x, y) = Boden Mitte."""
+    m = -1 if spiegeln else 1
+    P = lambda a, b: (x + m * a * s, y + b * s)
+    out = ""
+    for bx in (-22, -8, 8, 22):                             # Beine
+        px, py = P(bx, -26)
+        out += f'<rect x="{px - 3.5 * s:.1f}" y="{py:.1f}" width="{7 * s:.1f}" height="{26 * s:.1f}" rx="{3 * s:.1f}" fill="{grau(.5, hell)}" stroke="none"/>'
+    for bx, by, r in ((-24, -44, 15), (-8, -52, 17), (10, -52, 17), (24, -44, 15), (-12, -36, 15), (12, -36, 15), (0, -44, 17)):
+        cx, cy = P(bx, by)
+        out += f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r * s:.1f}" fill="{grau(.92, hell)}" stroke="none"/>'
+    # Kopf: länglich, vorn am Körper; beim Fressen zum Boden gesenkt. Ohr dunkler, keine Augen.
+    kx, ky = P(42, -20) if frisst else P(44, -58)
+    winkel = (70 if frisst else 20) * m
+    out += (f'<ellipse cx="{kx:.1f}" cy="{ky:.1f}" rx="{17 * s:.1f}" ry="{10 * s:.1f}" transform="rotate({winkel} {kx:.1f} {ky:.1f})" '
+            f'fill="{grau(.6, hell)}" stroke="none"/>')
+    ox, oy = P(34, -40) if frisst else P(34, -66)
+    out += f'<ellipse cx="{ox:.1f}" cy="{oy:.1f}" rx="{9 * s:.1f}" ry="{4.5 * s:.1f}" transform="rotate({-35 * m} {ox:.1f} {oy:.1f})" fill="{grau(.48, hell)}" stroke="none"/>'
+    return out
+
+
+def hand(x, y, s=1.0, leuchtend=False, hell=1.0):
+    """Offene Hand (Handfläche, Finger nach oben). (x, y) = Mitte der Handfläche. leuchtend: weiß mit Strahlen
+    (z. B. die weiß hervorkommende Hand als Zeichen)."""
+    ton = 1.0 if leuchtend else .86
+    out = ""
+    if leuchtend:
+        out += f'<circle cx="{x:.1f}" cy="{y - 14 * s:.1f}" r="{70 * s:.1f}" fill="#fff" fill-opacity="0.12" stroke="none"/>'
+        for i in range(12):
+            a = math.radians(i * 30 + 15)
+            r1, r2 = 64 * s, (86 if i % 2 else 78) * s
+            out += (f'<path d="M{x + math.cos(a) * r1:.1f},{y - 14 * s + math.sin(a) * r1:.1f} L{x + math.cos(a) * r2:.1f},'
+                    f'{y - 14 * s + math.sin(a) * r2:.1f}" stroke="#fff" stroke-width="{4 * s:.1f}" stroke-linecap="round"/>')
+    out += f'<rect x="{x - 22 * s:.1f}" y="{y - 22 * s:.1f}" width="{44 * s:.1f}" height="{46 * s:.1f}" rx="{14 * s:.1f}" fill="{grau(ton, hell)}" stroke="none"/>'
+    for fx, lang in ((-16, 30), (-5, 37), (6, 36), (17, 28)):
+        out += (f'<path d="M{x + fx * s:.1f},{y - 12 * s:.1f} L{x + fx * s:.1f},{y - (12 + lang) * s:.1f}" stroke="{grau(ton, hell)}" '
+                f'stroke-width="{10 * s:.1f}" stroke-linecap="round"/>')
+    out += (f'<path d="M{x - 18 * s:.1f},{y + 8 * s:.1f} L{x - 36 * s:.1f},{y - 12 * s:.1f}" stroke="{grau(ton, hell)}" '
+            f'stroke-width="{11 * s:.1f}" stroke-linecap="round"/>')
+    out += f'<rect x="{x - 15 * s:.1f}" y="{y + 18 * s:.1f}" width="{30 * s:.1f}" height="{26 * s:.1f}" rx="{6 * s:.1f}" fill="{grau(ton * .92, hell)}" stroke="none"/>'
+    return out
+
+
+def pyramide(x, y, b=200, h=130, hell=1.0):
+    """Pyramide mit heller und dunklerer Seite (Ägypten, Pharao). (x, y) = Mitte unten."""
+    spitze = (x + b * .08, y - h)
+    return (f'<path d="{_pfad([(x - b / 2, y), spitze, (x + b * .2, y)])}" fill="{grau(.78, hell)}" stroke="none"/>'
+            f'<path d="{_pfad([(x + b * .2, y), spitze, (x + b / 2, y)])}" fill="{grau(.55, hell)}" stroke="none"/>')
+
+
+def pharao(x, y, h=180, pose="front_haende_hueften", hell=1.0, **aenderungen):
+    """Pharao: Figur (Frontansicht) mit Nemes-Kopftuch, das bis auf die Schultern fällt, und Uräus. Ohne Gesicht."""
+    m = Mensch(x, y, h, pose, hell=hell, **aenderungen)
+    kx, ky, kr = m.kopf()
+    # Seitenteile des Tuchs HINTER dem Kopf bis auf die Schultern, oben eine Kappe über dem Scheitel
+    tuch = _pfad([(kx - kr * 1.05, ky - kr * .3), (kx + kr * 1.05, ky - kr * .3), (kx + kr * 1.8, ky + kr * 2.0),
+                  (kx - kr * 1.8, ky + kr * 2.0)])
+    kappe = (f'M{kx - kr * 1.12:.1f},{ky - kr * .1:.1f} A{kr * 1.12:.1f},{kr * 1.12:.1f} 0 0 1 {kx + kr * 1.12:.1f},{ky - kr * .1:.1f} '
+             f'L{kx + kr * 1.12:.1f},{ky - kr * .1:.1f}Z')
+    uraeus = f'<ellipse cx="{kx:.1f}" cy="{ky - kr * 1.18:.1f}" rx="{kr * .22:.1f}" ry="{kr * .34:.1f}" fill="{grau(.6, hell)}" stroke="none"/>'
+    # typische Streifen des Tuchs als hellere Bänder (Tonabstufung, keine dunklen Linien): auf den Seitenteilen
+    # hinter dem Kopf und auf der Kappe – nie über den Kopf selbst
+    def gestreift(form):
+        _ids[0] += 1
+        cid = f"nemes{_ids[0]}"
+        streifen = "".join(f'<rect x="{kx - kr * 2:.1f}" y="{ky - kr * 1.2 + i * kr * .42:.1f}" width="{kr * 4:.1f}" '
+                           f'height="{kr * .2:.1f}" fill="{grau(.84, hell)}" stroke="none"/>' for i in range(9))
+        return (f'<defs><clipPath id="{cid}"><path d="{form}"/></clipPath></defs>'
+                f'<path d="{form}" fill="{grau(.66, hell)}" stroke="none"/><g clip-path="url(#{cid})">{streifen}</g>')
+
+    return gestreift(tuch) + m.svg + gestreift(kappe) + uraeus
+
+
+def kreispfeil(x, y, r=40, s=1.0, uhrzeigersinn=True):
+    """Kreisförmiger Pfeil – zurückverwandeln, wiederkehren. (x, y) = Mitte."""
+    a0, a1 = (-60, 230) if uhrzeigersinn else (240, -50)
+    p0 = (x + math.cos(math.radians(a0)) * r, y + math.sin(math.radians(a0)) * r)
+    p1 = (x + math.cos(math.radians(a1)) * r, y + math.sin(math.radians(a1)) * r)
+    bogen = (f'<path d="M{p0[0]:.1f},{p0[1]:.1f} A{r:.1f},{r:.1f} 0 1 {1 if uhrzeigersinn else 0} {p1[0]:.1f},{p1[1]:.1f}" '
+             f'fill="none" stroke="#fff" stroke-width="{7 * s:.1f}" stroke-linecap="round"/>')
+    tang = math.radians(a1 + (90 if uhrzeigersinn else -90))
+    tx, ty = math.cos(tang), math.sin(tang)
+    nx, ny = -ty, tx
+    spitze = (p1[0] + tx * 14 * s, p1[1] + ty * 14 * s)
+    pfeil = _pfad([spitze, (p1[0] + nx * 11 * s, p1[1] + ny * 11 * s), (p1[0] - nx * 11 * s, p1[1] - ny * 11 * s)])
+    return bogen + f'<path d="{pfeil}" fill="#fff" stroke="none"/>'

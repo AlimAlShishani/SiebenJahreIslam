@@ -28,6 +28,10 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    die Teil-Übersetzungen im Plan dann aus diesem englischen Text aufteilen. „Ohne Effekte“ →
    `--partikel 0 --glitch 0 --hitze 0 --vhs 0`.
    „Hochformat“, „Reel“, „Short“, „TikTok“ → `--format 9:16`.
+   „Hintergrund soll das Video selbst sein“ (Rezitation als Video aufgenommen) → `--hintergrund` mit
+   **derselben Datei** wie die Rezitation: das Tool schneidet das Video genauso zu wie den Ton (Stille
+   vorn/hinten), damit Bild und Ton synchron bleiben. Bei dunklen Handyvideos `--abdunkeln 0.15`
+   (Standard 0.35 macht das Video fast schwarz); vorher ein Testbild mit Text darüber ansehen.
    **Mehrere Aufnahmen** (z. B. neu angesetzt nach einem Fehler): in der genannten Reihenfolge
    lückenlos zu einer Datei zusammenfügen (`ffmpeg -i a.m4a -i b.m4a -filter_complex
    "[0:a][1:a]concat=n=2:v=0:a=1[a]" -map "[a]" koran-video-ausgabe/<…>/rezitation.m4a`), diese Datei
@@ -99,7 +103,9 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
      wirre Sprechblase, stummer Lautsprecher, Blindenstock, Blicklinie, Uhr (ständig /
      früher), Medaillon für Propheten, Menge, Teufel, Tür, Gitter, Schranke,
      Schriftrolle, Moschee, Mondphasen (Maß/Qadar), Sonnensystem, Mauer, Krug, Tropfen,
-     Verbotsschild, Ball, Lautsprecher (Ausrufer); Pose `rufen` (Hand am Mund). Fehlt ein
+     Verbotsschild, Ball, Lautsprecher (Ausrufer), Zelt, Berge, Fackel, Wegweiser, Sandalen,
+     Gebetskette, Stab, Schlange, Schaf, Hand (auch leuchtend), Pyramide, Pharao, Kreispfeil;
+     Pose `rufen` (Hand am Mund). Fehlt ein
      Gegenstand, ihn selbst als SVG zeichnen (typische Silhouette, gefüllt, Tiefe
      über Grautöne). Muster: `tools/koran-video/beispiel_ankabut_1-7/`
      (Zeichen-Skript + Plan). SVGs nach `koran-video-ausgabe/<…>/grafiken/`
