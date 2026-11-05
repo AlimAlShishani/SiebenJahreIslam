@@ -139,6 +139,26 @@ def transcribe(audio: np.ndarray, model_name: str, prompt: str | None, log=print
     return words
 
 
+def doppelte_wortfolgen(words: list[tuple[str, float, float]], segs: list[Segment], max_n: int = 4):
+    """Wortfolgen (1–4 Wörter), die in der Transkription direkt zweimal hintereinander stehen – meist hat der
+    Rezitator neu angesetzt („هو الله هو الله …“). Folgen, die schon im Korantext doppelt stehen (دَكًّا دَكًّا),
+    zählen nicht. Rückgabe: [(Zeit der Wiederholung, Text)]."""
+    erwartet = [normalize(w.text) for sg in segs for w in sg.words if not w.is_end]
+    im_text = {tuple(erwartet[i:i + n]) for n in range(1, max_n + 1) for i in range(len(erwartet) - 2 * n + 1)
+               if erwartet[i:i + n] == erwartet[i + n:i + 2 * n]}
+    gehoert = [normalize(w) for w, _, _ in words]
+    out, i = [], 0
+    while i < len(gehoert):
+        for n in range(max_n, 0, -1):
+            a, b = gehoert[i:i + n], gehoert[i + n:i + 2 * n]
+            if len(b) == n and a == b and all(a) and tuple(a) not in im_text:
+                out.append((words[i + n][1], " ".join(w.strip() for w, _, _ in words[i:i + n])))
+                i += 2 * n - 1
+                break
+        i += 1
+    return out
+
+
 def _content_words(seg: Segment):
     return [w for w in seg.words if not w.is_end]
 
@@ -251,6 +271,9 @@ def word_pauses(seg: Segment, silences: list[tuple[float, float]], min_len: floa
                 k -= 1                       # Pause vor dem Bindewort; es beginnt erst nach der Pause
             if k not in out:
                 out.append(k)
+                if t[k] - e_ > 1.0:            # nach der Pause noch über 1 s Stimme vor dem nächsten Wort
+                    seg.meta.setdefault("verdacht_wiederholung", []).append(
+                        f"nach der Pause hinter Wort {k} vergehen {t[k] - e_:.1f} s bis Wort {k + 1} erkannt wird")
                 t[k] = round(e_, 2)
                 for j in range(k + 1, len(t)):          # nachfolgende Wörter nicht vor dem verschobenen beginnen
                     if t[j] <= t[j - 1] + 0.1:
@@ -437,6 +460,7 @@ def compute_timestamps(
     if used == "whisper":
         prompt = " ".join(plain(s.text) for s in segs if s.kind == "vers")[:200].rsplit(" ", 1)[0] or None
         words = transcribe(audio, modell, prompt, log)
+        doppelt = doppelte_wortfolgen(words, segs)
         est, word_raw = align_with_transcript(segs, words)
         keep = [i for i, sg in enumerate(segs) if not sg.meta.get("nicht_gehoert")]
         for sg in segs:
@@ -462,4 +486,9 @@ def compute_timestamps(
         seg.start, seg.end = round(s, 2), round(e, 2)
         finalize_word_times(seg, word_raw[i])
         seg.meta["pausen_nach_wort"] = word_pauses(seg, silences)
+        if used == "whisper":
+            for t0, text in doppelt:
+                if seg.start <= t0 < seg.end:
+                    seg.meta.setdefault("verdacht_wiederholung", []).append(
+                        f"die Spracherkennung hört „{text}“ zweimal hintereinander (bei {t0:.1f} s)")
     return {"methode": used, "dauer": duration, "stimme_start": onset, "stimme_ende": offset, "schwelle_db": threshold}

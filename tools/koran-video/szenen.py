@@ -378,6 +378,9 @@ def planning_text(segs: list[Segment], screens: list[Screen]) -> str:
         for i, d in lange_luecken(seg):
             lines.append(f"   ACHTUNG: {d:.1f} s zwischen Wort {i} und {i + 1} – vermutlich eine Wiederholung. Stelle "
                          "anhören (Lautstärkeverlauf), Wortzeiten korrigieren, Teile mit ab_wort/start planen.")
+        for grund in seg.meta.get("verdacht_wiederholung", []):
+            lines.append(f"   ACHTUNG: {grund} – vermutlich eine Wiederholung. Stelle anhören (Lautstärkeverlauf, "
+                         "Whisper-Wortzeiten), Wortzeiten korrigieren, Teile mit ab_wort/start planen.")
         for sc in by_seg.get(seg.key, []):
             a, b = sc.words_range
             if sc.parts > 1:

@@ -160,8 +160,12 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    - Wiederholungen (Nutzer stoppt und liest ein paar Wörter erneut) sind normal, kein Grund
      zur Rückfrage. Aber: Geschieht das an einer Atempause, ordnet der Abgleich die Wiederholung
      oft den folgenden Wörtern zu – dann zeigt ein Teil ein Wort zu viel und der nächste beginnt
-     zu spät (al-A'raf 48: „قَالُوا۟ مَآ ‖ قَالُوا۟ مَآ أَغْنَىٰ …“). Das Tool warnt mit „ACHTUNG: … s
-     zwischen Wort i und i+1“ (planung.txt) bzw. „Hinweis: … Wiederholung?“ (Schritt C). Dann die
+     zu spät (al-A'raf 48: „قَالُوا۟ مَآ ‖ قَالُوا۟ مَآ أَغْنَىٰ …“). Der Nutzer setzt nach fast jeder Pause ein
+     bis drei Wörter früher neu an – die Spracherkennung verschluckt das oft ganz (Hud 20 und 21). Das Tool
+     warnt in planung.txt mit „ACHTUNG“ bei (1) mehr als 5 s zwischen zwei Wörtern, (2) mehr als 1 s Stimme
+     nach einer Pause, bevor das nächste Wort erkannt wird, (3) einer Wortfolge, die die Spracherkennung
+     direkt zweimal hört („هو الله هو الله“); in Schritt C kommt „Hinweis: … Wiederholung?“. Jede
+     ACHTUNG-Stelle prüfen, bevor du renderst, nicht erst auf den Nutzer warten. Dann die
      Stelle prüfen (Lautstärkeverlauf in 0,1-s-Schritten, Whisper-Wortzeiten), in
      `zeitstempel.json` Wortzeiten und `pausen_nach_wort` korrigieren und im Plan den Teil davor beim
      letzten gesprochenen Wort enden lassen, den nächsten mit `"ab_wort"` (erstes wiederholtes Wort)
