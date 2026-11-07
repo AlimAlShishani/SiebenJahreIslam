@@ -30,8 +30,11 @@ Tool: `tools/koran-video/koran_video.py` (Doku: `tools/koran-video/README.md`).
    „Hochformat“, „Reel“, „Short“, „TikTok“ → `--format 9:16`.
    „Hintergrund soll das Video selbst sein“ (Rezitation als Video aufgenommen) → `--hintergrund` mit
    **derselben Datei** wie die Rezitation: das Tool schneidet das Video genauso zu wie den Ton (Stille
-   vorn/hinten), damit Bild und Ton synchron bleiben. Bei dunklen Handyvideos `--abdunkeln 0.15`
-   (Standard 0.35 macht das Video fast schwarz); vorher ein Testbild mit Text darüber ansehen.
+   vorn/hinten), damit Bild und Ton synchron bleiben. Abdunkeln nach Helligkeit des Videos (mittlerer
+   Grauwert einiger Frames, 0–255): dunkel (~10–30) `--abdunkeln 0.15`, „bisschen abgedunkelt“ 0.25,
+   hell (~100, z. B. Treppenhaus mit gemustertem Boden) 0.6 – sonst geht die dünne Übersetzung im Muster
+   unter. Immer vorher ein Testbild mit Text darüber ansehen (`--kein-video`, dann Ebenen auf einen Frame
+   legen). Sure nicht genannt → die Aufnahme transkribieren und die Verse selbst bestimmen.
    **Mehrere Aufnahmen** (z. B. neu angesetzt nach einem Fehler): in der genannten Reihenfolge
    lückenlos zu einer Datei zusammenfügen (`ffmpeg -i a.m4a -i b.m4a -filter_complex
    "[0:a][1:a]concat=n=2:v=0:a=1[a]" -map "[a]" koran-video-ausgabe/<…>/rezitation.m4a`), diese Datei
